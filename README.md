@@ -41,8 +41,8 @@ Recogniser now has 39 classes (added `d m ∫ Σ → ∞`); `lim` is read as a w
 
 ## Look
 Black-red-white identity with a **Dark / Light** option in Settings, saved locally. Dark mode shows white handwriting on a black canvas; Light mode shows black handwriting on a white canvas. Answers, active controls and selection rings remain red in both.
-Logo: the retained original stylised *M* with an integral sign and red underline, stored in `branding/logo-512.png`. Run `branding/make_icon.py` to resize it for Android;
-`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app` (Android v4.3, versionCode 12).
+Logo: the user-selected white **M** over a black-and-red rounded square, extracted from the supplied reference screenshot (not redesigned), stored in `branding/logo-512.png`. Run `branding/make_icon.py` to resize it for Android;
+`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app` (Android v4.4, versionCode 13).
 
 ## Layout
 ```

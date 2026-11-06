@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.mikajy.app" android:versionCode="12" android:versionName="4.3">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.mikajy.app" android:versionCode="13" android:versionName="4.4">
 <application android:label="Mikajy" android:icon="@drawable/icon" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
 <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
 <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
