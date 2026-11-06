@@ -10,7 +10,7 @@ async def run(spec,expect):
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page(viewport={'width':900,'height':380});errs=[]
         pg.on('pageerror',lambda e:errs.append(str(e)))
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(400)
+        await pg.goto('file:///home/claude/pkg/InkCalc-source/android/assets/index.html');await pg.wait_for_timeout(400)
         for kind,*a in spec:
             if kind=='g':
                 c,x,y,h=a;S=glyph(c,x,y,h) if c!='6' else six(x,y,h)

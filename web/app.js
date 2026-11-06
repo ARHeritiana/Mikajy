@@ -193,12 +193,17 @@ function predictAsync(x){return new Promise(res=>{if(!wk){setTimeout(()=>res(loc
 initCNN();setTimeout(()=>{if(!wk)localPredict(new Float32Array(784))},1500);
 let recBusy=false,recAgain=false;
 function recognize(){if(recBusy){recAgain=true;return}recBusy=true;doRecognize().catch(e=>console.error(e)).then(()=>{recBusy=false;if(recAgain){recAgain=false;recognize()}})}
-function findFractions(S){const out=[],used=new Set(),info=S.map(s=>({s,b:bb(s)})),ref=Math.max(40,...info.map(o=>Math.max(o.b.w,o.b.h)));
+function typesetNum(L,b){const bcy=(b.y0+b.y1)/2;if(L.syms.some(g=>ch(g)=='§'&&g.x+g.bw>b.x0-15&&g.x<b.x1+15))return[];
+ return L.syms.filter(g=>{if(isPart(g))return false;const q=gbox(g),cx=(q.x0+q.x1)/2;return cx>=b.x0-15&&cx<=b.x1+15&&q.y1<bcy+10})}
+function hostOK(L,b){const top=L.syms.filter(g=>!isPart(g));if(!top.length)return false;const x0=Math.min(...top.map(g=>g.tx)),x1=Math.max(...top.map(g=>g.tx+g.w)),bcy=(b.y0+b.y1)/2,ov=Math.min(b.x1,x1)-Math.max(b.x0,x0);
+ return ov>=.4*Math.min(b.w,x1-x0)&&bcy>L.base+2&&bcy<L.base+1.4*L.F}
+function findFractions(S,L){const out=[],used=new Set(),info=S.map(s=>({s,b:bb(s)})),ref=Math.max(40,...info.map(o=>Math.max(o.b.w,o.b.h)));
  for(const bar of info){if(used.has(bar.s)||!isBar(bar.s))continue;const bb0=bar.b,bcy=(bb0.y0+bb0.y1)/2;
   const cand=info.filter(o=>o!==bar&&!used.has(o.s)&&!(isBar(o.s)&&o.b.w>.6*bb0.w)&&(o.b.x0+o.b.x1)/2>=bb0.x0-12&&(o.b.x0+o.b.x1)/2<=bb0.x1+12);
   const big=o=>Math.max(o.b.w,o.b.h)>=.2*ref,H=Math.max(30,...cand.filter(big).map(o=>o.b.h));
   const up=cand.filter(o=>o.b.y1<=bcy+10&&bcy-o.b.y1<1.3*H),dn=cand.filter(o=>o.b.y0>=bcy-10&&o.b.y0-bcy<1.3*H);
-  if(up.some(big)&&dn.some(big)){const f={bar:bar.s,n:up.map(o=>o.s),d:dn.map(o=>o.s)};[bar.s,...f.n,...f.d].forEach(s=>used.add(s));out.push(f)}}
+  if(up.some(big)&&dn.some(big)){const f={bar:bar.s,n:up.map(o=>o.s),d:dn.map(o=>o.s)};[bar.s,...f.n,...f.d].forEach(s=>used.add(s));out.push(f)}
+  else if(L&&!up.some(big)&&dn.some(big)){const num=typesetNum(L,bb0);if(num.length){const f={bar:bar.s,n:[],d:dn.map(o=>o.s),conv:num};[bar.s,...f.d].forEach(s=>used.add(s));out.push(f)}}}
  return{out,used}}
 let FID=0;
 function barNear(L,b){const cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;for(const g of L.syms){if(g.fp!='bar'||ch(g)!='§')continue;
@@ -207,10 +212,15 @@ function insertPart(L,g,cx){const S=L.syms,bi=S.findIndex(s=>s.fid===g.fid&&s.fp
  const same=S.map((s,k)=>({s,k})).filter(o=>o.s.fid===g.fid&&o.s.fp==g.fp);let idx;
  if(!same.length){const lastN=S.map((s,k)=>({s,k})).filter(o=>o.s.fid===g.fid&&o.s.fp=='n').pop();idx=g.fp=='n'?bi+1:(lastN?lastN.k+1:bi+1)}
  else{const nxt=same.find(o=>o.s.tx+o.s.w/2>cx);idx=nxt?nxt.k:same[same.length-1].k+1}S.splice(idx,0,g)}
-async function doRecognize(){const jobs=[];
+function moveBarsToHosts(){for(const L2 of lines.slice()){if(!L2.ink.length)continue;const info=L2.ink.map(s=>({s,b:bb(s)})),ref=Math.max(40,...info.map(o=>Math.max(o.b.w,o.b.h)));
+ for(const bar of info){if(!isBar(bar.s))continue;const b0=bar.b,bcy=(b0.y0+b0.y1)/2,inr=o=>o!==bar&&(o.b.x0+o.b.x1)/2>=b0.x0-12&&(o.b.x0+o.b.x1)/2<=b0.x1+12,big=o=>Math.max(o.b.w,o.b.h)>=.2*ref;
+  const H=Math.max(30,...info.filter(o=>inr(o)&&big(o)).map(o=>o.b.h)),up=info.filter(o=>inr(o)&&o.b.y1<=bcy+10&&bcy-o.b.y1<1.3*H),dn=info.filter(o=>inr(o)&&o.b.y0>=bcy-10&&o.b.y0-bcy<1.3*H);
+  if(up.some(big)||!dn.some(big))continue;const host=lines.find(L1=>L1!==L2&&L1.syms.length&&hostOK(L1,b0));
+  if(host){const mv=[bar.s,...dn.map(o=>o.s)];L2.ink=L2.ink.filter(s=>!mv.includes(s));host.ink.push(...mv);if(!L2.ink.length&&!L2.syms.length)lines.splice(lines.indexOf(L2),1);break}}}}
+async function doRecognize(){moveBarsToHosts();const jobs=[];
  const mk=(g,G,fp,fid)=>{const b=g.b;if(g.tiny&&G.length>1||Math.max(b.w,b.h)<16)return{g,dot:true,fp,fid};const rs=g.s.find(t=>t.vin);return{g,x:feat(g.s),vin:rs&&rs.vin,fp,fid}};
- for(const L of lines){if(!L.ink.length)continue;const snap=L.ink.slice(),{out,used}=findFractions(snap),items=[];
-  for(const f of out){const fid=++FID;items.push({g:{s:[f.bar],b:bb(f.bar)},bar:true,fp:'bar',fid});for(const[p,S] of [['n',f.n],['d',f.d]]){const G=group(S);G.forEach(g=>items.push(mk(g,G,p,fid)))}}
+ for(const L of lines){if(!L.ink.length)continue;const snap=L.ink.slice(),{out,used}=findFractions(snap,L),items=[];
+  for(const f of out){const fid=++FID;if(f.conv){items.push({g:{s:[f.bar],b:bb(f.bar)},bar:true,fp:'bar',fid,conv:f.conv});const G=group(f.d);G.forEach(g=>items.push(mk(g,G,'d',fid)));continue}items.push({g:{s:[f.bar],b:bb(f.bar)},bar:true,fp:'bar',fid});for(const[p,S] of [['n',f.n],['d',f.d]]){const G=group(S);G.forEach(g=>items.push(mk(g,G,p,fid)))}}
   const rest=snap.filter(s=>!used.has(s)),G=group(rest);G.forEach(g=>{const tb=barNear(L,g.b);items.push(mk(g,G,tb&&tb.fp,tb&&tb.fid))});
   jobs.push({L,items})}
  const need=jobs.flatMap(j=>j.items.filter(it=>it.x)),ps=await Promise.all(need.map(it=>predictAsync(it.x)));need.forEach((it,k)=>it.p=ps[k]);
@@ -218,17 +228,21 @@ async function doRecognize(){const jobs=[];
   const alive=j.items.filter(it=>it.g.s.every(s=>L.ink.includes(s)));if(!alive.length)continue;
   const done=new Set();alive.forEach(it=>it.g.s.forEach(s=>done.add(s)));L.ink=L.ink.filter(s=>!done.has(s));
   const fresh=alive.map(it=>{const g=it.g,b=g.b,o={b,ink:g.s,fp:it.fp,fid:it.fid};
-   if(it.bar)return newG([{c:'§',p:1}],Object.assign(o,{fresh:false}));
+   if(it.bar)return newG([{c:'§',p:1}],Object.assign(o,{fresh:false,conv:it.conv}));
    return it.dot?newG([{c:'.',p:1}],Object.assign(o,{fresh:false})):newG(classifyP(it.p,it.x),Object.assign(o,{fv:it.x,fresh:true,vin:it.vin}))});
   const key=g=>(g.b.x0+g.b.x1)/2,units=[],late=[];
-  for(const g of fresh){if(g.fp=='bar'||(g.fp&&!L.syms.some(s=>s.fid===g.fid)&&!L.ans.some(s=>s.fid===g.fid)))continue;
+  for(const bar of fresh.filter(g=>g.conv)){const nums=bar.conv.filter(s=>L.syms.includes(s));if(!nums.length)continue;
+   const ds=fresh.filter(g=>g.fid===bar.fid&&g.fp=='d').sort((a,b)=>key(a)-key(b));nums.forEach(s=>{s.fp='n';s.fid=bar.fid});
+   L.syms.splice(L.syms.indexOf(nums[0]),0,bar);L.syms.splice(L.syms.indexOf(nums[nums.length-1])+1,0,...ds);bar.done=true;ds.forEach(g=>g.done=true)}
+  const rest=fresh.filter(g=>!g.done);
+  for(const g of rest){if(g.fp=='bar'||(g.fp&&!L.syms.some(s=>s.fid===g.fid)&&!L.ans.some(s=>s.fid===g.fid)))continue;
    const nb=g.b,na=Math.max(1,nb.w*nb.h);let hit=null;
    for(const s of L.syms){if(ch(s)=='§'||s.fp=='bar')continue;const q=gbox(s),iw=Math.min(nb.x1,q.x1)-Math.max(nb.x0,q.x0),ih=Math.min(nb.y1,q.y1)-Math.max(nb.y0,q.y0);
     if(iw>0&&ih>0){const r=iw*ih/Math.min(Math.max(1,(q.x1-q.x0)*(q.y1-q.y0)),Math.max(na,(nb.w+8)*(nb.h+8)));if(r>=.5&&key(g)>q.x0&&key(g)<q.x1){hit=s;break}}}
    if(hit){if(hit.fp){g.fp=hit.fp;g.fid=hit.fid}L.syms.splice(L.syms.indexOf(hit),1);kill(hit)}}
-  for(const g of fresh){if(g.fp=='bar')continue;if(g.fp&&L.syms.some(s=>s.fid===g.fid&&s.fp=='bar')){late.push(g);continue}if(!g.fp)units.push({k:key(g),a:[g]})}
-  const fids=[...new Set(fresh.filter(g=>g.fp=='bar').map(g=>g.fid))];
-  for(const id of fids){const part=p=>fresh.filter(g=>g.fid===id&&g.fp==p).sort((a,b)=>key(a)-key(b)),bar=part('bar')[0];units.push({k:key(bar),a:[bar,...part('n'),...part('d')]})}
+  for(const g of rest){if(g.fp=='bar')continue;if(g.fp&&L.syms.some(s=>s.fid===g.fid&&s.fp=='bar')){late.push(g);continue}if(!g.fp)units.push({k:key(g),a:[g]})}
+  const fids=[...new Set(rest.filter(g=>g.fp=='bar').map(g=>g.fid))];
+  for(const id of fids){const part=p=>rest.filter(g=>g.fid===id&&g.fp==p).sort((a,b)=>key(a)-key(b)),bar=part('bar')[0];units.push({k:key(bar),a:[bar,...part('n'),...part('d')]})}
   units.sort((a,b)=>a.k-b.k);const isNew=!L.syms.length;
   for(const un of units){let k=L.syms.findIndex(s=>!isPart(s)&&s.tx+s.w/2>un.k);if(k<0)k=L.syms.length;L.syms.splice(k,0,...un.a)}
   late.sort((a,b)=>key(a)-key(b));for(const g of late)insertPart(L,g,key(g));
@@ -316,25 +330,35 @@ function toast(m){let t=$('toast');if(!t){t=document.createElement('div');t.id='
 /* ---------- menu / settings sheet ---------- */
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function refreshAll(){lines.forEach(L=>{L.at='\0';updateAns(L)});kick()}
-function closeSheet(){$('sheet').style.display='none'}
-const seg=(label,k,opts)=>`<div class="s"><span>${label}</span><div class="seg">${opts.map(o=>`<button data-k="${k}" data-v="${o[0]}" class="${SET[k]==o[0]?'on':''}">${o[1]}</button>`).join('')}</div></div>`;
+function closeSheet(){$('sheet').classList.remove('in');setTimeout(()=>{if(!$('sheet').classList.contains('in'))$('sheet').style.display='none'},200)}
+const IC={hist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/>',copy:'<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>',
+ share:'<path d="M12 15V4M8 7.5l4-4 4 4"/><path d="M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/>',mem:'<path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-4-6 4V5.5a1 1 0 0 1 1-1z"/>',
+ trash:'<path d="M5 7h14M10 7V5h4v2M7 7l.8 11.6A1.5 1.5 0 0 0 9.3 20h5.4a1.5 1.5 0 0 0 1.5-1.4L17 7"/>',eraser:'<path d="M4.5 15.5l8.2-8.7a2 2 0 0 1 2.8-.1l3 3a2 2 0 0 1 0 2.8L13 18.5H8z"/><path d="M8 18.5H4.5M10.2 10.8l5 5"/>',
+ back:'<path d="M14.5 5.5L8 12l6.5 6.5"/>',close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'};
+const ico=n=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
+const row=(label,k,opts)=>`<div class="row"><span class="lab">${label}</span><div class="opts">${opts.map(o=>`<button class="opt${SET[k]==o[0]?' on':''}" data-k="${k}" data-v="${o[0]}">${o[1]}<svg class="ring" aria-hidden="true"><path pathLength="1"/></svg></button>`).join('')}</div></div>`;
+const tool=(a,i,t,c='')=>`<button class="tool ${c}" data-a="${a}">${ico(i)}<span>${t}</span></button>`;
+function fitRings(){document.querySelectorAll('#panel .opt').forEach((b,n)=>{const w=b.offsetWidth,h=b.offsetHeight,r=b.querySelector('.ring'),p=r.firstElementChild,j=(((n*37)%11)-5)/200;
+ r.setAttribute('viewBox',`0 0 ${w} ${h}`);r.style.width=w+'px';r.style.height=h+'px';
+ const X=v=>(v*w).toFixed(1),Y=v=>(v*h).toFixed(1);
+ p.setAttribute('d',`M${X(.1)} ${Y(.66)}C${X(.01+j)} ${Y(.22)} ${X(.3)} ${Y(.02)} ${X(.55)} ${Y(.07)}C${X(.86)} ${Y(.11)} ${X(1.01)} ${Y(.34)} ${X(.94)} ${Y(.66)}C${X(.88)} ${Y(.95)} ${X(.5)} ${Y(1.01-j)} ${X(.3)} ${Y(.93)}C${X(.09)} ${Y(.85)} ${X(-.01)} ${Y(.58)} ${X(.1)} ${Y(.28)}`)})}
+function openSheet(page){const p=$('panel'),s=$('sheet'),first=s.style.display!='block';s.style.display='block';
+ if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="Back">${ico('back')}</button><h2>History</h2><button class="done" data-a="hexp">Export</button></div>`+
+  (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="Copy">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="Delete">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">Clear history</button>`:`<p class="empty">Nothing here yet.<br>Calculations are saved as you write them.</p>`)}
+ else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.</p>`;
+ if(first){s.classList.remove('in');void s.offsetWidth}s.classList.add('in');fitRings()}
 const cleanAns=L=>L&&L.at?L.at.replace(/^=/,''):'';
-function openSheet(page){const p=$('panel');$('sheet').style.display='block';
- if(page=='hist'){p.innerHTML=`<div class="top"><button data-a="back">‹ Back</button><b>History</b><button data-a="hexp">Export</button></div>`+(HIST.length?HIST.map((h,i)=>`<div class="h"><div class="t">${esc(h.text)} <i>${esc(h.ans.replace(/^=/,'= '))}</i></div><div class="b"><button data-a="hopen" data-i="${i}">Open</button><button data-a="hcopy" data-i="${i}">Copy</button><button data-a="hdel" data-i="${i}">×</button></div></div>`).join('')+`<button class="danger" data-a="hclr">Clear history</button>`:`<p class="mut">Nothing yet. Calculations are saved here automatically.</p>`)}
- else p.innerHTML=`<h3>Settings</h3>${seg('Calculation','mode',[['instant','Instant'],['demand','On demand']])}${seg('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${seg('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}
- <div class="row"><button data-a="hist">History</button><button data-a="copy">Copy result</button><button data-a="img">Share image</button><button data-a="addmem">Result → memory</button><button data-a="clrmem">Clear memory</button><button class="danger" data-a="clear">Clear canvas</button></div>
- <p class="mut">Tip: press and hold a number or result, then drag it into another expression or onto the memory bar.</p>`}
 $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
- if(d.k){SET[d.k]=d.v;saveSet();refreshAll();openSheet('main');return}
- const i=+d.i;switch(d.a){case'hist':openSheet('hist');break;case'back':openSheet('main');break;
+ if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));refreshAll();return}
+ const i=+d.i;switch(d.a){case'done':closeSheet();break;case'hist':openSheet('hist');break;case'back':openSheet('main');break;
   case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast('No result yet');closeSheet();break}
   case'img':{const u=exportPNG();if(!u)toast('Nothing to share');else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}
-  case'addmem':{const L=lastL&&lines.includes(lastL)?lastL:lines.find(L=>Number.isFinite(L.val));if(L&&Number.isFinite(L.val)){memAdd(fmt(L.val));toast('Stored in memory')}else toast('No result yet');closeSheet();break}
-  case'clrmem':MEMV=[];memSave();memRender();toast('Memory cleared');closeSheet();break;
+  case'addmem':{const L=lastL&&lines.includes(lastL)?lastL:lines.find(L=>Number.isFinite(L.val));if(L&&Number.isFinite(L.val)){memAdd(fmt(L.val));toast('Saved to memory')}else toast('No result yet');closeSheet();break}
+  case'clrmem':MEMV=[];memSave();memRender();toast('Memory emptied');closeSheet();break;
   case'clear':lines.forEach(L=>L.syms.concat(L.ans).forEach(kill));lines=[];kick();closeSheet();break;
   case'hopen':openHist(HIST[i]);break;case'hcopy':copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
   case'hdel':HIST.splice(i,1);histPersist();openSheet('hist');break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
   case'hexp':shareText(HIST.map(h=>h.text+' '+h.ans.replace(/^=/,'= ')).join('\n'));break}};
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
-window.onBack=()=>{if($('sheet').style.display=='block'){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
+window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
 memRender();

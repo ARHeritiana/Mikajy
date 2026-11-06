@@ -21,7 +21,7 @@ async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page(viewport={'width':800,'height':380});errs=[]
         pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(500)
+        await pg.goto('file:///home/claude/pkg/InkCalc-source/android/assets/index.html');await pg.wait_for_timeout(500)
         x=120
         for c in sys.argv[1]:
             for s in glyph(c,x,140,110):await stroke(pg,s)

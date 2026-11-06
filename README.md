@@ -13,13 +13,18 @@ answer appears next to it. Everything runs on the device (no network, no permiss
   add terms to the end/middle of a line. Tap a symbol to cycle through the recogniser's alternatives.
 * **Single-unknown equations**: write the unknown as `x` (`2x+3=7` → `x=2`). The solver is numeric
   (roots in [-100, 100], up to 4 roots; linear equations are solved exactly).
+* **Follow-ups on a finished line**: draw a bar *under* an existing expression and write a number below it —
+  the part of the expression the bar covers becomes the numerator (`2−4`, bar, `5` → (2−4)/5; a bar under only
+  the `4` → 2−4/5). Works in any order (bar first or denominator first) and with multi-digit denominators.
 * **Several lines / independent calculations** anywhere on the canvas.
 * **Drag & drop**: long-press a number or a result, drag it into another expression, a new spot, or onto the
   **memory bar** (bottom; it appears when it has content or while dragging). Memory chips can be dragged out.
 * **History** (auto-saved, reopen / copy / delete / export), **result display** (decimal, exact fraction,
   mixed number — fractions only when the value is a small rational), **degrees / radians**.
 * **Export**: copy a result, share a PNG of the canvas, share history as text (through the Android share sheet).
-* Small `⋯` button (top-right, faint) opens the settings sheet. Hardware Back closes sheets.
+* Small sliders button (top-right, faint) opens the settings sheet: a paper-styled page in the app's own
+  handwriting, the chosen option circled in ink; History is a second page. Hardware Back closes sheets.
+  In landscape the sheet docks to the right edge so it never covers the whole canvas.
 
 Notation notes: a raised `0` after a number is a degree sign (`30°`); `%` is "/100" (and `50+10%` = 55);
 a `×`-shaped symbol is read as the variable `x` when it cannot be a multiplication (followed by `+ − = )`
@@ -38,7 +43,7 @@ web/                       the app (one HTML page, HTML5 canvas, no dependencies
 android/                   WebView shell
   src/.../MainActivity.java   immersive WebView + JS bridge (copy, share text, share image, Back)
   src/.../ShareProvider.java  tiny ContentProvider used to share the PNG
-  AndroidManifest.xml, res/; signing keys are kept outside Git
+  AndroidManifest.xml, res/, ink.jks (demo signing key — make your own for releases)
 training/                  how the recogniser was trained (see below)
 tests/                     headless-browser tests (Playwright) used during development
 build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
@@ -49,8 +54,6 @@ build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
 sudo apt install openjdk-21-jdk-headless aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange python3
 ./build_apk.sh            # -> InkCalc.apk (minSdk 21, targetSdk 34)
 ```
-The build script generates a local debug signing key (`android/.debug-signing.jks`) when none is supplied. For release builds provide `INKCALC_KEYSTORE`, `INKCALC_KEY_ALIAS` and `INKCALC_KEY_PASSWORD` instead. Signing keys, APKs and generated HTML are not tracked in Git.
-
 To iterate on the UI without Android, open `android/assets/index.html` in desktop Chrome after
 `python3 web/build_web.py` (the Java bridge calls fall back to clipboard/new tab).
 
