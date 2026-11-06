@@ -23,7 +23,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void copy(final String t){
       runOnUiThread(new Runnable(){ public void run(){
         ClipboardManager c=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
-        c.setPrimaryClip(ClipData.newPlainText("InkCalc",t)); }});
+        c.setPrimaryClip(ClipData.newPlainText("Mikajy",t)); }});
     }
     @JavascriptInterface public void shareText(final String t){
       runOnUiThread(new Runnable(){ public void run(){
@@ -34,9 +34,9 @@ public class MainActivity extends Activity {
       runOnUiThread(new Runnable(){ public void run(){
         try{
           File dir=new File(getCacheDir(),"share"); dir.mkdirs();
-          File f=new File(dir,"inkcalc.png");
+          File f=new File(dir,"mikajy.png");
           FileOutputStream o=new FileOutputStream(f); o.write(Base64.decode(b64,Base64.DEFAULT)); o.close();
-          Uri u=Uri.parse("content://com.inkcalc.app.share/inkcalc.png?t="+System.currentTimeMillis());
+          Uri u=Uri.parse("content://com.inkcalc.app.share/mikajy.png?t="+System.currentTimeMillis());
           Intent i=new Intent(Intent.ACTION_SEND); i.setType("image/png"); i.putExtra(Intent.EXTRA_STREAM,u);
           i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
           startActivity(Intent.createChooser(i,"Share image"));

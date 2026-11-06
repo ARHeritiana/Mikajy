@@ -107,7 +107,7 @@ function grp(T,i){let d=0,j=i;for(;j<T.length;j++){if(T[j]=='(')d++;if(T[j]==')'
 function special(T,eq){try{
  const t0=T[0];
  for(let k=0;k<4;k++){const p=PRE[k];if(p.every((q,i)=>T[i]==q)){let ast=parse(T.slice(p.length));if(k>1)ast=dx(ast);return sp(str(dx(ast)))}}
- if(t0=='∫'){let R=T.slice(1),a=null,b=null;const n=R.length;if(n>2&&R[n-2]=='d'&&R[n-1]=='x')R=R.slice(0,n-2);else return false;
+ if(t0=='∫'){let R=T.slice(1),a=null,b=null;const n=R.length;if(n>2&&R[n-2]=='d'&&R[n-1]=='x')R=R.slice(0,n-2);
   if(R[0]=='('){const j=grp(R,0),k=R.indexOf('→');if(k>0&&k<j){a=bnd(R.slice(1,k));b=bnd(R.slice(k+1,j));R=R.slice(j+1)}}
   const f=parse(R),F=integ(f);if(a!==null){let v;if(F&&Number.isFinite(a)&&Number.isFinite(b)){v=ev(F,b)-ev(F,a);if(!Number.isFinite(v))v=nint(f,a,b)}else v=nint(f,a,b);return sp(nf(+v.toPrecision(10)))}
   return sp(F?str(F)+' + C':'no closed form (try limits: ∫(a→b))')}

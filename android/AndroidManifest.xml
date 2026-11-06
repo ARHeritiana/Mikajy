@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.inkcalc.app" android:versionCode="10" android:versionName="4.1">
-<application android:label="Ink Calc" android:icon="@drawable/icon" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.inkcalc.app" android:versionCode="11" android:versionName="4.2">
+<application android:label="Mikajy" android:icon="@drawable/icon" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
 <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
 <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
 </activity><provider android:name=".ShareProvider" android:authorities="com.inkcalc.app.share" android:exported="false" android:grantUriPermissions="true"/></application></manifest>

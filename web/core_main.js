@@ -20,6 +20,7 @@ function group(S){const ref=Math.max(40,...S.map(s=>{const b=bb(s);return Math.m
  for(const s of S){const b=bb(s),g=G[G.length-1],tiny=b.w<.2*ref&&b.h<.2*ref,cx=(b.x0+b.x1)/2;
   if(g){const m=g.s[0].vin?0:.18*Math.max(g.b.h,g.b.w,30);const bar=g.b.w>2.5*Math.max(g.b.h,1);
    const stem=g.b.h>1.3*g.b.w&&g.b.h>25,cy=(b.y0+b.y1)/2,dotA=tiny&&stem&&cy<g.b.y0&&g.b.y0-cy<.7*g.b.h,dotB=tiny&&stem&&cy>g.b.y1+.1*g.b.h&&cy-g.b.y1<.6*g.b.h;
-   if(cx>=g.b.x0-m&&cx<=g.b.x1+m&&(!tiny||bar||g.tiny||dotA||dotB)){g.s.push(s);g.b=un(g.b,b);g.tiny=g.tiny&&tiny;continue}}
+   const p0=s[0],touch=stem&&!tiny&&b.w>.2*g.b.h&&p0[0]>=g.b.x0-.1*g.b.h&&p0[0]<=g.b.x1+.1*g.b.h&&p0[1]>=g.b.y0-.1*g.b.h&&p0[1]<=g.b.y1+.1*g.b.h;
+   if(touch||cx>=g.b.x0-m&&cx<=g.b.x1+m&&(!tiny||bar||g.tiny||dotA||dotB)){g.s.push(s);g.b=un(g.b,b);g.tiny=g.tiny&&tiny;continue}}
   G.push({s:[s],b,tiny})}
  G.forEach(g=>g.tiny=g.b.w<.2*ref&&g.b.h<.2*ref);return G}

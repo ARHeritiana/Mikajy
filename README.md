@@ -1,4 +1,7 @@
-# Ink Calc — handwriting calculator for Android
+# Mikajy — handwriting calculator for Android
+
+Mikajy uses a black, red, and white visual identity: black handwriting on white paper, with red results and selected controls.
+The existing Android package ID is retained for upgrade compatibility.
 
 A blank screen: write maths with your finger, it turns into a handwritten-style typeset line and the
 answer appears next to it. Everything runs on the device (no network, no permissions).
@@ -61,7 +64,7 @@ build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
 ## Build
 ```
 sudo apt install openjdk-21-jdk-headless aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange python3
-./build_apk.sh            # -> InkCalc.apk (minSdk 21, targetSdk 34)
+./build_apk.sh            # -> Mikajy.apk (minSdk 21, targetSdk 34)
 ```
 To iterate on the UI without Android, open `android/assets/index.html` in desktop Chrome after
 `python3 web/build_web.py` (the Java bridge calls fall back to clipboard/new tab).
