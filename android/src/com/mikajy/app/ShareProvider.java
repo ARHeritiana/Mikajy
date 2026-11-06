@@ -10,6 +10,7 @@ import java.io.FileNotFoundException;
 public class ShareProvider extends ContentProvider {
   @Override public boolean onCreate(){ return true; }
   @Override public ParcelFileDescriptor openFile(Uri uri,String mode) throws FileNotFoundException {
+    if (!"/mikajy.png".equals(uri.getPath()) || !"r".equals(mode)) throw new FileNotFoundException("Invalid shared file");
     File f=new File(new File(getContext().getCacheDir(),"share"),"mikajy.png");
     return ParcelFileDescriptor.open(f,ParcelFileDescriptor.MODE_READ_ONLY);
   }

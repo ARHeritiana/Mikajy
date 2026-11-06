@@ -4,7 +4,7 @@ const nrm=v=>Math.hypot(...v)||1;MEM.forEach(m=>m.n=nrm(m.v.map(v=>v/255)));
 function classifyP(p,x){if(MEM.length){const nx=nrm(x),b=new Array(p.length).fill(0);
  for(const m of MEM){let d=0;for(let i=0;i<784;i++)d+=x[i]*m.v[i]/255;d/=nx*m.n;const k=CLS.indexOf(m.c);if(d>b[k])b[k]=d}
  let s=0;for(let k=0;k<p.length;k++){p[k]+=3*Math.max(0,b[k]-.75);s+=p[k]}for(let k=0;k<p.length;k++)p[k]/=s}
- return p.map((v,i)=>({c:CLS[i],p:v})).sort((u,v)=>v.p-u.p).slice(0,5)}
+ return p.map((v,i)=>({c:CLS[i],p:v})).filter(o=>!['d','m','∫','Σ','→','∞'].includes(o.c)).sort((u,v)=>v.p-u.p).slice(0,5)}
 function remember(x,c){const m={c,v:Array.from(x,v=>Math.round(v*255))};m.n=nrm(m.v.map(v=>v/255));MEM.push(m);if(MEM.length>400)MEM.shift();
  try{localStorage.setItem('ink3',JSON.stringify(MEM.map(({c,v})=>({c,v}))))}catch(e){}}
 const bb=s=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const[x,y]of s){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)}return{x0,y0,x1,y1,w:x1-x0,h:y1-y0}};

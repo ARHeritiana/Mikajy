@@ -58,7 +58,7 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 app = rd('app.js').replace('/*CLS*/', cls)
 html = ('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
         + css + '</head><body><canvas id="pad"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
-        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('core_main.js') + rd('cas.js') + app + '\n</script></body></html>')
+        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('core_main.js') + '\n' + rd('math-core.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + app + '\n</script></body></html>')
 out = os.path.join(here, '..', 'android', 'assets', 'index.html')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, 'w', encoding='utf-8').write(html)

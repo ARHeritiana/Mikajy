@@ -11,33 +11,46 @@ answer appears next to it. Everything runs on the device (no network, no permiss
 * **Interactive editing**: scribble over something to erase it (only the covered symbols go), write a new
   symbol on top of an old one to replace it, write in the gap of a fraction to fix a numerator/denominator,
   add terms to the end/middle of a line. Tap a symbol to cycle through the recogniser's alternatives.
-* **Single-unknown equations**: write the unknown as `x` (`2x+3=7` → `x=2`). The solver is numeric
-  (roots in [-100, 100], up to 4 roots; linear equations are solved exactly).
+* **Single-unknown polynomial equations of degree 1 or 2** with rational coefficients: `2x+3=7` → `x=2`, `(x−1)²=0` → `x=1` (including repeated roots). Non-polynomial equations are explicitly unsupported.
 * **Follow-ups on a finished line**: draw a bar *under* an existing expression and write a number below it —
   the part of the expression the bar covers becomes the numerator (`2−4`, bar, `5` → (2−4)/5; a bar under only
   the `4` → 2−4/5). Works in any order (bar first or denominator first) and with multi-digit denominators.
 * **Several lines / independent calculations** anywhere on the canvas.
 * **Drag & drop**: long-press a number or a result, drag it into another expression, a new spot, or onto the
   **memory bar** (bottom; it appears when it has content or while dragging). Memory chips can be dragged out.
-* **History** (auto-saved, reopen / copy / delete / export), **result display** (decimal, exact fraction,
-  mixed number — fractions only when the value is a small rational), **degrees / radians**.
+* **History** (auto-saved, reopen / copy / delete / export), **result display** (decimal approximation clearly marked `≈` unless exact, or exact rational/mixed number when mathematically justified), **degrees / radians**.
 * **Export**: copy a result, share a PNG of the canvas, share history as text (through the Android share sheet).
 * Small sliders button (top-right, faint) opens the settings sheet: a paper-styled page in the app's own
   handwriting, the chosen option circled in red; History is a second page. Hardware Back closes sheets.
   In landscape the sheet docks to the right edge so it never covers the whole canvas.
 
-Notation notes: a raised `0` after a number is a degree sign (`30°`); `%` is "/100" (and `50+10%` = 55);
-a `×`-shaped symbol is read as the variable `x` when it cannot be a multiplication (followed by `+ − = )`
-or by a raised exponent, or at the start of a side), otherwise as multiplication.
+Notation notes: use the angle setting for degrees or radians; a raised `0` is the exponent zero,
+**not** a degree sign. `%` means /100; after a sum or difference, `50+10%` is the explicitly
+supported percentage-increase convention (55). Ambiguous expressions such as `2/3x` must use
+parentheses. A `×`-shaped handwritten glyph may denote the unknown `x` when it appears in
+variable position; check recognition before trusting a result.
 
-## Advanced maths (handwritten, no extra UI)
-Write these directly; the answer appears like any other result (`web/cas.js` is the engine):
-* **Derivative**: `d/dx` as a stacked fraction (or `d/dx` inline) followed by the expression; `d²/dx²` with raised 2s.
-* **Integral**: `∫ f dx` gives the antiderivative `+ C`; `∫(a→b) f dx` is definite, bounds may be `π`, `-∞`, `∞`.
-* **Limit**: `lim(x→a) f`, with `a` a number, `π`, `∞` or `-∞`.
-* **Sum**: `Σ(x=1→10) f`, upper bound may be `∞` (convergence is checked).
-* **Algebra**: an expression in `x` ending in `=` is expanded, factored and its roots listed; `2x+3=7` still solves.
-Recogniser now has 39 classes (added `d m ∫ Σ → ∞`); `lim` is read as a word.
+## Mathematical scope (correctness-first)
+
+**Retained:** real arithmetic, parentheses, powers, factorials of nonnegative integers up to 170,
+percentages, roots, `π`, `e`, named elementary functions, exact rational arithmetic when
+representable, approximate transcendental values, and linear/quadratic polynomial equations.
+
+**Restricted:** equations require a single variable `x`, degree at most two, rational
+coefficients, and no variable-dependent denominators or non-polynomial functions. Exact
+quadratic roots are shown when provable; irrational roots are marked `≈`. All
+calculations use a finite real-number domain. Division by zero, invalid roots/logarithms,
+`0^0` and undefined trigonometric values are rejected.
+
+**Removed:** derivative/antiderivative calculation, definite and improper integration,
+limits, infinite series, symbolic factorisation, unconstrained root scanning and
+non-polynomial equation-solving. Their former numerical heuristics were not sound.
+Legacy recogniser glyph classes for these operations are filtered out; their syntax is
+not supported. We prefer **unsupported** to a convincing but invalid answer.
+
+**Output:** an explicit `=` requests a result (or `undefined`/`unsupported`).
+Incomplete expressions remain silent while being handwritten. Decimal approximations
+are prefixed `≈`; fraction/mixed display is used only for known exact rationals.
 
 ## Look
 Black-red-white identity with a **Dark / Light** option in Settings, saved locally. Dark mode shows white handwriting on a black canvas; Light mode shows black handwriting on a white canvas. Answers, active controls and selection rings remain red in both.
@@ -48,10 +61,12 @@ Logo: the user-selected white **M** over a black-and-red rounded square, extract
 ```
 web/                       the app (one HTML page, HTML5 canvas, no dependencies)
   core_cnn.js              CNN inference (runs in a Web Worker; falls back to main thread)
-  core_main.js             stroke grouping, feature rendering (28x28), kNN personalisation
-  app.js                   UI: ink, morph animation, layout, parser/evaluator, equations, editing,
-                           scribble detection, fractions, drag&drop, history, memory, settings sheet
-  model/model4.json        trained weights (33 classes, base64 float32)
+  math-core.js             strict parser, AST, real evaluation and rational polynomial solver
+  calculator.js            formatting and UI-facing calculation adapter
+  settings.js              validated local preferences
+  app.js                   canvas, animation, interaction, editing, history and memory
+  core_main.js             stroke grouping, personalisation and classification
+  model/model4.json        trained weights (legacy classification model)
   fonts/hand.woff2         Caveat subset (SIL OFL) used to typeset the handwriting
   build_web.py             assembles android/assets/index.html
 android/                   WebView shell
@@ -59,9 +74,17 @@ android/                   WebView shell
   src/.../ShareProvider.java  tiny ContentProvider used to share the PNG
   AndroidManifest.xml, res/ (signing keys excluded from source)
 training/                  how the recogniser was trained (see below)
-tests/                     headless-browser tests (Playwright) used during development
+tests/                     asserted Node regression suite and optional browser smoke tests
 build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
 ```
+
+## Tests and build
+
+Run `node --test tests/*.test.cjs` (Node 20+) for deterministic mathematical
+and settings regression tests. Then run `python3 web/build_web.py` to generate
+the self-contained offline WebView page. CI runs these checks on each push.
+A signed Android APK requires a private signing key and the Android build tools.
+No signing key is stored in this repository.
 
 ## Build
 ```
@@ -74,8 +97,8 @@ To iterate on the UI without Android, open `android/assets/index.html` in deskto
 
 ## Recogniser
 Input: every group of strokes is rendered (4x supersampled, bbox scaled to 20 px, centred in 28x28,
-pen ~2.9 px). Model: conv3x3(24)-pool-conv3x3(48)-pool-fc(192)-fc(33), ~0.6 M MACs.
-Classes: `0-9 + - * / ( ) =`, letters `a c e g i l n o s t h b`, `π √ !`, `%`.
+pen ~2.9 px). Model: conv3x3(24)-pool-conv3x3(48)-pool-fc(192)-fc, with legacy advanced classes filtered at inference.
+Supported classes include `0-9 + - * / ( ) =`, function-name letters, `π √ ! %`.
 Fractions, exponents, roots, dots (`.`, `i`, `!`) and function words are resolved geometrically and by a
 word matcher over each symbol's top-5 candidates, not by the CNN.
 Corrections you confirm are stored in `localStorage` and bias later predictions (cosine kNN, 400 samples).
@@ -98,13 +121,13 @@ Synthetic strokes (`train.py`) cover digits/operators/π/√/!/%; letters come o
 * No automatic line wrapping: a long expression shrinks to fit the width; start another line instead.
 * Fractions inside fractions, nth roots, absolute-value bars `| |`, mixed numbers as input (`2 1/2` = 2 × ½),
   and variables other than a single `x` are not supported.
-* Numeric equation solving only searches [-100, 100]; trig is radians unless set to degrees.
+* Equation solving is limited to polynomial degree ≤2 with rational coefficients. Trigonometry uses the selected angle setting.
 * `1`/`7`/`l`, `0`/`o`, `4`/`h` confusions happen — tap a symbol to cycle alternatives.
-* Not tested on physical devices; timing figures come from a CPU-throttled desktop Chromium.
+* No physical-device benchmark or Android APK build is claimed by the Node test suite. The CNN fallback may run on the main thread when workers are unavailable; performance and battery use require device testing.
 
 ## Licences / data
 Caveat font: SIL Open Font License. Training used MNIST and other OFL handwriting fonts; no font other than
-Caveat ships in the app. Code in this archive: use freely.
+Caveat ships in the app. Source licensing is governed by LICENSE; third-party fonts and datasets retain their own licences.
 
 ## Release signing
 A signing key must **not** be committed. Keep the signing keystore safely backed up; Android requires the same signing key for updates to an installed package. If you installed an APK signed with a different key or package ID, it cannot be updated in place.

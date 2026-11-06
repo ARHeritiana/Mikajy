@@ -5,8 +5,8 @@ const disp=c=>c=='*'?'×':c=='/'?'÷':c=='-'?'−':c;
 const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
 const ch=g=>g.c[g.i].c;
 const FUNCS=new Set(['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh','ln','log','abs']);
-let SET={mode:'instant',angle:'rad',fmt:'dec',theme:'dark'};try{Object.assign(SET,JSON.parse(localStorage.getItem('inkset')||'{}'))}catch(e){}
-function saveSet(){try{localStorage.setItem('inkset',JSON.stringify(SET))}catch(e){}}
+let SET=SettingsStore.load(localStorage);
+function saveSet(){SettingsStore.save(localStorage,SET)}
 const PALETTES={
  dark:{ink:'#f4f4f4',accent:'#ff2a36',canvas:'#000000',dragBackground:'#151515',dragShadow:'rgba(255,42,54,.35)'},
  light:{ink:'#000000',accent:'#d71920',canvas:'#ffffff',dragBackground:'#ffffff',dragShadow:'rgba(0,0,0,.25)'}
@@ -71,7 +71,7 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Set();let inSup=false,num='',word='';
- const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='d'||word=='lim'||FUNCS.has(word))out.push(word);else throw 0;word=''}};
+ const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||FUNCS.has(word))out.push(word);else throw 0;word=''}};
  A.forEach((g,k)=>{const c=ch(g);
   if(g.sup&&!inSup){fN();fW();out.push('^','(');inSup=true}
   if(!g.sup&&inSup){fN();fW();out.push(')');inSup=false}
@@ -82,55 +82,13 @@ function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.lengt
   if(close.has(k)){fN();fW();if(inSup&&!(A[k+1]&&A[k+1].sup)){out.push(')');inSup=false}out.push(')')}});
  fN();fW();if(inSup)out.push(')');return out}
 function tokenize(L){return tokSeq(L,seqs(L)[0],true)}
-function evalTok(T,xv){let i=0;const pk=()=>T[i],isN=t=>t!==undefined&&/^[0-9.]+$/.test(t),D=SET.angle=='deg',kd=D?Math.PI/180:1;
- const FN={sin:a=>Math.sin(a*kd),cos:a=>Math.cos(a*kd),tan:a=>Math.tan(a*kd),asin:a=>Math.asin(a)/kd,acos:a=>Math.acos(a)/kd,atan:a=>Math.atan(a)/kd,sinh:Math.sinh,cosh:Math.cosh,tanh:Math.tanh,ln:Math.log,log:Math.log10,abs:Math.abs},INV={sin:'asin',cos:'acos',tan:'atan'};
- const aS=t=>isN(t)||t=='('||t=='π'||t=='e'||t=='x'||t=='√'||FUNCS.has(t);
- const fact=v=>{if(v<0||v>170||Math.floor(v)!=v)return NaN;let r=1;for(let k=2;k<=v;k++)r*=k;return r};
- const expr=()=>{let v=term();while(pk()=='+'||pk()=='-'){const o=T[i++];let r;
-   if(isN(pk())&&T[i+1]=='%'&&(T[i+2]===undefined||'+-)'.includes(T[i+2]))){r=v*parseFloat(pk())/100;i+=2}else r=term();v=o=='+'?v+r:v-r}return v};
- const term=()=>{let v=unary();for(;;){const c=pk();if(c=='*'||c=='/'){i++;const r=unary();v=c=='*'?v*r:v/r}else if(aS(c))v*=pow();else break}return v};
- const unary=()=>{if(pk()=='-'){i++;return-unary()}if(pk()=='+'){i++;return unary()}return pow()};
- const expo=()=>{if(pk()!='(')throw 0;i++;const v=expr();if(pk()==')')i++;return v};
- const pow=()=>{const b=post();if(pk()=='^'){i++;return Math.pow(b,expo())}return b};
- const post=()=>{const lit=isN(pk());let v=atom();
-  if(lit&&pk()=='^'&&T[i+1]=='('&&(T[i+2]=='0'||T[i+2]=='o')&&T[i+3]==')'){i+=4;v=D?v:v*Math.PI/180}
-  for(;;){if(pk()=='!'){i++;v=fact(v)}else if(pk()=='%'){i++;v=v/100}else break}return v};
- const atom=()=>{const t=pk();
-  if(t=='('){i++;const v=expr();if(pk()==')')i++;return v}
-  if(isN(t)){i++;const n=parseFloat(t);if(isNaN(n))throw 0;return n}
-  if(t=='π'){i++;return Math.PI}if(t=='e'){i++;return Math.E}
-  if(t=='x'){if(xv===undefined)throw 0;i++;return xv}
-  if(t=='√'){i++;const v=post();return v<0?NaN:Math.sqrt(v)}
-  if(FUNCS.has(t)){i++;let ex=null;if(pk()=='^'&&T[i+1]=='('){i++;ex=expo()}const a=pk()=='('?atom():post();let r;
-   if(ex===-1&&INV[t])r=FN[INV[t]](a);else{r=FN[t](a);if(ex!==null)r=Math.pow(r,ex)}return r}
-  throw 0};
- const v=expr();if(i<T.length)throw 0;return v}
-function solveEq(Lt,Rt){const f=x=>{const v=evalTok(Lt,x)-evalTok(Rt,x);return v},ok=Number.isFinite;
- let f0,f1,f2,fm;try{f0=f(0);f1=f(1);f2=f(2);fm=f(-3)}catch(e){return null}
- if([f0,f1,f2,fm].every(ok)&&Math.abs((f2-f1)-(f1-f0))<1e-9*(1+Math.abs(f1))&&Math.abs((f1-f0)-(f0-fm)/3)<1e-9*(1+Math.abs(f1))){const a=f1-f0;
-  if(Math.abs(a)<1e-12)return Math.abs(f0)<1e-9?'all':[];return[-f0/a]}
- const roots=[],add=r=>{r=parseFloat(r.toPrecision(10));if(!roots.some(q=>Math.abs(q-r)<1e-6))roots.push(r)};let px=-100,py;
- try{py=f(px)}catch(e){py=NaN}
- for(let x=-99.95;x<=100;x+=.05){let y;try{y=f(x)}catch(e){y=NaN}
-  if(ok(py)&&ok(y)){if(py==0)add(px);else if(py*y<0){let a=px,b=x,fa=py;for(let n=0;n<60;n++){const m=(a+b)/2,fmv=f(m);if(fa*fmv<=0)b=m;else{a=m;fa=fmv}}add((a+b)/2)}
-   else if(Math.abs(y)<Math.abs(py)&&Math.abs(y)<1e-2){const y2=(()=>{try{return f(x+.05)}catch(e){return NaN}})();if(ok(y2)&&Math.abs(y2)>Math.abs(y)){let a=px,b=x+.05,best=x,by=Math.abs(y);for(let n=0;n<60;n++){const m1=a+(b-a)/3,m2=b-(b-a)/3;if(Math.abs(f(m1))<Math.abs(f(m2)))b=m2;else a=m1}const xm=(a+b)/2;if(Math.abs(f(xm))<1e-7)add(xm)}}}
-  px=x;py=y}
- roots.sort((p,q)=>p-q);return roots.slice(0,4)}
-function toFrac(v){if(Number.isInteger(v)||Math.abs(v)>1e9)return null;const s=v<0?-1:1,x=Math.abs(v);let a=Math.floor(x),h=[1,a],k=[0,1],r=x-a;
- for(let n=0;n<30&&r>1e-12;n++){const inv=1/r;a=Math.floor(inv);r=inv-a;const hn=a*h[h.length-1]+h[h.length-2],kn=a*k[k.length-1]+k[k.length-2];h.push(hn);k.push(kn);if(kn>100000)return null;if(Math.abs(x-hn/kn)<1e-10*Math.max(1,x))return{p:s*hn,q:kn}}return null}
-const SP=s=>({s});
-function resPieces(v){if(!Number.isFinite(v))return[SP('?')];
- if(SET.fmt!='dec'){const f=toFrac(v);if(f&&f.q>1){const pc=[],p=Math.abs(f.p);if(f.p<0)pc.push(SP('-'));
-  if(SET.fmt=='mixed'&&p>f.q){const w=Math.floor(p/f.q);pc.push(SP(String(w)),{f:[String(p-w*f.q),String(f.q)]})}else pc.push({f:[String(p),String(f.q)]});return pc}}
- return[SP(fmt(v))]}
-const pText=P=>P.map((p,i)=>p.s!==undefined?p.s:(i&&P[i-1].s!==undefined&&/\d$/.test(P[i-1].s)?' ':'')+p.f[0]+'/'+p.f[1]).join('');
-function computeAns(L){const last=L.syms[L.syms.length-1],eq=last&&ch(last)=='=';let T;try{T=tokenize(L)}catch(e){return null}if(!T.length)return null;
- const ei=T.indexOf('=');{const S=CAS.special(T,eq);if(S===false)return null;if(S)return S}
- try{if(ei>=0){if(T.indexOf('=',ei+1)>=0)return null;const Lt=T.slice(0,ei),Rt=T.slice(ei+1);if(!Lt.length||!Rt.length||!T.includes('x'))return null;
-   const r=solveEq(Lt,Rt);if(r==null)return null;let P=[SP('x='),...(r=='all'?[SP('ℝ')]:r.length?[]:[SP('∅')])];
-   if(Array.isArray(r))r.forEach((q,k)=>{if(k)P.push(SP(', '));P.push(...resPieces(q))});return{pieces:P,text:pText(P),val:Array.isArray(r)&&r.length?r[0]:undefined}}
-  if(T.includes('x'))return null;const v=evalTok(T);if(!(T.length>1||eq))return null;if(SET.mode=='demand'&&!eq)return null;
-  const P=[...(eq?[]:[SP('=')]),...resPieces(v)];return{pieces:P,text:pText(P),val:v}}catch(e){return null}}
+/* Mathematical parsing and evaluation live in math-core.js + calculator.js. */
+function computeAns(L) {
+  const last=L.syms[L.syms.length-1],trailingEquals=!!(last&&ch(last)=='=');
+  let tokens;
+  try { tokens=tokenize(L); } catch (_) { return null; }
+  return Calculator.compute(tokens,SET,trailingEquals);
+}
 function buildAns(pieces){const now=performance.now();let k=0;const out=[];const d=()=>now+260+(k++)*75;
  for(const p of pieces){if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,delay:d()}))});
   else{const fid='a'+(++FID);out.push(newG([{c:'§',p:1}],{ans:true,fp:'bar',fid,delay:d()}));[...p.f[0]].forEach(c=>out.push(newG([{c,p:1}],{ans:true,fp:'n',fid,delay:d()})));[...p.f[1]].forEach(c=>out.push(newG([{c,p:1}],{ans:true,fp:'d',fid,delay:d()})))}}
@@ -175,10 +133,10 @@ function radical(s){const n=s.length;if(n<8)return null;let v=0;for(let i=0;i<n;
  const tail=s.slice(a),tx=Math.max(...tail.map(p=>p[0]))-s[a][0];if(tx<.8*H)return null;
  const main=s.slice(0,a+1);main.vin={x0:s[a][0],x1:s[a][0]+tx};return main}
 function ctxfix(arr){let pc='',open=0;arr.forEach((y,k)=>{if(y.fresh){const last=k==arr.length-1;y.c.forEach(o=>{let f=1;const c=o.c;
- if(k==0&&c=='∫')f*=6;if(k==0&&c=='Σ')f*=2.5;if(('*/)'.includes(c)||c=='→')&&(k==0||'+-*/('.includes(pc)))f*=.25;if(c==')'&&open<=0)f*=.3;if(c=='='&&!last)f*=.3;if(last&&'+-*/'.includes(c))f*=.5;o.p*=f});
+ if(('*/)'.includes(c)||c=='→')&&(k==0||'+-*/('.includes(pc)))f*=.25;if(c==')'&&open<=0)f*=.3;if(c=='='&&!last)f*=.3;if(last&&'+-*/'.includes(c))f*=.5;o.p*=f});
  y.c.sort((a,b)=>b.p-a.p);y.c=y.c.slice(0,5);y.i=0;y.fresh=false}
  const c=ch(y);if(c=='(')open++;if(c==')')open--;pc=c})}
-const WORDS=['lim','sinh','cosh','tanh','asin','acos','atan','sin','cos','tan','log','ln','abs'];
+const WORDS=['sinh','cosh','tanh','asin','acos','atan','sin','cos','tan','log','ln','abs'];
 function wordfix(A){const n=A.length,used=new Array(n).fill(false),idx=(g,c)=>g.c.findIndex(o=>o.c==c&&o.p>.002);
  for(let i=0;i<n;i++){let best=null;for(const w of WORDS){if(i+w.length>n)continue;let sc=1,ok=true;
   for(let j=0;j<w.length;j++){const g=A[i+j];if(g.locked||used[i+j]){ok=false;break}const k=idx(g,w[j]);if(k<0||(g.c[0].p>.9&&g.c[0].c!=w[j]&&!/[a-z]/.test(g.c[0].c))){ok=false;break}sc*=g.c[k].p}
@@ -196,14 +154,34 @@ function assignSup(A){let B=null,inSup=false;for(const g of A){const c=ch(g),b=g
 function assignCover(A){A.forEach((g,k)=>{if(ch(g)=='√'&&g.vin){let n=0;for(let j=k+1;j<A.length;j++){if(!A[j].b)break;const cx=(A[j].b.x0+A[j].b.x1)/2;if(cx>=g.vin.x0-10&&cx<=g.vin.x1+14)n++;else break}g.cover=n}})}
 const CLS=/*CLS*/;
 const cnnSrc=document.getElementById('cnn').textContent;
-let wk=null,pend=new Map(),pid=0,local=null;
+let wk=null,pend=new Map(),pid=0,local=null,workerUrl=null;
 function localPredict(x){if(!local)local=new Function(cnnSrc+';return predict')();return local(x)}
-function initCNN(){try{const b=new Blob([cnnSrc+"\nonmessage=function(e){postMessage({id:e.data.id,p:predict(e.data.x)})};predict(new Float32Array(784));predict(new Float32Array(784).fill(.4));"],{type:'text/javascript'});
- wk=new Worker(URL.createObjectURL(b));wk.onmessage=e=>{const q=pend.get(e.data.id);if(q){pend.delete(e.data.id);clearTimeout(q.t);q.res(e.data.p)}};
- wk.onerror=()=>{wk=null;for(const q of pend.values()){clearTimeout(q.t);q.res(localPredict(q.x))}pend.clear()}}catch(e){wk=null}}
-function predictAsync(x){return new Promise(res=>{if(!wk){setTimeout(()=>res(localPredict(x)),0);return}
- const id=++pid,q={res,x,t:setTimeout(()=>{if(pend.delete(id)){wk=null;res(localPredict(x))}},4000)};pend.set(id,q);wk.postMessage({id,x})})}
-initCNN();setTimeout(()=>{if(!wk)localPredict(new Float32Array(784))},1500);
+function localFallback(q){
+ setTimeout(()=>{try{q.res(localPredict(q.x))}catch(e){q.reject(e)}},0);
+}
+function stopCNN(){
+ if(wk){wk.terminate();wk=null}
+ if(workerUrl){URL.revokeObjectURL(workerUrl);workerUrl=null}
+ const old=[...pend.values()];pend.clear();
+ for(const q of old){clearTimeout(q.t);localFallback(q)}
+}
+function initCNN(){try{
+ const b=new Blob([cnnSrc+"\nonmessage=function(e){postMessage({id:e.data.id,p:predict(e.data.x)})};predict(new Float32Array(784));"],{type:'text/javascript'});
+ workerUrl=URL.createObjectURL(b);
+ wk=new Worker(workerUrl);
+ wk.onmessage=e=>{
+  if(workerUrl){URL.revokeObjectURL(workerUrl);workerUrl=null}
+  const q=pend.get(e.data.id);if(q){pend.delete(e.data.id);clearTimeout(q.t);q.res(e.data.p)}
+ };
+ wk.onerror=()=>stopCNN();
+ }catch(e){stopCNN()}}
+function predictAsync(x){return new Promise((res,reject)=>{
+ if(!wk){localFallback({res,reject,x});return}
+ const id=++pid,q={res,reject,x,t:setTimeout(stopCNN,4000)};
+ pend.set(id,q);
+ try{wk.postMessage({id,x})}catch(e){stopCNN()}
+})}
+initCNN();
 let recBusy=false,recAgain=false;
 function recognize(){if(recBusy){recAgain=true;return}recBusy=true;doRecognize().catch(e=>console.error(e)).then(()=>{recBusy=false;if(recAgain){recAgain=false;recognize()}})}
 function typesetNum(L,b){const bcy=(b.y0+b.y1)/2;if(L.syms.some(g=>ch(g)=='§'&&g.x+g.bw>b.x0-15&&g.x<b.x1+15))return[];

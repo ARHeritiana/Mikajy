@@ -1,0 +1,21 @@
+name: Mikajy correctness checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  maths-and-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Mathematical, settings and formatting regression tests
+        run: node --test tests/*.test.cjs
+      - name: Rebuild WebView assets and syntax-check the assembled page
+        run: python3 tests/build_check.py
