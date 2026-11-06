@@ -83,8 +83,11 @@ build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
 Run `node --test tests/*.test.cjs` (Node 20+) for deterministic mathematical
 and settings regression tests. Then run `python3 web/build_web.py` to generate
 the self-contained offline WebView page. CI runs these checks on each push.
-A signed Android APK requires a private signing key and the Android build tools.
-No signing key is stored in this repository.
+The build script also supports `MIKAJY_UNSIGNED_ONLY=1 ./build_apk.sh` to
+compile and package an **unsigned, non-installable verification APK** with the
+Android SDK tools. CI exercises this unsigned build on a Linux runner.
+An installable release APK requires the existing private release-signing key;
+no signing key is stored in this repository.
 
 ## Build
 ```

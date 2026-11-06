@@ -25,3 +25,7 @@ jobs:
           python3 -m playwright install --with-deps chromium
       - name: Exercise offline browser UI and CNN inference
         run: python3 tests/browser_smoke.py
+      - name: Compile and package unsigned Android APK
+        env:
+          MIKAJY_UNSIGNED_ONLY: '1'
+        run: ./build_apk.sh
