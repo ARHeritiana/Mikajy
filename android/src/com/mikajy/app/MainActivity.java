@@ -1,4 +1,4 @@
-package com.inkcalc.app;
+package com.mikajy.app;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
           File dir=new File(getCacheDir(),"share"); dir.mkdirs();
           File f=new File(dir,"mikajy.png");
           FileOutputStream o=new FileOutputStream(f); o.write(Base64.decode(b64,Base64.DEFAULT)); o.close();
-          Uri u=Uri.parse("content://com.inkcalc.app.share/mikajy.png?t="+System.currentTimeMillis());
+          Uri u=Uri.parse("content://com.mikajy.app.share/mikajy.png?t="+System.currentTimeMillis());
           Intent i=new Intent(Intent.ACTION_SEND); i.setType("image/png"); i.putExtra(Intent.EXTRA_STREAM,u);
           i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
           startActivity(Intent.createChooser(i,"Share image"));
@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
   }
   @Override protected void onCreate(Bundle b){
     super.onCreate(b);
-    w=new WebView(this); setContentView(w);
+    w=new WebView(this); w.setBackgroundColor(0xFF000000); getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0xFF000000)); setContentView(w);
     WebSettings s=w.getSettings(); s.setJavaScriptEnabled(true); s.setDomStorageEnabled(true);
     w.setOverScrollMode(View.OVER_SCROLL_NEVER);
     w.addJavascriptInterface(new Bridge(),"Android");

@@ -1,10 +1,13 @@
 # Android outputs and local signing material
 *.apk
 *.aab
+*.idsig
 *.jks
 *.keystore
+*.p12
+*.pfx
 android/out/
-android/assets/index.html
+android/assets/
 # Local training artifacts
 training/cache/
 training/ckpt*.pkl

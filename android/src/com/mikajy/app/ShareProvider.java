@@ -1,4 +1,4 @@
-package com.inkcalc.app;
+package com.mikajy.app;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;

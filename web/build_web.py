@@ -9,21 +9,23 @@ model = rd('model/model4.json')
 cls = json.dumps(json.loads(model)['cls'])
 font = base64.b64encode(open(os.path.join(here, 'fonts/hand.woff2'), 'rb').read()).decode()
 css = """<style>@font-face{font-family:H;src:url(data:font/woff2;base64,__FONT__) format('woff2')}
-:root{--paper:#ffffff;--ink:#000000;--graphite:rgba(0,0,0,.66);--rule:rgba(0,0,0,.18);--blue:#d71920;--red:#d71920}
+
+:root,[data-theme="dark"]{--paper:#0e0e0e;--canvas:#000000;--ink:#f4f4f4;--graphite:#9a9a9a;--rule:#2b2b2b;--blue:#ff2a36;--red:#ff2a36;--menu-ink:rgba(255,255,255,.5);--mem-bg:rgba(0,0,0,.94);--mem-hot:rgba(255,42,54,.2);--chip-border:#4a4a4a;--chip-muted:#8a8a8a;--backdrop:rgba(0,0,0,.62);--panel-shadow:rgba(255,42,54,.16);--active-bg:rgba(255,42,54,.14);--toast-ink:#ffffff;color-scheme:dark}
+[data-theme="light"]{--paper:#ffffff;--canvas:#ffffff;--ink:#000000;--graphite:#555555;--rule:#d7d7d7;--blue:#d71920;--red:#d71920;--menu-ink:rgba(0,0,0,.58);--mem-bg:rgba(255,255,255,.96);--mem-hot:rgba(215,25,32,.12);--chip-border:rgba(0,0,0,.22);--chip-muted:rgba(0,0,0,.5);--backdrop:rgba(0,0,0,.24);--panel-shadow:rgba(0,0,0,.16);--active-bg:rgba(215,25,32,.08);--toast-ink:#ffffff;color-scheme:light}
 *{-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
-html,body{margin:0;height:100%;background:#ffffff;overflow:hidden}
-canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+html,body{margin:0;height:100%;background:var(--canvas);overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block;background:var(--canvas)}
 button{font-family:inherit;cursor:pointer}
-#mb{position:fixed;top:calc(4px + env(safe-area-inset-top,0px));right:calc(4px + env(safe-area-inset-right,0px));width:46px;height:46px;border:0;background:none;color:rgba(0,0,0,.58);padding:0;display:grid;place-items:center;z-index:5}
+#mb{position:fixed;top:calc(4px + env(safe-area-inset-top,0px));right:calc(4px + env(safe-area-inset-right,0px));width:46px;height:46px;border:0;background:none;color:var(--menu-ink);padding:0;display:grid;place-items:center;z-index:5}
 #mb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 #mb:active{color:var(--ink)}
-#mem{position:fixed;left:0;right:0;bottom:0;display:none;gap:8px;align-items:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(255,255,255,.96);border-top:1px solid var(--rule);z-index:4;overflow-x:auto}
-#mem.hot{background:rgba(215,25,32,.12)}
-.chip{padding:6px 14px;border-radius:14px;background:var(--paper);border:1.5px solid rgba(0,0,0,.22);font:28px/1.1 H,cursive;color:var(--ink);white-space:nowrap;touch-action:none}
-.chip b{margin-left:10px;color:rgba(0,0,0,.5);font-weight:400;font-size:22px}
+#mem{position:fixed;left:0;right:0;bottom:0;display:none;gap:8px;align-items:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:var(--mem-bg);border-top:1px solid var(--blue);z-index:4;overflow-x:auto}
+#mem.hot{background:var(--mem-hot)}
+.chip{padding:6px 14px;border-radius:14px;background:var(--paper);border:1.5px solid var(--chip-border);font:28px/1.1 H,cursive;color:var(--ink);white-space:nowrap;touch-action:none}
+.chip b{margin-left:10px;color:var(--chip-muted);font-weight:400;font-size:22px}
 #sheet{position:fixed;inset:0;display:none;z-index:10;color:var(--ink)}
-#back{position:absolute;inset:0;background:rgba(0,0,0,.24);opacity:0;transition:opacity .2s}
-#panel{position:absolute;left:50%;bottom:0;width:min(560px,100%);max-height:86%;overflow:auto;box-sizing:border-box;background:var(--paper);border-radius:22px 22px 0 0;box-shadow:0 -14px 40px rgba(0,0,0,.16);padding:4px 22px calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,28px);opacity:0;transition:transform .22s ease-out,opacity .22s}
+#back{position:absolute;inset:0;background:var(--backdrop);opacity:0;transition:opacity .2s}
+#panel{position:absolute;left:50%;bottom:0;width:min(560px,100%);max-height:86%;overflow:auto;box-sizing:border-box;background:var(--paper);border-radius:22px 22px 0 0;border-top:2px solid var(--blue);box-shadow:0 -14px 40px var(--panel-shadow);padding:4px 22px calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,28px);opacity:0;transition:transform .22s ease-out,opacity .22s}
 #sheet.in #back{opacity:1}#sheet.in #panel{transform:translate(-50%,0);opacity:1}
 .head{display:flex;align-items:center;justify-content:space-between;padding:12px 0 6px}
 h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
@@ -40,7 +42,7 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 .tools{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule);padding-top:6px}
 .tool{display:flex;align-items:center;gap:10px;padding:11px 6px;background:none;border:0;border-radius:12px;font:24px/1 H,cursive;color:var(--ink);text-align:left}
 .tool span{white-space:nowrap}
-.tool:active,.hmain:active{background:rgba(215,25,32,.08)}
+.tool:active,.hmain:active{background:var(--active-bg)}
 .ic{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;color:var(--graphite)}
 .tool.danger,.tool.danger .ic,.textbtn.danger{color:var(--red)}
 .hint{font:12.5px/1.45 system-ui,sans-serif;color:var(--graphite);margin:8px 0 0;max-width:44ch}
@@ -50,12 +52,12 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 .hmain .ex{font:30px/1.1 H,cursive;word-break:break-all}.hmain .an{font:30px/1.1 H,cursive;color:var(--blue)}
 .textbtn{font:24px/1 H,cursive;background:none;border:0;padding:14px 4px}
 .empty{font:28px/1.25 H,cursive;color:var(--graphite);margin:26px 0 30px;text-align:center}
-#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:#ffffff;padding:8px 18px;border-radius:16px;font:24px/1.1 H,cursive;opacity:0;transition:opacity .3s;z-index:20;pointer-events:none;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--blue);color:var(--toast-ink);padding:8px 18px;border-radius:16px;font:24px/1.1 H,cursive;opacity:0;transition:opacity .3s;z-index:20;pointer-events:none;white-space:nowrap}
 @media (orientation:landscape) and (max-height:520px){#panel{left:auto;right:0;top:0;bottom:0;max-height:none;width:min(500px,68%);border-radius:22px 0 0 22px;transform:translateX(28px)}#sheet.in #panel{transform:none}.tools{grid-template-columns:repeat(3,1fr)}.tool{font-size:22px;gap:8px}.hint{display:none}.row{padding:4px 0}.head{padding:8px 0 4px}}
 @media (prefers-reduced-motion:reduce){#panel,#back{transition:none}.opt.on .ring path{animation:none;stroke-dashoffset:0}}</style>""".replace("__FONT__", font)
 app = rd('app.js').replace('/*CLS*/', cls)
-html = ('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
-        + css + '<title>Mikajy</title></head><body><canvas id="pad"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
+html = ('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
+        + css + '</head><body><canvas id="pad"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
         '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('core_main.js') + rd('cas.js') + app + '\n</script></body></html>')
 out = os.path.join(here, '..', 'android', 'assets', 'index.html')
 os.makedirs(os.path.dirname(out), exist_ok=True)

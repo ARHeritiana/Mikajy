@@ -4,7 +4,7 @@ async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page(viewport={'width':412,'height':800});errs=[]
         pg.on('pageerror',lambda e:errs.append(str(e)))
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(400)
+        await pg.goto('file:///home/claude/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(400)
         x=40
         for c in '25+7':
             for s in glyph(c,x,200,80):await stroke(pg,s)

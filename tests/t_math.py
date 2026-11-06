@@ -6,7 +6,7 @@ JS="""([specs,set])=>{Object.assign(SET,set);
 async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)))
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(400)
+        await pg.goto('file:///home/claude/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(400)
         async def run(title,specs,**set):
             s=dict(mode='instant',angle='rad',fmt='dec');s.update(set)
             r=await pg.evaluate(JS,[specs,s]);print(title.ljust(10),[f'{a} -> {b}' for a,b in zip(specs,r)])

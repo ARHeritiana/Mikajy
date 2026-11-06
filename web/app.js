@@ -5,18 +5,31 @@ const disp=c=>c=='*'?'×':c=='/'?'÷':c=='-'?'−':c;
 const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
 const ch=g=>g.c[g.i].c;
 const FUNCS=new Set(['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh','ln','log','abs']);
-let SET={mode:'instant',angle:'rad',fmt:'dec'};try{Object.assign(SET,JSON.parse(localStorage.getItem('inkset')||'{}'))}catch(e){}
+let SET={mode:'instant',angle:'rad',fmt:'dec',theme:'dark'};try{Object.assign(SET,JSON.parse(localStorage.getItem('inkset')||'{}'))}catch(e){}
 function saveSet(){try{localStorage.setItem('inkset',JSON.stringify(SET))}catch(e){}}
+const PALETTES={
+ dark:{ink:'#f4f4f4',accent:'#ff2a36',canvas:'#000000',dragBackground:'#151515',dragShadow:'rgba(255,42,54,.35)'},
+ light:{ink:'#000000',accent:'#d71920',canvas:'#ffffff',dragBackground:'#ffffff',dragShadow:'rgba(0,0,0,.25)'}
+};
+if(!Object.hasOwn(PALETTES,SET.theme))SET.theme='dark';
+let palette=PALETTES[SET.theme];
+function applyTheme(){
+ palette=PALETTES[SET.theme]||PALETTES.dark;
+ document.documentElement.dataset.theme=SET.theme;
+ const bar=document.querySelector('meta[name="theme-color"]');
+ if(bar)bar.content=palette.canvas;
+ kick();
+}
 
 function fmt(v){if(!isFinite(v))return'undefined';if(Math.abs(v)<1e-12)v=0;return String(parseFloat(v.toPrecision(10)))}
 function fit(){const d=Math.min(devicePixelRatio||1,2);SW=innerWidth;SH=innerHeight;cv.width=SW*d;cv.height=SH*d;lines.forEach(layout);kick()}
 function strokePath(s){ctx.beginPath();ctx.moveTo(...s[0]);ctx.lineTo(...mid(s[0],s[1]));for(let i=1;i<s.length-1;i++)ctx.quadraticCurveTo(...s[i],...mid(s[i],s[i+1]));ctx.lineTo(...s[s.length-1]);ctx.stroke()}
-function drawInk(s,a){if(a<=.01)return;ctx.globalAlpha=a;ctx.strokeStyle=ctx.fillStyle='#000000';ctx.lineWidth=4.5;ctx.lineCap=ctx.lineJoin='round';
+function drawInk(s,a){if(a<=.01)return;ctx.globalAlpha=a;ctx.strokeStyle=ctx.fillStyle=palette.ink;ctx.lineWidth=4.5;ctx.lineCap=ctx.lineJoin='round';
  if(s.length==1){ctx.beginPath();ctx.arc(s[0][0],s[0][1],2.6,0,7);ctx.fill()}else strokePath(s);ctx.globalAlpha=1}
-function drawRad(g,a){const s=g.sz,x=g.x,y=g.y,top=y-.8*s;ctx.globalAlpha=a;ctx.strokeStyle=g.ans?'#d71920':'#000000';ctx.lineWidth=Math.max(2,s*.055);ctx.lineCap=ctx.lineJoin='round';
+function drawRad(g,a){const s=g.sz,x=g.x,y=g.y,top=y-.8*s;ctx.globalAlpha=a;ctx.strokeStyle=g.ans?palette.accent:palette.ink;ctx.lineWidth=Math.max(2,s*.055);ctx.lineCap=ctx.lineJoin='round';
  ctx.beginPath();ctx.moveTo(x+.02*s,y-.36*s);ctx.lineTo(x+.1*s,y-.43*s);ctx.lineTo(x+.26*s,y-.02*s);ctx.lineTo(x+.5*s,top);ctx.lineTo(Math.max(g.vx,x+.56*s),top);ctx.stroke();ctx.globalAlpha=1}
-function drawBar(g,a){ctx.globalAlpha=a;ctx.strokeStyle=g.ans?'#d71920':'#000000';ctx.lineWidth=Math.max(2.5,g.sz*.05);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(g.x+g.bw,g.y);ctx.stroke();ctx.globalAlpha=1}
-function drawG(g){const col=g.ans?'#d71920':'#000000';ctx.fillStyle=col;ctx.font=Math.round(g.sz)+'px '+FONT;ctx.textBaseline='alphabetic';
+function drawBar(g,a){ctx.globalAlpha=a;ctx.strokeStyle=g.ans?palette.accent:palette.ink;ctx.lineWidth=Math.max(2.5,g.sz*.05);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(g.x+g.bw,g.y);ctx.stroke();ctx.globalAlpha=1}
+function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;ctx.font=Math.round(g.sz)+'px '+FONT;ctx.textBaseline='alphabetic';
  const a=Math.max(0,Math.min(1,g.a)),c=ch(g);
  if(c=='√')drawRad(g,a);
  else if(c=='§')drawBar(g,a);
@@ -24,10 +37,10 @@ function drawG(g){const col=g.ans?'#d71920':'#000000';ctx.fillStyle=col;ctx.font
   ctx.fillText(disp(c),g.x,g.y);ctx.globalAlpha=1}
  if(g.ink&&g.a<.99){const k=Math.max(0,1-g.a*1.1);g.ink.forEach(s=>drawInk(s,k))}else g.ink=null}
 function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);const d=Math.min(devicePixelRatio||1,2);ctx.setTransform(d,0,0,d,0,0);
- if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle='#000000';ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText('write a sum',SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
+ if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle=palette.ink;ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText('write a sum',SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
  for(const L of lines){L.syms.forEach(drawG);L.ans.forEach(drawG);L.ink.forEach(s=>drawInk(s,1))}
  fx.forEach(drawG);ghosts.forEach(g=>drawInk(g.pts,1-(now-g.t0)/420));if(cur)drawInk(cur,1);
- if(drag){ctx.font='44px '+FONT;const w=ctx.measureText(drag.text).width+30,x=drag.x-w/2,y=drag.y-86;ctx.save();ctx.shadowColor='rgba(0,0,0,.25)';ctx.shadowBlur=14;ctx.shadowOffsetY=4;ctx.fillStyle='#fff';ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.fill();ctx.restore();ctx.fillStyle='#d71920';ctx.textBaseline='middle';ctx.fillText(drag.text,x+15,y+32);ctx.textBaseline='alphabetic'}}
+ if(drag){ctx.font='44px '+FONT;const w=ctx.measureText(drag.text).width+30,x=drag.x-w/2,y=drag.y-86;ctx.save();ctx.shadowColor=palette.dragShadow;ctx.shadowBlur=16;ctx.shadowOffsetY=4;ctx.fillStyle=palette.dragBackground;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.fill();ctx.restore();ctx.strokeStyle=palette.accent;ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.stroke();ctx.fillStyle=palette.accent;ctx.textBaseline='middle';ctx.fillText(drag.text,x+15,y+32);ctx.textBaseline='alphabetic'}}
 function stepG(g,dt,now){if(now<g.delay)return true;const k=1-Math.exp(-dt*7),k2=1-Math.exp(-dt*8);g.x+=(g.tx-g.x)*k;g.y+=(g.ty-g.y)*k;g.sz+=(g.tsz-g.sz)*k;g.a+=(g.ta-g.a)*k2;if(g.ot>0)g.ot=Math.max(0,g.ot-dt*4);
  let r=Math.abs(g.tx-g.x)>.3||Math.abs(g.ty-g.y)>.3||Math.abs(g.tsz-g.sz)>.3||Math.abs(g.ta-g.a)>.01||g.ot>0;
  if(g.vtx!==undefined){g.vx+=(g.vtx-g.vx)*k;if(Math.abs(g.vtx-g.vx)>.3)r=true}
@@ -324,7 +337,7 @@ function copyText(t){if(window.Android&&Android.copy){Android.copy(t);toast('Cop
 function shareText(t){if(window.Android&&Android.shareText)Android.shareText(t);else copyText(t)}
 function exportPNG(){const bs=[];for(const L of lines)L.syms.concat(L.ans).forEach(g=>{if(g.a>.3)bs.push(gbox(g))});if(!bs.length)return null;
  const x0=Math.min(...bs.map(b=>b.x0))-28,x1=Math.max(...bs.map(b=>b.x1))+28,y0=Math.min(...bs.map(b=>b.y0))-28,y1=Math.max(...bs.map(b=>b.y1))+28,k=2,c=document.createElement('canvas');
- c.width=Math.round((x1-x0)*k);c.height=Math.round((y1-y0)*k);const keep=ctx;ctx=c.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,c.width,c.height);ctx.setTransform(k,0,0,k,-x0*k,-y0*k);
+ c.width=Math.round((x1-x0)*k);c.height=Math.round((y1-y0)*k);const keep=ctx;ctx=c.getContext('2d');ctx.fillStyle=palette.canvas;ctx.fillRect(0,0,c.width,c.height);ctx.setTransform(k,0,0,k,-x0*k,-y0*k);
  for(const L of lines)L.syms.concat(L.ans).forEach(g=>{const a=g.a;g.a=Math.max(a,a>.3?1:a);drawG(g);g.a=a});ctx=keep;return c.toDataURL('image/png')}
 function toast(m){let t=$('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t)}t.textContent=m;t.style.opacity=1;clearTimeout(t.h);t.h=setTimeout(()=>t.style.opacity=0,1600)}
 /* ---------- menu / settings sheet ---------- */
@@ -345,11 +358,11 @@ function fitRings(){document.querySelectorAll('#panel .opt').forEach((b,n)=>{con
 function openSheet(page){const p=$('panel'),s=$('sheet'),first=s.style.display!='block';s.style.display='block';
  if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="Back">${ico('back')}</button><h2>History</h2><button class="done" data-a="hexp">Export</button></div>`+
   (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="Copy">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="Delete">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">Clear history</button>`:`<p class="empty">Nothing here yet.<br>Calculations are saved as you write them.</p>`)}
- else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.</p>`;
+ else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.</p>`;
  if(first){s.classList.remove('in');void s.offsetWidth}s.classList.add('in');fitRings()}
 const cleanAns=L=>L&&L.at?L.at.replace(/^=/,''):'';
 $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
- if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));refreshAll();return}
+ if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='theme')applyTheme();else refreshAll();return}
  const i=+d.i;switch(d.a){case'done':closeSheet();break;case'hist':openSheet('hist');break;case'back':openSheet('main');break;
   case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast('No result yet');closeSheet();break}
   case'img':{const u=exportPNG();if(!u)toast('Nothing to share');else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}
@@ -362,4 +375,4 @@ $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
 window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
 memRender();
-
+applyTheme();

@@ -5,7 +5,7 @@ async def fr(spec,expect,shot=None):
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page(viewport={'width':900,'height':380});errs=[]
         pg.on('pageerror',lambda e:errs.append(str(e)))
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(400)
+        await pg.goto('file:///home/claude/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(400)
         for kind,*a in spec:
             S={'g':lambda c,x,y,h:glyph(c,x,y,h),'b':bar}[kind](*a)
             for s in S:await stroke(pg,s)

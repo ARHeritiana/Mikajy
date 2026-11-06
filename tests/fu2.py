@@ -4,7 +4,7 @@ async def scen(label,order,bar_args):
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page(viewport={'width':520,'height':460});errs=[]
         pg.on('pageerror',lambda e:errs.append(str(e)))
-        await pg.goto('file:///home/claude/pkg/InkCalc-source/android/assets/index.html');await pg.wait_for_timeout(400)
+        await pg.goto('file:///home/claude/pkg/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(400)
         st=lambda:pg.evaluate("lines.map(L=>[L.syms.map(g=>(g.fp||'')+ch(g)).join(' '),L.at])")
         for s in glyph('2',50,110,90):await stroke(pg,s)
         await stroke(pg,[(120+i*4,150) for i in range(11)])

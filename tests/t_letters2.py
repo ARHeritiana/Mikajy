@@ -8,7 +8,7 @@ JS="""async (vs)=>{const xs=vs.map(v=>Float32Array.from(v)),ps=await Promise.all
  ctxfix(syms);wordfix(syms);const L={syms,ans:[]};let t=null;try{t=fmt(evalTok(tokenize(L)))}catch(e){t='ERR'};return [syms.map(g=>ch(g)).join(''),t]}"""
 async def main():
     async with async_playwright() as p:
-        b=await p.chromium.launch();pg=await b.new_page();await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(300)
+        b=await p.chromium.launch();pg=await b.new_page();await pg.goto('file:///home/claude/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(300)
         tests=['sin30','cos0','tan45','ln1','log100','sinh1','cosh0','tanh1','abs5','asin1','acos1','atan1','50%','2+3','15*4']
         ok=0;tot=0
         for fi,fp in enumerate(heldf):

@@ -1,8 +1,5 @@
 # Mikajy — handwriting calculator for Android
 
-Mikajy uses a black, red, and white visual identity: black handwriting on white paper, with red results and selected controls.
-The existing Android package ID is retained for upgrade compatibility.
-
 A blank screen: write maths with your finger, it turns into a handwritten-style typeset line and the
 answer appears next to it. Everything runs on the device (no network, no permissions).
 
@@ -26,7 +23,7 @@ answer appears next to it. Everything runs on the device (no network, no permiss
   mixed number — fractions only when the value is a small rational), **degrees / radians**.
 * **Export**: copy a result, share a PNG of the canvas, share history as text (through the Android share sheet).
 * Small sliders button (top-right, faint) opens the settings sheet: a paper-styled page in the app's own
-  handwriting, the chosen option circled in ink; History is a second page. Hardware Back closes sheets.
+  handwriting, the chosen option circled in red; History is a second page. Hardware Back closes sheets.
   In landscape the sheet docks to the right edge so it never covers the whole canvas.
 
 Notation notes: a raised `0` after a number is a degree sign (`30°`); `%` is "/100" (and `50+10%` = 55);
@@ -42,6 +39,11 @@ Write these directly; the answer appears like any other result (`web/cas.js` is 
 * **Algebra**: an expression in `x` ending in `=` is expanded, factored and its roots listed; `2x+3=7` still solves.
 Recogniser now has 39 classes (added `d m ∫ Σ → ∞`); `lim` is read as a word.
 
+## Look
+Black-red-white identity with a **Dark / Light** option in Settings, saved locally. Dark mode shows white handwriting on a black canvas; Light mode shows black handwriting on a white canvas. Answers, active controls and selection rings remain red in both.
+Logo: the retained original stylised *M* with an integral sign and red underline, stored in `branding/logo-512.png`. Run `branding/make_icon.py` to resize it for Android;
+`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app` (Android v4.3, versionCode 12).
+
 ## Layout
 ```
 web/                       the app (one HTML page, HTML5 canvas, no dependencies)
@@ -55,7 +57,7 @@ web/                       the app (one HTML page, HTML5 canvas, no dependencies
 android/                   WebView shell
   src/.../MainActivity.java   immersive WebView + JS bridge (copy, share text, share image, Back)
   src/.../ShareProvider.java  tiny ContentProvider used to share the PNG
-  AndroidManifest.xml, res/, ink.jks (demo signing key — make your own for releases)
+  AndroidManifest.xml, res/ (signing keys excluded from source)
 training/                  how the recogniser was trained (see below)
 tests/                     headless-browser tests (Playwright) used during development
 build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
@@ -64,6 +66,7 @@ build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
 ## Build
 ```
 sudo apt install openjdk-21-jdk-headless aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange python3
+# Export MIKAJY_KEYSTORE, MIKAJY_ALIAS, MIKAJY_STOREPASS and MIKAJY_KEYPASS first.
 ./build_apk.sh            # -> Mikajy.apk (minSdk 21, targetSdk 34)
 ```
 To iterate on the UI without Android, open `android/assets/index.html` in desktop Chrome after
@@ -102,3 +105,6 @@ Synthetic strokes (`train.py`) cover digits/operators/π/√/!/%; letters come o
 ## Licences / data
 Caveat font: SIL Open Font License. Training used MNIST and other OFL handwriting fonts; no font other than
 Caveat ships in the app. Code in this archive: use freely.
+
+## Release signing
+A signing key must **not** be committed. Keep the signing keystore safely backed up; Android requires the same signing key for updates to an installed package. If you installed an APK signed with a different key or package ID, it cannot be updated in place.

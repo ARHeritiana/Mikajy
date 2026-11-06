@@ -21,7 +21,7 @@ async def setup(pg):
 async def trial(name,mk,expect):
     async with async_playwright() as p:
         b=await p.chromium.launch();pg=await b.new_page(viewport={'width':900,'height':380})
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(400);await setup(pg)
+        await pg.goto('file:///home/claude/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(400);await setup(pg)
         bx=await pg.evaluate("lines[0].syms.map(g=>{const b=gbox(g);return [ch(g),b.x0,b.x1,b.y0,b.y1]})")
         await stroke(pg,mk(bx));await pg.wait_for_timeout(1500)
         r=await pg.evaluate("lines.map(L=>L.syms.map(ch).join(''))");r=r[0] if r else ''

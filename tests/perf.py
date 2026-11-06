@@ -5,7 +5,7 @@ async def main(rate):
     async with async_playwright() as p:
         b=await p.chromium.launch();ctx=await b.new_context(viewport={'width':412,'height':800},device_scale_factor=2.6);pg=await ctx.new_page()
         await pg.add_init_script("window.__lt=[];new PerformanceObserver(l=>{for(const e of l.getEntries())__lt.push(Math.round(e.duration))}).observe({entryTypes:['longtask']});window.__fr=[];let _l=0;(function f(t){if(_l)__fr.push(t-_l);_l=t;requestAnimationFrame(f)})(0)")
-        await pg.goto('file:///home/claude/ink/assets/index.html');await pg.wait_for_timeout(600)
+        await pg.goto('file:///home/claude/Mikajy-source/android/assets/index.html');await pg.wait_for_timeout(600)
         cdp=await ctx.new_cdp_session(pg);await cdp.send('Emulation.setCPUThrottlingRate',{'rate':rate})
         x=30
         for c in sys.argv[2]:

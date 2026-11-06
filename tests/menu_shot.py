@@ -1,6 +1,6 @@
 import asyncio
 from e2e2lib import *
-PAGE='file:///home/claude/pkg/InkCalc-source/android/assets/index.html'
+PAGE='file:///home/claude/pkg/Mikajy-source/android/assets/index.html'
 async def write(pg,s='25+7',y=200):
     x=40
     for c in s:
