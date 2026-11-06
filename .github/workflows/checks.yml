@@ -19,3 +19,9 @@ jobs:
         run: node --test tests/*.test.cjs
       - name: Rebuild WebView assets and syntax-check the assembled page
         run: python3 tests/build_check.py
+      - name: Install browser-test dependencies
+        run: |
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Exercise offline browser UI and CNN inference
+        run: python3 tests/browser_smoke.py
