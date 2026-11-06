@@ -30,6 +30,15 @@ Notation notes: a raised `0` after a number is a degree sign (`30°`); `%` is "/
 a `×`-shaped symbol is read as the variable `x` when it cannot be a multiplication (followed by `+ − = )`
 or by a raised exponent, or at the start of a side), otherwise as multiplication.
 
+## Advanced maths (handwritten, no extra UI)
+Write these directly; the answer appears like any other result (`web/cas.js` is the engine):
+* **Derivative**: `d/dx` as a stacked fraction (or `d/dx` inline) followed by the expression; `d²/dx²` with raised 2s.
+* **Integral**: `∫ f dx` gives the antiderivative `+ C`; `∫(a→b) f dx` is definite, bounds may be `π`, `-∞`, `∞`.
+* **Limit**: `lim(x→a) f`, with `a` a number, `π`, `∞` or `-∞`.
+* **Sum**: `Σ(x=1→10) f`, upper bound may be `∞` (convergence is checked).
+* **Algebra**: an expression in `x` ending in `=` is expanded, factored and its roots listed; `2x+3=7` still solves.
+Recogniser now has 39 classes (added `d m ∫ Σ → ∞`); `lim` is read as a word.
+
 ## Layout
 ```
 web/                       the app (one HTML page, HTML5 canvas, no dependencies)

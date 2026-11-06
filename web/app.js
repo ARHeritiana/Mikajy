@@ -58,14 +58,14 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Set();let inSup=false,num='',word='';
- const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||FUNCS.has(word))out.push(word);else throw 0;word=''}};
+ const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='d'||word=='lim'||FUNCS.has(word))out.push(word);else throw 0;word=''}};
  A.forEach((g,k)=>{const c=ch(g);
   if(g.sup&&!inSup){fN();fW();out.push('^','(');inSup=true}
   if(!g.sup&&inSup){fN();fW();out.push(')');inSup=false}
   if(/[0-9.]/.test(c)){fW();num+=c}else if(/[a-z]/.test(c)){fN();word+=c}
   else{fN();fW();
    if(c=='§'){const n=tokSeq(L,partsOf(L,g,'n'),false),d=tokSeq(L,partsOf(L,g,'d'),false);if(!n.length||!d.length)throw 0;out.push('(','(',...n,')','/','(',...d,')',')')}
-   else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.add(k+n)}}else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||'+-*/=)%'.includes(nc)||!pv||'+-*/=('.includes(pc))?'x':'*')}else out.push(c)}
+   else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.add(k+n)}}else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||'+-*/=)%→'.includes(nc)||!pv||'+-*/=(d'.includes(pc))?'x':'*')}else out.push(c)}
   if(close.has(k)){fN();fW();if(inSup&&!(A[k+1]&&A[k+1].sup)){out.push(')');inSup=false}out.push(')')}});
  fN();fW();if(inSup)out.push(')');return out}
 function tokenize(L){return tokSeq(L,seqs(L)[0],true)}
@@ -112,7 +112,7 @@ function resPieces(v){if(!Number.isFinite(v))return[SP('?')];
  return[SP(fmt(v))]}
 const pText=P=>P.map((p,i)=>p.s!==undefined?p.s:(i&&P[i-1].s!==undefined&&/\d$/.test(P[i-1].s)?' ':'')+p.f[0]+'/'+p.f[1]).join('');
 function computeAns(L){const last=L.syms[L.syms.length-1],eq=last&&ch(last)=='=';let T;try{T=tokenize(L)}catch(e){return null}if(!T.length)return null;
- const ei=T.indexOf('=');
+ const ei=T.indexOf('=');{const S=CAS.special(T,eq);if(S===false)return null;if(S)return S}
  try{if(ei>=0){if(T.indexOf('=',ei+1)>=0)return null;const Lt=T.slice(0,ei),Rt=T.slice(ei+1);if(!Lt.length||!Rt.length||!T.includes('x'))return null;
    const r=solveEq(Lt,Rt);if(r==null)return null;let P=[SP('x='),...(r=='all'?[SP('ℝ')]:r.length?[]:[SP('∅')])];
    if(Array.isArray(r))r.forEach((q,k)=>{if(k)P.push(SP(', '));P.push(...resPieces(q))});return{pieces:P,text:pText(P),val:Array.isArray(r)&&r.length?r[0]:undefined}}
@@ -165,7 +165,7 @@ function ctxfix(arr){let pc='',open=0;arr.forEach((y,k)=>{if(y.fresh){const last
  if('*/)'.includes(c)&&(k==0||'+-*/('.includes(pc)))f*=.25;if(c==')'&&open<=0)f*=.3;if(c=='='&&!last)f*=.3;if(last&&'+-*/'.includes(c))f*=.5;o.p*=f});
  y.c.sort((a,b)=>b.p-a.p);y.c=y.c.slice(0,5);y.i=0;y.fresh=false}
  const c=ch(y);if(c=='(')open++;if(c==')')open--;pc=c})}
-const WORDS=['sinh','cosh','tanh','asin','acos','atan','sin','cos','tan','log','ln','abs'];
+const WORDS=['lim','sinh','cosh','tanh','asin','acos','atan','sin','cos','tan','log','ln','abs'];
 function wordfix(A){const n=A.length,used=new Array(n).fill(false),idx=(g,c)=>g.c.findIndex(o=>o.c==c&&o.p>.002);
  for(let i=0;i<n;i++){let best=null;for(const w of WORDS){if(i+w.length>n)continue;let sc=1,ok=true;
   for(let j=0;j<w.length;j++){const g=A[i+j];if(g.locked||used[i+j]){ok=false;break}const k=idx(g,w[j]);if(k<0){ok=false;break}sc*=g.c[k].p}
@@ -362,3 +362,4 @@ $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
 window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
 memRender();
+

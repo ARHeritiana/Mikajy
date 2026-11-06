@@ -2,7 +2,7 @@ import numpy as np, pickle, gzip, json, base64, time, sys, glob, os, math, cv2
 from PIL import Image, ImageDraw, ImageFont
 from fontTools.ttLib import TTFont
 from skimage.morphology import skeletonize
-src=open('train.py').read().split("D=load_digits()")[0].replace("R.uniform(1.6,2.8)*4","R.uniform(2.2,3.6)*4")
+src=open('train.py').read().split("D=load_digits()")[0].replace("if c=='-':sx=1;sy=1","if c=='-':sx=1;sy=1\n    if c in '→∞':sx=R.uniform(1,1.6)\n    if c=='Σ':sx=R.uniform(.6,1.1)").replace("R.uniform(1.6,2.8)*4","R.uniform(2.2,3.6)*4")
 exec(src)
 T0=T
 def T(c):
@@ -17,14 +17,23 @@ def T(c):
         k=R.uniform(-.1,.1);return ch([[[(.35+k,0),(.3,.72)],[(.3,.93),(.3,.98)]],[[(.4,0),(.4,.7)],[(.4,.9),(.4,.95)]]])
     if c=='%':
         s=1.4;return [[(x*s,y) for x,y in st] for st in ch([[arc(.2,.2,.17,.17,0,360,14),[(.85,.05),(.15,.95)],arc(.8,.8,.17,.17,0,360,14)],[arc(.2,.22,.16,.16,-90,270,14),[(.8,0),(.2,1)],arc(.8,.78,.16,.16,-90,270,14)]])]
+    if c=='∫':
+        k=R.uniform(-.12,.12);return ch([[[(.85+k,.12),(.7+k,0),(.58+k,.12),(.5,.5),(.42-k,.88),(.3-k,1),(.15-k,.88)]],[[(.8,.1),(.65,0),(.55,.1)]+[(.5+.05*k,.5),(.45,.9)]+[(.35,1),(.2,.9)]],[[(.7+k,0),(.3-k,1)],[(.85,.12),(.7,0)],[(.3,1),(.15,.88)]]])
+    if c=='Σ':
+        return ch([[[(.95,0),(0,0),(.55,.5),(0,1),(.95,1)]],[[(1,.05),(.05,0),(.55,.5)],[(.55,.5),(.05,1),(1,1)]],[[(.95,.1),(.9,0),(0,0),(.55,.5),(0,1),(.9,1),(.95,.9)]]])
+    if c=='→':
+        return ch([[[(0,.5),(1,.5)],[(.7,.2),(1,.5),(.7,.8)]],[[(0,.5),(1,.5),(.7,.2)],[(1,.5),(.7,.8)]],[[(0,.5),(1,.5)],[(.65,.15),(1,.5)],[(1,.5),(.65,.85)]]])
+    if c=='∞':
+        t=np.linspace(0,2*math.pi,36);L=[(.5+.5*math.cos(a)/(1+math.sin(a)**2),.5+.55*math.sin(a)*math.cos(a)/(1+math.sin(a)**2)) for a in t]
+        return ch([[L],[arc(.25,.5,.25,.3,0,360,16),arc(.75,.5,.25,.3,180,540,16)],[arc(.25,.5,.25,.3,-40,320,16)+arc(.75,.5,.25,.3,140,500,16)]])
     return T0(c)
-CL=list('0123456789')+['+','-','*','/','(',')','=']+list('acegilnost')+['π','√','!']+['h','b','%']
+CL=list('0123456789')+['+','-','*','/','(',')','=']+list('acegilnost')+['π','√','!']+['h','b','%']+['d','m','∫','Σ','→','∞']
 NC=len(CL);print('classes',NC,flush=True)
 HELD=['Kalam-Regular','Handlee-Regular','Mali-Regular','ReenieBeanie']
 fonts=[f for f in glob.glob('/tmp/fonts/*.ttf')]+['/tmp/caveat.ttf']
 CH={'+':['+'],'-':['-'],'*':['×','x'],'/':['/','÷'],'(':['('],')':[')'],'=':['='],'π':['π'],'!':['!']}
 for d in '0123456789':CH[d]=[d]
-for l in 'acegilnosthb':CH[l]=[l,l.upper()]
+for l in 'acegilnosthbdm':CH[l]=[l,l.upper()]
 CH['%']=['%']
 SK={}
 def skel(fp,ch):
@@ -79,9 +88,10 @@ trainf=[f for f in fonts if os.path.basename(f)[:-4] not in HELD];heldf=[f for f
 print('fonts',len(trainf),len(heldf),flush=True)
 X=[Xm];Y=[Ym];t0=time.time()
 for k,c in enumerate(CL):
-    ns=1200 if k<10 else 2500;nf=1500 if k<10 else (3500 if c in 'acegilnosthb' else 2500)
-    if c in 'acegilnosthb':ns=0
+    ns=1200 if k<10 else 2500;nf=1500 if k<10 else (3500 if c in 'acegilnosthbdm' else 2500)
+    if c in 'acegilnosthbdm':ns=0
     if c=='√':ns,nf=7000,0
+    if c in '∫Σ→∞':ns,nf=4500,0
     if c=='π':ns=3500;nf=2500
     if c=='!':ns=2500;nf=2500
     cf='cache/%d.npy'%k
@@ -94,7 +104,7 @@ for k,c in enumerate(CL):
 X=np.concatenate(X).astype(np.float32);Y=np.concatenate(Y).astype(np.int64);print('data',X.shape,flush=True)
 Xs=[];Ys=[];Xh=[];Yh=[]
 for k in range(NC):
-    if CL[k] not in 'acegilnosthb':Xs+=sgen(k,50,9000+k);Ys+=[k]*50
+    if CL[k] not in 'acegilnosthbdm':Xs+=sgen(k,50,9000+k);Ys+=[k]*50
     h=fgen(k,60,heldf,9500+k);Xh+=h;Yh+=[k]*len(h)
 Xs=np.array(Xs,np.float32);Ys=np.array(Ys);Xh=np.array(Xh,np.float32);Yh=np.array(Yh)
 import jax,jax.numpy as jnp,optax
