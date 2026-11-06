@@ -69,3 +69,21 @@ test('polynomial coefficients handled exactly without floating point identity gu
   assert.equal(r.roots[0].value,3);
   assert.equal(r.roots[0].rational.n,3n);
 });
+
+test('trigonometric rounding noise is removed but real small values survive', () => {
+  assert.equal(v(['sin', '(', '180', ')'], {angle: 'deg'}), 0);
+  assert.equal(v(['sin', '(', '360', ')'], {angle: 'deg'}), 0);
+  assert.equal(v(['cos', '(', '90', ')'], {angle: 'deg'}), 0);
+  assert.equal(v(['sin', '(', 'π', ')'], {angle: 'rad'}), 0);
+  assert.equal(v(['cos', '(', 'π', '/', '2', ')'], {angle: 'rad'}), 0);
+  within(v(['sin', '(', '30', ')'], {angle: 'deg'}), 0.5);
+  within(v(['sin', '(', '.0000001', ')'], {angle: 'rad'}), 1e-7, 1e-20); // small argument: value is real
+  within(v(['cos', '(', '60', ')'], {angle: 'deg'}), 0.5);
+});
+test('hostile input stays bounded', () => {
+  const deep = [...Array(70).fill('('), '1', ...Array(70).fill(')')];
+  fails(() => v(deep), 'unsupported');
+  fails(() => v(Array(200).fill('1')), 'unsupported');
+  assert.throws(() => v('not-an-array'), MathCore.MathError);
+  fails(() => v(['9', '!', '!', '!', '!']), 'undefined'); // 9!!!! overflows the factorial domain
+});

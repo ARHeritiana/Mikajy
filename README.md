@@ -55,7 +55,7 @@ are prefixed `≈`; fraction/mixed display is used only for known exact rational
 ## Look
 Black-red-white identity with a **Dark / Light** option in Settings, saved locally. Dark mode shows white handwriting on a black canvas; Light mode shows black handwriting on a white canvas. Answers, active controls and selection rings remain red in both.
 Logo: the user-selected white **M** over a black-and-red rounded square, extracted from the supplied reference screenshot (not redesigned), stored in `branding/logo-512.png`. Run `branding/make_icon.py` to resize it for Android;
-`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app` (Android v4.4, versionCode 13).
+`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app` (Android v4.5, versionCode 14).
 
 ## Layout
 ```
@@ -64,6 +64,7 @@ web/                       the app (one HTML page, HTML5 canvas, no dependencies
   math-core.js             strict parser, AST, real evaluation and rational polynomial solver
   calculator.js            formatting and UI-facing calculation adapter
   settings.js              validated local preferences
+  storage.js               validated, size-bounded access to localStorage (history, memory, personalisation)
   app.js                   canvas, animation, interaction, editing, history and memory
   core_main.js             stroke grouping, personalisation and classification
   model/model4.json        trained weights (legacy classification model)
@@ -80,8 +81,8 @@ build_apk.sh               javac + dx + aapt + zipalign + apksigner (no Gradle)
 
 ## Tests and build
 
-Run `node --test tests/*.test.cjs` (Node 20+) for deterministic mathematical
-and settings regression tests. Then run `python3 web/build_web.py` to generate
+Run `node --test tests/*.test.cjs` (Node 20+) for deterministic mathematical,
+settings and storage-validation tests. Then run `python3 web/build_web.py` to generate
 the self-contained offline WebView page. CI runs these checks on each push.
 The build script also supports `MIKAJY_UNSIGNED_ONLY=1 ./build_apk.sh` to
 compile and package an **unsigned, non-installable verification APK** with the
@@ -92,9 +93,12 @@ no signing key is stored in this repository.
 ## Build
 ```
 sudo apt install openjdk-21-jdk-headless aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange python3
-# Export MIKAJY_KEYSTORE, MIKAJY_ALIAS, MIKAJY_STOREPASS and MIKAJY_KEYPASS first.
+./tools_make_keystore.sh ~/keys/mikajy-release.jks   # once; prints the MIKAJY_* variables to export
+# Export MIKAJY_KEYSTORE, MIKAJY_ALIAS, MIKAJY_STOREPASS and MIKAJY_KEYPASS.
 ./build_apk.sh            # -> Mikajy.apk (minSdk 21, targetSdk 34)
 ```
+The build fails on any compiler warning, and checks that the APK has the expected package id,
+contains the page and `classes.dex`, and requests **no permissions**.
 To iterate on the UI without Android, open `android/assets/index.html` in desktop Chrome after
 `python3 web/build_web.py` (the Java bridge calls fall back to clipboard/new tab).
 
@@ -119,6 +123,15 @@ Needs: python3, numpy, scipy, jax, optax, opencv-python-headless, scikit-image, 
 trains with checkpoints (`ckpt4.pkl`, resumable) and writes `model4.json`; copy it to `web/model/`.
 Synthetic strokes (`train.py`) cover digits/operators/π/√/!/%; letters come only from fonts
 (skeletonised, warped, re-inked at pen width), so real handwriting is the main unknown.
+
+## Security model
+* The page is the only content the WebView loads (`file:///android_asset/`); every other navigation is refused,
+  network loads are blocked and the app declares no `INTERNET` permission.
+* The page carries a strict Content-Security-Policy (`default-src 'none'`, no `eval`, no remote origins).
+* The JavaScript bridge has three methods (`copy`, `shareText`, `shareImage`); each validates type and size.
+* Everything read back from `localStorage` is treated as untrusted and re-validated (`web/storage.js`).
+* Backups are disabled; the shared PNG lives in the app cache and is removed on the next start.
+See `AUDIT.md` for the full review and the remaining known debt.
 
 ## Known limits
 * No automatic line wrapping: a long expression shrinks to fit the width; start another line instead.

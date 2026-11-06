@@ -1,12 +1,16 @@
-name: Mikajy correctness checks
+name: Mikajy checks
 on:
   push:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  maths-and-web:
+  web:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,17 +19,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Mathematical, settings and formatting regression tests
+      - name: Unit tests (maths, calculator, settings, storage)
         run: node --test tests/*.test.cjs
-      - name: Rebuild WebView assets and syntax-check the assembled page
+      - name: Build the offline page and check CSP / no-eval / syntax
         run: python3 tests/build_check.py
       - name: Install browser-test dependencies
         run: |
           python3 -m pip install playwright
           python3 -m playwright install --with-deps chromium
-      - name: Exercise offline browser UI and CNN inference
+      - name: Browser smoke test (worker + fallback inference, CSP, hostile storage, no network)
         run: python3 tests/browser_smoke.py
-      - name: Compile and package unsigned Android APK
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends openjdk-21-jdk-headless aapt zipalign \
+            android-sdk-platform-23 dalvik-exchange python3
+      - name: Compile and package (unsigned, verification only)
         env:
           MIKAJY_UNSIGNED_ONLY: '1'
         run: ./build_apk.sh

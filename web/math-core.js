@@ -192,7 +192,9 @@ const MathCore = (() => {
           acos: Math.acos, atan: Math.atan, sinh: Math.sinh, cosh: Math.cosh,
           tanh: Math.tanh, ln: Math.log, log: Math.log10, abs: Math.abs, sqrt: Math.sqrt}[n.name];
         if (!fn) fail('unsupported');
-        const v2 = fn(a);
+        let v2 = fn(a);
+        // sin(pi), cos(pi/2)... are 0, not 1.2e-16: drop rounding noise of the argument reduction only.
+        if (trig && Math.abs(a) >= 0.5 && Math.abs(v2) < 4e-16 * Math.max(1, Math.abs(a))) v2 = 0;
         return finite(['asin', 'acos', 'atan'].includes(n.name) ? v2 / k : v2);
       }
       default: fail('unsupported');

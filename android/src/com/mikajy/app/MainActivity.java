@@ -1,86 +1,167 @@
 package com.mikajy.app;
+
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.util.Log;
+
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * Immersive, fully offline WebView shell. The page is loaded from the APK's assets only;
+ * every other navigation is refused and network loads are blocked.
+ */
 public class MainActivity extends Activity {
-  WebView w;
-  void immersive(){
-    getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+  private static final String TAG = "Mikajy";
+  private static final String PAGE = "file:///android_asset/index.html";
+  private static final String ASSET_PREFIX = "file:///android_asset/";
+  private static final int MAX_TEXT_CHARS = 256 * 1024;
+  private static final int MAX_BASE64_CHARS = 8 * 1024 * 1024;
+  private static final int MAX_PNG_BYTES = 6 * 1024 * 1024;
+  private static final byte[] PNG_MAGIC = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+
+  private WebView web;
+  private ExecutorService io;
+
+  private void immersive() {
+    getWindow().getDecorView().setSystemUiVisibility(
+        View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
   }
+
+  static boolean isPng(byte[] data) {
+    if (data == null || data.length < PNG_MAGIC.length) return false;
+    for (int i = 0; i < PNG_MAGIC.length; i++) if (data[i] != PNG_MAGIC[i]) return false;
+    return true;
+  }
+
+  /** Methods exposed to the (local, trusted) page. Each one validates its input. */
   public class Bridge {
-    @JavascriptInterface public void copy(final String t){
-      runOnUiThread(new Runnable(){ public void run(){
-        ClipboardManager c=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
-        c.setPrimaryClip(ClipData.newPlainText("Mikajy",t)); }});
+    @JavascriptInterface public void copy(final String text) {
+      if (text == null || text.length() > MAX_TEXT_CHARS) return;
+      runOnUiThread(new Runnable() { @Override public void run() {
+        ClipboardManager clip = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clip != null) clip.setPrimaryClip(ClipData.newPlainText("Mikajy", text));
+      }});
     }
-    @JavascriptInterface public void shareText(final String t){
-      runOnUiThread(new Runnable(){ public void run(){
-        Intent i=new Intent(Intent.ACTION_SEND); i.setType("text/plain"); i.putExtra(Intent.EXTRA_TEXT,t);
-        startActivity(Intent.createChooser(i,"Share")); }});
+
+    @JavascriptInterface public void shareText(final String text) {
+      if (text == null || text.length() > MAX_TEXT_CHARS) return;
+      runOnUiThread(new Runnable() { @Override public void run() {
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("text/plain");
+        send.putExtra(Intent.EXTRA_TEXT, text);
+        startActivity(Intent.createChooser(send, "Share"));
+      }});
     }
-    @JavascriptInterface public void shareImage(final String b64){
-      if (b64 == null || b64.length() > 8 * 1024 * 1024) return;
-      runOnUiThread(new Runnable(){ public void run(){
-        try{
-          byte[] image=Base64.decode(b64,Base64.DEFAULT);
-          if (image.length < 8 || image.length > 6 * 1024 * 1024
-              || (image[0] & 255) != 137 || image[1] != 80 || image[2] != 78 || image[3] != 71
-              || image[4] != 13 || image[5] != 10 || image[6] != 26 || image[7] != 10) return;
-          File dir=new File(getCacheDir(),"share");
+
+    @JavascriptInterface public void shareImage(final String base64) {
+      if (base64 == null || base64.length() > MAX_BASE64_CHARS) return;
+      io.execute(new Runnable() { @Override public void run() {
+        try {
+          final byte[] image = Base64.decode(base64, Base64.DEFAULT);
+          if (image.length > MAX_PNG_BYTES || !isPng(image)) return;
+          File dir = ShareProvider.shareDir(MainActivity.this);
           if (!dir.isDirectory() && !dir.mkdirs()) return;
-          File f=new File(dir,"mikajy.png");
-          try (FileOutputStream o=new FileOutputStream(f)) { o.write(image); }
-          Uri u=Uri.parse("content://com.mikajy.app.share/mikajy.png?t="+System.currentTimeMillis());
-          Intent i=new Intent(Intent.ACTION_SEND); i.setType("image/png"); i.putExtra(Intent.EXTRA_STREAM,u);
-          i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-          startActivity(Intent.createChooser(i,"Share image"));
-        }catch(Exception e){ Log.e("Mikajy","Image sharing failed",e); }
+          try (FileOutputStream out = new FileOutputStream(new File(dir, ShareProvider.FILE_NAME))) {
+            out.write(image);
+          }
+          runOnUiThread(new Runnable() { @Override public void run() {
+            Uri uri = Uri.parse("content://" + ShareProvider.AUTHORITY + "/" + ShareProvider.FILE_NAME
+                + "?t=" + System.currentTimeMillis());
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("image/png");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send, "Share image"));
+          }});
+        } catch (IllegalArgumentException | IOException e) {
+          Log.e(TAG, "Image sharing failed", e);
+        }
       }});
     }
   }
-  @Override protected void onCreate(Bundle b){
-    super.onCreate(b);
-    w=new WebView(this); w.setBackgroundColor(0xFF000000); getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0xFF000000)); setContentView(w);
-    WebSettings s=w.getSettings();
-    s.setJavaScriptEnabled(true); s.setDomStorageEnabled(true);
+
+  @Override protected void onCreate(Bundle state) {
+    super.onCreate(state);
+    io = Executors.newSingleThreadExecutor();
+    // The shared PNG is only needed for the lifetime of one share action; drop leftovers.
+    io.execute(new Runnable() { @Override public void run() { ShareProvider.clear(MainActivity.this); }});
+
+    web = new WebView(this);
+    web.setBackgroundColor(Color.BLACK);
+    getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+    setContentView(web);
+
+    WebView.setWebContentsDebuggingEnabled(false);
+    WebSettings s = web.getSettings();
+    s.setJavaScriptEnabled(true);          // the app is JavaScript
+    s.setDomStorageEnabled(true);          // settings, history, personalisation
+    s.setAllowFileAccess(false);           // file:///android_asset stays reachable regardless
     s.setAllowFileAccessFromFileURLs(false);
     s.setAllowUniversalAccessFromFileURLs(false);
     s.setAllowContentAccess(false);
+    s.setGeolocationEnabled(false);
+    s.setSaveFormData(false);
     s.setJavaScriptCanOpenWindowsAutomatically(false);
     s.setSupportMultipleWindows(false);
     s.setBlockNetworkLoads(true);
     s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-    w.setWebViewClient(new WebViewClient() {
-      @Override public boolean shouldOverrideUrlLoading(WebView view,String url) {
-        return !url.startsWith("file:///android_asset/");
+
+    web.setWebViewClient(new WebViewClient() {
+      @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        return url == null || !url.startsWith(ASSET_PREFIX);
       }
     });
-    w.setOverScrollMode(View.OVER_SCROLL_NEVER);
-    w.addJavascriptInterface(new Bridge(),"Android");
-    w.loadUrl("file:///android_asset/index.html");
+    web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+    web.addJavascriptInterface(new Bridge(), "Android");
+    web.loadUrl(PAGE);
     immersive();
   }
-  @Override protected void onDestroy(){
-    if (w!=null){ w.removeJavascriptInterface("Android"); w.destroy(); w=null; }
+
+  @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+
+  @Override protected void onPause() { if (web != null) web.onPause(); super.onPause(); }
+
+  @Override protected void onDestroy() {
+    if (io != null) { io.shutdown(); io = null; }
+    if (web != null) {
+      web.removeJavascriptInterface("Android");
+      web.destroy();
+      web = null;
+    }
     super.onDestroy();
   }
-  @Override public void onWindowFocusChanged(boolean f){ super.onWindowFocusChanged(f); if(f) immersive(); }
-  @Override public void onBackPressed(){
-    w.evaluateJavascript("(window.onBack&&window.onBack())?'1':'0'",new ValueCallback<String>(){
-      public void onReceiveValue(String v){ if(v==null||!v.contains("1")) MainActivity.super.onBackPressed(); }});
+
+  @Override public void onWindowFocusChanged(boolean focus) {
+    super.onWindowFocusChanged(focus);
+    if (focus) immersive();
+  }
+
+  @Override public void onBackPressed() {
+    if (web == null) { super.onBackPressed(); return; }
+    web.evaluateJavascript("(window.onBack&&window.onBack())?'1':'0'", new ValueCallback<String>() {
+      @Override public void onReceiveValue(String result) {
+        if (!"\"1\"".equals(result)) MainActivity.super.onBackPressed();
+      }
+    });
   }
 }

@@ -71,13 +71,13 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Set();let inSup=false,num='',word='';
- const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||FUNCS.has(word))out.push(word);else throw 0;word=''}};
+ const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
  A.forEach((g,k)=>{const c=ch(g);
   if(g.sup&&!inSup){fN();fW();out.push('^','(');inSup=true}
   if(!g.sup&&inSup){fN();fW();out.push(')');inSup=false}
   if(/[0-9.]/.test(c)){fW();num+=c}else if(/[a-z]/.test(c)){fN();word+=c}
   else{fN();fW();
-   if(c=='§'){const n=tokSeq(L,partsOf(L,g,'n'),false),d=tokSeq(L,partsOf(L,g,'d'),false);if(!n.length||!d.length)throw 0;out.push('(','(',...n,')','/','(',...d,')',')')}
+   if(c=='§'){const n=tokSeq(L,partsOf(L,g,'n'),false),d=tokSeq(L,partsOf(L,g,'d'),false);if(!n.length||!d.length)throw new Error('empty fraction part');out.push('(','(',...n,')','/','(',...d,')',')')}
    else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.add(k+n)}}else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||'+-*/=)%→d'.includes(nc)||!pv||'+-*/=(d∫→'.includes(pc))?'x':'*')}else out.push(c)}
   if(close.has(k)){fN();fW();if(inSup&&!(A[k+1]&&A[k+1].sup)){out.push(')');inSup=false}out.push(')')}});
  fN();fW();if(inSup)out.push(')');return out}
@@ -153,9 +153,11 @@ function assignSup(A){let B=null,inSup=false;for(const g of A){const c=ch(g),b=g
  if(sup){g.sup=true;inSup=true}else{inSup=false;B=(isOp&&c!=')')||c=='√'?null:g}}}
 function assignCover(A){A.forEach((g,k)=>{if(ch(g)=='√'&&g.vin){let n=0;for(let j=k+1;j<A.length;j++){if(!A[j].b)break;const cx=(A[j].b.x0+A[j].b.x1)/2;if(cx>=g.vin.x0-10&&cx<=g.vin.x1+14)n++;else break}g.cover=n}})}
 const CLS=/*CLS*/;
+loadMem(CLS);
 const cnnSrc=document.getElementById('cnn').textContent;
 let wk=null,pend=new Map(),pid=0,local=null,workerUrl=null;
-function localPredict(x){if(!local)local=new Function(cnnSrc+';return predict')();return local(x)}
+function localPredict(x){if(!local){const s=document.createElement('script');s.textContent='window.__mikajyPredict=(function(){'+cnnSrc+';return predict})();';
+  document.head.appendChild(s);s.remove();local=window.__mikajyPredict;delete window.__mikajyPredict}return local(x)}
 function localFallback(q){
  setTimeout(()=>{try{q.res(localPredict(q.x))}catch(e){q.reject(e)}},0);
 }
@@ -257,11 +259,11 @@ async function doRecognize(){moveBarsToHosts();const jobs=[];
 function learnLater(g){clearTimeout(g.lt);g.lt=setTimeout(()=>{if(g.fv&&g.c[g.i])remember(g.fv,g.c[g.i].c)},2500)}
 function tapCycle(p){for(const L of lines)for(const g of L.syms){const b=gbox(g);if(g.c.length>1&&p[0]>b.x0-8&&p[0]<b.x1+8&&p[1]>b.y0-8&&p[1]<b.y1+8){g.old=ch(g);g.ot=1;g.i=(g.i+1)%g.c.length;g.locked=true;layout(L);updateAns(L);if(g.fv)learnLater(g);kick();return true}}return false}
 const pt=e=>[e.clientX,e.clientY];
-cv.onpointerdown=e=>{clearTimeout(rt);cv.setPointerCapture(e.pointerId);started=true;cur=[pt(e)];down={t:performance.now(),p:pt(e),len:0};clearTimeout(lp);
+cv.onpointerdown=e=>{if(!e.isPrimary)return;clearTimeout(rt);cv.setPointerCapture(e.pointerId);started=true;cur=[pt(e)];down={t:performance.now(),p:pt(e),len:0};clearTimeout(lp);
  lp=setTimeout(()=>{if(cur&&down.len<8){const d=hitDrag(down.p);if(d){cur=null;beginDrag(d,down.p)}}},450);kick()};
-cv.onpointermove=e=>{if(drag){dragMove(pt(e));return}if(!cur)return;const es=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+cv.onpointermove=e=>{if(!e.isPrimary)return;if(drag){dragMove(pt(e));return}if(!cur)return;const es=e.getCoalescedEvents?e.getCoalescedEvents():[e];
  for(const ev of es){const q=pt(ev),l=cur[cur.length-1];const d=Math.hypot(q[0]-l[0],q[1]-l[1]);if(d<2.5)continue;down.len+=d;cur.raw=q;cur.push([l[0]*.35+q[0]*.65,l[1]*.35+q[1]*.65])}if(down.len>=8)clearTimeout(lp)};
-cv.onpointerup=cv.onpointercancel=()=>{clearTimeout(lp);if(drag){dragEnd();return}let s=cur;cur=null;if(!s)return;if(s.raw&&s.length>1)s.push(s.raw);
+cv.onpointerup=cv.onpointercancel=e=>{if(e&&e.isPrimary===false)return;clearTimeout(lp);if(drag){dragEnd();return}let s=cur;cur=null;if(!s)return;if(s.raw&&s.length>1)s.push(s.raw);
  if(down.len<8&&performance.now()-down.t<350&&tapCycle(down.p)){return}
  if(isScribble(s))scribble(s);else{const r=radical(s);attach(r||s)}
  rt=setTimeout(recognize,650);kick()};
@@ -269,8 +271,8 @@ addEventListener('resize',fit);
 document.fonts.load('40px H').then(()=>{fit()});fit();
 
 /* ---------- memory bar, drag & drop ---------- */
-let MEMV=[];try{MEMV=JSON.parse(localStorage.getItem('inkmem')||'[]')}catch(e){}
-const memSave=()=>{try{localStorage.setItem('inkmem',JSON.stringify(MEMV))}catch(e){}};
+let MEMV=Store.cleanChips(Store.loadArray(localStorage,'inkmem'));
+const memSave=()=>{Store.save(localStorage,'inkmem',MEMV)};
 function memRender(){const m=$('mem');m.innerHTML='';MEMV.forEach((v,i)=>{const c=document.createElement('div');c.className='chip';c.textContent=v;
  const x=document.createElement('b');x.textContent='×';x.onclick=e=>{e.stopPropagation();MEMV.splice(i,1);memSave();memRender()};c.appendChild(x);chipDrag(c,v);m.appendChild(c)});
  m.style.display=(MEMV.length||drag)?'flex':'none';m.classList.toggle('hot',!!drag&&drag.y>SH-70)}
@@ -279,7 +281,7 @@ function chipDrag(c,v){let t=null,sp=null;c.onpointerdown=e=>{if(e.target.tagNam
  c.onpointermove=e=>{if(drag)dragMove([e.clientX,e.clientY]);else if(sp&&Math.hypot(e.clientX-sp[0],e.clientY-sp[1])>10)clearTimeout(t)};
  c.onpointerup=c.onpointercancel=()=>{clearTimeout(t);if(drag)dragEnd()}}
 function hitDrag(p){for(const L of lines){
- for(const g of L.ans){if(ch(g)=='§')continue;const b=gbox(g);if(p[0]>=b.x0-8&&p[0]<=b.x1+8&&p[1]>=b.y0-8&&p[1]<=b.y1+8&&Number.isFinite(L.val))return{text:fmt(L.val),src:null,L}}
+ for(const g of L.ans){if(ch(g)=='§')continue;const b=gbox(g);if(p[0]>=b.x0-8&&p[0]<=b.x1+8&&p[1]>=b.y0-8&&p[1]<=b.y1+8&&Number.isFinite(L.val)){const t=Store.plainNumber(L.val);if(t)return{text:t,src:null,L}}}
  const S=L.syms;for(let k=0;k<S.length;k++){const g=S[k];if(!/[0-9.]/.test(ch(g)))continue;const b=gbox(g);
   if(p[0]>=b.x0-8&&p[0]<=b.x1+8&&p[1]>=b.y0-8&&p[1]<=b.y1+8){let a=k,z=k;const same=s=>s&&s.fid===g.fid&&s.fp===g.fp&&/[0-9.]/.test(ch(s))&&!!s.sup===!!g.sup;
    while(same(S[a-1]))a--;while(same(S[z+1]))z++;const run=S.slice(a,z+1);return{text:run.map(ch).join(''),src:{L,run},L}}}}return null}
@@ -296,8 +298,8 @@ function drop(d){const x=d.x,y=d.y;if(y>SH-70){if(!d.fromMem)memAdd(d.text);retu
   gs.forEach(g=>{g.sz=tgt.F;g.x=x;g.y=y;g.a=0;g.ta=1});layout(tgt);tgt.at='\0';updateAns(tgt)}
  else{const F=d.src&&d.src.L?d.src.L.F:70,L={syms:gs,ans:[],ink:[],x0:Math.max(12,x-.3*F*gs.length),base:y,F,at:null};gs.forEach(g=>{g.sz=F;g.x=x;g.y=y;g.a=0;g.ta=1});lines.push(L);layout(L);updateAns(L)}}
 /* ---------- history ---------- */
-let HIST=[];try{HIST=JSON.parse(localStorage.getItem('inkhist')||'[]')}catch(e){}
-const histPersist=()=>{try{localStorage.setItem('inkhist',JSON.stringify(HIST))}catch(e){}};
+let HIST=Store.cleanHistory(Store.loadArray(localStorage,'inkhist'));
+const histPersist=()=>{Store.save(localStorage,'inkhist',HIST)};
 const SUP='⁰¹²³⁴⁵⁶⁷⁸⁹';
 function strSeq(L,A){let o='',run='',inSup=false;const flush=()=>{if(!run)return;o+=/^[0-9]+$/.test(run)?[...run].map(c=>SUP[c]).join(''):'^('+run+')';run=''};
  A.forEach(g=>{const c=ch(g);if(g.sup){inSup=true;run+=c;return}if(inSup){flush();inSup=false}
@@ -319,7 +321,7 @@ function exportPNG(){const bs=[];for(const L of lines)L.syms.concat(L.ans).forEa
  for(const L of lines)L.syms.concat(L.ans).forEach(g=>{const a=g.a;g.a=Math.max(a,a>.3?1:a);drawG(g);g.a=a});ctx=keep;return c.toDataURL('image/png')}
 function toast(m){let t=$('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t)}t.textContent=m;t.style.opacity=1;clearTimeout(t.h);t.h=setTimeout(()=>t.style.opacity=0,1600)}
 /* ---------- menu / settings sheet ---------- */
-const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function refreshAll(){lines.forEach(L=>{L.at='\0';updateAns(L)});kick()}
 function closeSheet(){$('sheet').classList.remove('in');setTimeout(()=>{if(!$('sheet').classList.contains('in'))$('sheet').style.display='none'},200)}
 const IC={hist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/>',copy:'<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>',
@@ -344,11 +346,11 @@ $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b
  const i=+d.i;switch(d.a){case'done':closeSheet();break;case'hist':openSheet('hist');break;case'back':openSheet('main');break;
   case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast('No result yet');closeSheet();break}
   case'img':{const u=exportPNG();if(!u)toast('Nothing to share');else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}
-  case'addmem':{const L=lastL&&lines.includes(lastL)?lastL:lines.find(L=>Number.isFinite(L.val));if(L&&Number.isFinite(L.val)){memAdd(fmt(L.val));toast('Saved to memory')}else toast('No result yet');closeSheet();break}
+  case'addmem':{const L=lastL&&lines.includes(lastL)?lastL:lines.find(L=>Number.isFinite(L.val));const t=L&&Store.plainNumber(L.val);if(t){memAdd(t);toast('Saved to memory')}else toast(L&&Number.isFinite(L.val)?'Too large for memory':'No result yet');closeSheet();break}
   case'clrmem':MEMV=[];memSave();memRender();toast('Memory emptied');closeSheet();break;
   case'clear':lines.forEach(L=>L.syms.concat(L.ans).forEach(kill));lines=[];kick();closeSheet();break;
-  case'hopen':openHist(HIST[i]);break;case'hcopy':copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
-  case'hdel':HIST.splice(i,1);histPersist();openSheet('hist');break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
+  case'hopen':if(HIST[i])openHist(HIST[i]);break;case'hcopy':if(HIST[i])copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
+  case'hdel':if(HIST[i]){HIST.splice(i,1);histPersist();openSheet('hist')}break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
   case'hexp':shareText(HIST.map(h=>h.text+' '+h.ans.replace(/^=/,'= ')).join('\n'));break}};
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
 window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};

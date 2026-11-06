@@ -56,9 +56,11 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 @media (orientation:landscape) and (max-height:520px){#panel{left:auto;right:0;top:0;bottom:0;max-height:none;width:min(500px,68%);border-radius:22px 0 0 22px;transform:translateX(28px)}#sheet.in #panel{transform:none}.tools{grid-template-columns:repeat(3,1fr)}.tool{font-size:22px;gap:8px}.hint{display:none}.row{padding:4px 0}.head{padding:8px 0 4px}}
 @media (prefers-reduced-motion:reduce){#panel,#back{transition:none}.opt.on .ring path{animation:none;stroke-dashoffset:0}}</style>""".replace("__FONT__", font)
 app = rd('app.js').replace('/*CLS*/', cls)
-html = ('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
-        + css + '</head><body><canvas id="pad"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
-        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('core_main.js') + '\n' + rd('math-core.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + app + '\n</script></body></html>')
+CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; "
+       "img-src data: blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'")
+html = ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + CSP + '"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
+        + css + '</head><body><canvas id="pad" role="img" aria-label="Handwriting canvas: write a calculation with your finger"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
+        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('math-core.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + app + '\n</script></body></html>')
 out = os.path.join(here, '..', 'android', 'assets', 'index.html')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, 'w', encoding='utf-8').write(html)

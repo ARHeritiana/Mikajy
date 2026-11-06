@@ -28,7 +28,7 @@ done
 python3 web/build_web.py
 cd android
 rm -rf out && mkdir -p out/classes out/dex
-javac --release 8 -cp "$ANDROID_JAR" -d out/classes src/com/mikajy/app/*.java
+javac --release 8 -encoding UTF-8 -Xlint:all,-options -Werror -cp "$ANDROID_JAR" -d out/classes src/com/mikajy/app/*.java
 if command -v d8 >/dev/null; then
   mapfile -d '' classes < <(find out/classes -type f -name '*.class' -print0)
   d8 --min-api 21 --output out/dex "${classes[@]}"
@@ -43,6 +43,15 @@ aapt package -f -M AndroidManifest.xml -S res -A assets -I "$ANDROID_JAR" \
   --min-sdk-version 21 --target-sdk-version 34 -F out/unsigned.apk
 (cd out && aapt add unsigned.apk classes.dex >/dev/null)
 zipalign -f 4 out/unsigned.apk out/aligned.apk
+
+# Structural sanity checks on the package we are about to ship.
+badging="$(aapt dump badging out/aligned.apk)"
+grep -q "^package: name='com.mikajy.app'" <<<"$badging" || { echo "Unexpected package id" >&2; exit 1; }
+if grep -q "uses-permission" <<<"$badging"; then echo "The app must not request permissions" >&2; exit 1; fi
+listing="$(unzip -l out/aligned.apk)"   # captured first: `grep -q` in a pipe would SIGPIPE unzip under pipefail
+for entry in assets/index.html classes.dex AndroidManifest.xml; do
+  grep -q "$entry" <<<"$listing" || { echo "$entry missing from APK" >&2; exit 1; }
+done
 
 if [[ "${MIKAJY_UNSIGNED_ONLY:-0}" == "1" ]]; then
   echo "Unsigned packaging verified: android/out/aligned.apk"
