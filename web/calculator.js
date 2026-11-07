@@ -39,7 +39,7 @@ const Calculator = (() => {
       if (eqIndex >= 0) {
         if (tokens.indexOf('=', eqIndex + 1) >= 0) return null;
         const left = tokens.slice(0, eqIndex), right = tokens.slice(eqIndex + 1);
-        const result = Core.solve(left, right);
+        const result = Core.solve(left, right, settings);
         if (result.kind === 'identity') return asResponse([textPiece('x∈ℝ')], undefined);
         if (result.kind === 'none') return asResponse([textPiece('S=∅')], undefined);
         const pieces = [textPiece('x=')];

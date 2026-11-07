@@ -60,7 +60,7 @@ test('never identify identities by numerical sampling or cross singularities', (
   fails(()=>solve(['x','/','x'],['1']),'unsupported');
   fails(()=>solve(['(','x','^','(','2',')',')','/','(','x','-','1',')'],['0']),'unsupported');
   fails(()=>solve(['x','^','(','0',')'],['1']),'unsupported');
-  fails(()=>solve(['x','^','(','3',')'],['0']),'unsupported');
+  fails(()=>solve(['x','^','(','4',')'],['16']),'unsupported'); // two real roots: never answer with one
   fails(()=>solve(['1'],['1']),'unsupported');
 });
 test('polynomial coefficients handled exactly without floating point identity guesses', () => {
