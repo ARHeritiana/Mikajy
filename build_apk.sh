@@ -48,7 +48,9 @@ zipalign -f 4 out/unsigned.apk out/aligned.apk
 # Structural sanity checks on the package we are about to ship.
 badging="$(aapt dump badging out/aligned.apk)"
 grep -q "^package: name='com.mikajy.app'" <<<"$badging" || { echo "Unexpected package id" >&2; exit 1; }
-if grep -q "uses-permission" <<<"$badging"; then echo "The app must not request permissions" >&2; exit 1; fi
+# INTERNET is the only permission Mikajy may request (the optional update check).
+extra_permissions="$(grep "uses-permission" <<<"$badging" | grep -v "android.permission.INTERNET" || true)"
+if [[ -n "$extra_permissions" ]]; then echo "The app may only request android.permission.INTERNET" >&2; exit 1; fi
 listing="$(unzip -l out/aligned.apk)"   # captured first: `grep -q` in a pipe would SIGPIPE unzip under pipefail
 for entry in assets/index.html classes.dex AndroidManifest.xml; do
   grep -q "$entry" <<<"$listing" || { echo "$entry missing from APK" >&2; exit 1; }

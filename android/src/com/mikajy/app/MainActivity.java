@@ -4,7 +4,9 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -18,6 +20,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -25,8 +29,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Immersive, fully offline WebView shell. The page is loaded from the APK's assets only;
- * every other navigation is refused and network loads are blocked.
+ * Immersive, offline-first WebView shell. The page is loaded from the APK's assets only; every other
+ * navigation is refused and the WebView's network loads are blocked. The one network use is the optional
+ * update check in {@link UpdateChecker}, run natively and reported to the page through the bridge.
  */
 public class MainActivity extends Activity {
   private static final String TAG = "Mikajy";
@@ -39,6 +44,7 @@ public class MainActivity extends Activity {
 
   private WebView web;
   private ExecutorService io;
+  private ExecutorService net;
 
   private void immersive() {
     getWindow().getDecorView().setSystemUiVisibility(
@@ -98,11 +104,48 @@ public class MainActivity extends Activity {
         }
       }});
     }
+
+    /** The installed versionName, e.g. "5.0". */
+    @JavascriptInterface public String version() {
+      try {
+        String name = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        return name == null ? "" : name;
+      } catch (PackageManager.NameNotFoundException e) {
+        return "";
+      }
+    }
+
+    /** Asks GitHub for the newest release; the answer arrives asynchronously in window.onUpdateResult(json). */
+    @JavascriptInterface public void checkForUpdates() {
+      final ExecutorService worker = net;
+      if (worker == null) return;
+      worker.execute(new Runnable() { @Override public void run() {
+        final String answer = UpdateChecker.check();
+        runOnUiThread(new Runnable() { @Override public void run() {
+          if (web != null) {
+            web.evaluateJavascript("window.onUpdateResult&&window.onUpdateResult(" + JSONObject.quote(answer) + ")", null);
+          }
+        }});
+      }});
+    }
+
+    /** Opens a release page or APK link in the system browser. Refuses anything outside this project's releases. */
+    @JavascriptInterface public void openUpdate(final String url) {
+      if (!UpdateChecker.isReleaseUrl(url)) return;
+      runOnUiThread(new Runnable() { @Override public void run() {
+        try {
+          startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException e) {
+          Log.e(TAG, "No browser for the update link", e);
+        }
+      }});
+    }
   }
 
   @Override protected void onCreate(Bundle state) {
     super.onCreate(state);
     io = Executors.newSingleThreadExecutor();
+    net = Executors.newSingleThreadExecutor();
     // The shared PNG is only needed for the lifetime of one share action; drop leftovers.
     io.execute(new Runnable() { @Override public void run() { ShareProvider.clear(MainActivity.this); }});
 
@@ -143,6 +186,7 @@ public class MainActivity extends Activity {
 
   @Override protected void onDestroy() {
     if (io != null) { io.shutdown(); io = null; }
+    if (net != null) { net.shutdown(); net = null; }
     if (web != null) {
       web.removeJavascriptInterface("Android");
       web.destroy();
