@@ -2,7 +2,7 @@
 
 [![Checks](https://github.com/ARHeritiana/Mikajy/actions/workflows/checks.yml/badge.svg)](https://github.com/ARHeritiana/Mikajy/actions/workflows/checks.yml)
 [![Latest release](https://img.shields.io/github/v/release/ARHeritiana/Mikajy)](https://github.com/ARHeritiana/Mikajy/releases/latest)
-[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A blank screen: write maths with your finger, it turns into a handwritten-style typeset line and the
 answer appears next to it. **It works fully offline** — the recogniser, the maths engine and the fonts are inside the
@@ -26,9 +26,11 @@ Updates install over the old version only if both are signed with the same key (
 * **Interactive editing**: scribble over something to erase it (only the covered symbols go), write a new
   symbol on top of an old one to replace it, write in the gap of a fraction to fix a numerator/denominator,
   add terms to the end/middle of a line. Tap a symbol to cycle through the recogniser's alternatives.
-* **Equations in one unknown:** polynomials of degree 1–2 with rational coefficients (`2x+3=7` → `x=2`, `(x−1)²=0` → `x=1`)
-  and one-to-one forms such as `2^x=8` → `x=3`, `e^x=5` → `x≈1.609…`, `ln x=1` → `x≈2.718…`.
-  Anything else is explicitly unsupported.
+* **Equations in one unknown:** polynomials of degree up to 32 with rational coefficients — *every* real root, found with
+  exact Sturm sequences (`x³−6x²+11x=6` → `x=1, 2, 3`, `x⁵+x=1` → `x≈0.7549`), fractions with `x` in the denominator,
+  where values that make a denominator zero are excluded (`(x²−4)/(x−2)=0` → `x=−2`, `1/x+1/(x+1)=1`), and forms that can be undone
+  step by step, including both branches of `|…|` and even powers: `2^x=8` → `x=3`, `e^x=5` → `x≈1.609…`,
+  `|x−1|=2` → `x=−1, 3`, `(ln x)²=4`. Periodic equations (`sin x=0`) and anything else are explicitly unsupported.
 * **Follow-ups on a finished line**: draw a bar *under* an existing expression and write a number below it —
   the part of the expression the bar covers becomes the numerator (`2−4`, bar, `5` → (2−4)/5; a bar under only
   the `4` → 2−4/5). Works in any order (bar first or denominator first) and with multi-digit denominators.
@@ -50,15 +52,18 @@ variable position (including as the start of an exponent); check recognition bef
 
 ## Mathematical scope (correctness-first)
 
+**Exact special angles:** `sin 30°`, `cos 60°`, `tan 45°`, `sin(π/6)`, `cos π`, `tan(3π/4)`, `csc 30°`… are exact (no `≈`);
+`sin 45°` is irrational and stays `≈0.7071…`. Decimal sums are exact too: `0.1+0.2` is `0.3`.
+
 **Retained:** real arithmetic, parentheses, powers (integer, rational and real exponents), `e^x`, factorials of nonnegative
 integers up to 170, percentages, roots, `π`, `e`, named elementary functions, exact rational arithmetic when
 representable (including rational roots such as `8^(2/3)=4`), approximate transcendental values, linear/quadratic
 polynomial equations, and equations with a single `x` that can be inverted exactly (`2^x=8`, `e^x=5`, `ln x=1`, `√(x+1)=3`, `5/x=2`, `x³=8`).
 
-**Restricted:** equations require a single variable `x`: polynomials of degree at most two with rational
-coefficients, or a single occurrence of `x` under one-to-one operations. Trigonometric, absolute-value and even-power
-equations with several solutions are refused. Exact
-quadratic roots are shown when provable; irrational roots are marked `≈`. All
+**Restricted:** equations require a single variable `x`: polynomials and rational functions of degree at most 32 with
+rational coefficients (rational roots are shown exactly, irrational ones marked `≈`), or a single occurrence of `x`
+under invertible operations (`|u|` and even powers give both branches). Trigonometric equations, which have infinitely many
+solutions, are refused. An equation that is true everywhere *except* at excluded points (`x/x=1`) is refused too. All
 calculations use a finite real-number domain. Division by zero, invalid roots/logarithms,
 `0^0` and undefined trigonometric values are rejected.
 
@@ -144,14 +149,38 @@ unseen in training 89.7 % (all 33 classes, harder than real use); on those fonts
 
 ### Retraining (`training/train4.py`)
 Needs: python3, numpy, scipy, jax, optax, opencv-python-headless, scikit-image, fonttools, Pillow, and
-* MNIST pickle at `/tmp/mnist.pkl.gz`, handwriting fonts in `/tmp/fonts/*.ttf` and Caveat as `/tmp/caveat.ttf`
+* MNIST pickle, handwriting fonts and Caveat in `$MIKAJY_ASSETS` (default `/tmp`: `mnist.pkl.gz`, `fonts/*.ttf`, `caveat.ttf`)
   — `training/fetch_assets.sh` downloads all of them (SIL OFL fonts from github.com/google/fonts).
+  Options: `--cursive` adds the entry/exit ligature strokes that cutting joined-up writing leaves on a letter (separate cache);
+  `--no-mnist` trains without MNIST (see licensing). `training/eval_model.py` scores any model on the held-out sets.
   `train4.py` runs from the `training/` folder and reads `train.py` (the synthetic-stroke generator) next to it.
 `python3 training/train4.py 6` generates per-class data (cached in `./cache/`, safe to interrupt),
 trains with checkpoints (`ckpt4.pkl`, resumable) and writes `model4.json` (float32 checkpoint, kept in `training/`); then run `python3 training/pack_model.py` to produce the
 half-size `web/model/model4.f16.json` that the app ships (`tests/build_check.py` fails if the two are out of sync).
 Synthetic strokes (`train.py`) cover digits/operators/π/√/!/%; letters come only from fonts
 (skeletonised, warped, re-inked at pen width), so real handwriting is the main unknown.
+
+### Synthetic handwriting generator (`training/synth/`)
+Makes pen-stroke samples — not images — of whole expressions, with labels, for training a stroke-sequence recogniser and for
+testing the current one. `python3 -I training/generate.py --fonts $MIKAJY_ASSETS/fonts --n 1000 --out samples.jsonl`.
+* **Hands:** each sample is written by one simulated writer (print, semi-joined or fully cursive; slant, size, speed, tremor,
+  baseline wobble, pen-lift habits, delayed `i`-dots and `t`-bars, bar-before-numerator habit). Letterforms are traced from the
+  open-licence handwriting fonts in `fetch_assets.sh` into pen strokes (`synth/trace.py`).
+* **Content:** arithmetic, algebra, nested fractions, powers, roots, trigonometry, complex numbers (`i`, `z̄`, `|z|`, `e^{iπ}`),
+  matrices (products, `det`, inverse, transpose), modular arithmetic (`≡ … (mod n)`, `a mod n`) and equations, each with its LaTeX.
+* **Behaviour:** writing order differs from reading order — exponents, denominators and terms added *afterwards*, expressions
+  *extended* on the same line (with a label for each stage), and several lines, one of which may be inserted later.
+* **Labels:** per symbol: role (`num`, `den`, `sup`, `sub`, `radicand`, `cell:r,c`, …), structural path, bounding box and strokes.
+* `python3 -I -m unittest discover -s training/synth -t training -p "test_synth.py"` (needs the fonts; skipped otherwise) checks
+  stroke timing, geometry of fractions/exponents, late-addition ordering, diversity and reproducibility.
+
+Limits: letter shapes come from fonts, so real pen dynamics (hesitation, overwriting) are only approximated.
+
+### Your own handwriting (`tools/collect/`)
+`python3 training/make_collect_app.py` builds `tools/collect/mikajy-collect.html`, an offline page (no network, CSP-locked) that shows
+what to write — fractions, exponents and matrices laid out — in a rotating style (neat, messy, cursive, fancy, cramped, big), including
+"add this part last" and "now add more on the same line" prompts. Strokes and timing are saved on the device; **⋯ → Export** writes a
+`.jsonl` file in the same format as the generator. Real data is gitignored (`training/real_data/`); keep it out of the repository.
 
 ## Security model
 * The page is the only content the WebView loads (`file:///android_asset/`); every other navigation is refused and
@@ -167,14 +196,16 @@ See [docs/AUDIT.md](docs/AUDIT.md) for the full review and the remaining known d
 * No automatic line wrapping: a long expression shrinks to fit the width; start another line instead.
 * Fractions inside fractions, nth roots, absolute-value bars `| |`, mixed numbers as input (`2 1/2` = 2 × ½),
   and variables other than a single `x` are not supported.
-* Equation solving is limited to polynomials of degree ≤2 with rational coefficients and to equations with a single, invertible `x`. Trigonometry uses the selected angle setting.
+* Equation solving covers polynomials / rational functions in `x` and equations with a single, invertible `x` (see above); mixed forms such as `e^x=x+2` or `√x=x` are unsupported. Trigonometry uses the selected angle setting.
 * Cursive segmentation and the exponent rules were validated on synthetic strokes and unit fixtures, **not yet on a large set of real finger-written samples**: expect misses on unusual hands, and use tap-to-cycle (your corrections are learnt).
 * `1`/`7`/`l`, `0`/`o`, `4`/`h` confusions happen — tap a symbol to cycle alternatives.
 * No physical-device benchmark or Android APK build is claimed by the Node test suite. The CNN fallback may run on the main thread when workers are unavailable; performance and battery use require device testing.
 
 ## Licences / data
-Caveat font: SIL Open Font License. Training used MNIST and other OFL handwriting fonts; no font other than
-Caveat ships in the app. Source licensing is governed by LICENSE; third-party fonts and datasets retain their own licences.
+The app ships no third-party code; the only third-party asset is the Caveat font (SIL OFL 1.1, text in `licenses/`).
+Mikajy is released under the MIT licence (LICENSE). **Read [docs/LICENSING.md](docs/LICENSING.md) before commercial use**: it
+explains commercial use, the licence history, and which training data (MNIST) needs a decision.
+See also [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 
 ## Releases and signing

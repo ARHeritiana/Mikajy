@@ -5,6 +5,21 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+### Added
+- **Licence changed from GPL-3.0-or-later to MIT.**
+- **Maths engine:** `web/poly-core.js` — exact polynomials and rational functions over ℚ and certified real-root finding
+  (Sturm sequences, exact bisection). Equations in `x` now return *every* real root for polynomials up to degree 32
+  and for fractions with `x` in the denominator (excluded points are removed). `|u|` and even powers invert to both branches.
+- Exact trigonometric values at 30°/45°/60°/90° and their `π` multiples (`sin 30°=0.5`, `tan 45°=1`, no `≈`); decimal
+  arithmetic uses the exact rational (`0.1+0.2=0.3`).
+- Licensing documentation: `docs/LICENSING.md`, `THIRD_PARTY_NOTICES.md`, `licenses/OFL-Caveat.txt`.
+- Synthetic handwriting generator (`training/synth/`, `training/generate.py`) and an offline data-collection page (`tools/collect/`).
+- Trainer: `MIKAJY_ASSETS` directory, `--no-mnist`, `--cursive` (ligature-stroke augmentation) and `training/eval_model.py`.
+
+### Changed
+- `sin(30°)`, `sin(180°)` and similar now display exactly instead of `≈0.5` / `≈0`.
+- `x⁴=16`, `|x|=2`, `x²/(x−1)=0` are solved instead of refused.
+
 ## [5.0] - 2026-11-07
 
 ### Added
