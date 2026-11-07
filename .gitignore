@@ -19,3 +19,6 @@ node_modules/
 
 # Temporary Codespaces signing-key backup; NEVER commit
 release-key-backup/
+
+# Uploaded local credentials: these must never enter Git history
+PASSWORD.txt

@@ -201,6 +201,32 @@ The setup creates:
   `MIKAJY_STOREPASS`, `MIKAJY_KEYPASS`.
 - Environment variable: `MIKAJY_CERT_SHA256` (a public fingerprint, not a secret).
 
+
+### Import an existing keystore instead of generating one
+
+If you already have `mikajy-release.jks` and `PASSWORD.txt`, you do **not**
+need to generate another signing key. Upload both files privately into the
+root of your existing **GitHub Codespace** using the Codespaces file explorer
+(**Upload Files**); never upload them through GitHub's repository file editor,
+a public release, or a Git commit. They are covered by `.gitignore`.
+
+Run:
+
+```bash
+git pull --ff-only
+bash scripts/import-release-signing.sh
+```
+
+The import script reads the credentials **only inside your Codespace**, validates
+the keystore locally, and sends the bytes directly to encrypted GitHub Actions
+`release` environment secrets. Neither the assistant nor the repository
+receives the contents. If GitHub requires authorization, follow the one-time
+device-login prompt. The imported key is retained for later releases, and its
+public certificate fingerprint is pinned. Keep private backups and remove
+temporary uploads after successful import. If secrets were already configured
+with a different certificate, the script requests explicit confirmation before
+replacing them.
+
 ### Publishing later versions
 
 Increment `android:versionCode` above 14 and update
