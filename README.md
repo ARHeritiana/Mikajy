@@ -52,6 +52,10 @@ variable position (including as the start of an exponent); check recognition bef
 
 ## Mathematical scope (correctness-first)
 
+**ℝ or ℂ (Settings → Numbers):** in ℂ, write `i` — arithmetic is exact in the Gaussian rationals (`(1+2i)(3−i)=5+5i`, `i⁷=−i`, `√−4=2i`, `|3+4i|=5`),
+transcendental results are marked `≈` (principal branch), and polynomial / rational-function equations return **every** complex root
+(`x²+4x+5=0` → `x=−2−i, −2+i`). Equations with infinitely many complex solutions (`2^x=8`) and complex coefficients are unsupported. In ℝ mode `i` is refused.
+
 **Exact special angles:** `sin 30°`, `cos 60°`, `tan 45°`, `sin(π/6)`, `cos π`, `tan(3π/4)`, `csc 30°`… are exact (no `≈`);
 `sin 45°` is irrational and stays `≈0.7071…`. Decimal sums are exact too: `0.1+0.2` is `0.3`.
 

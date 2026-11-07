@@ -8,9 +8,11 @@ test('settings are validated independently of the UI and survive corrupted stora
     getItem() {return this.data;}, setItem(k,v) {this.data=v;}
   };
   const v = SettingsStore.load(storage);
-  assert.deepEqual(v,{mode:'instant',angle:'deg',fmt:'dec',theme:'light',updates:'auto'});
+  assert.deepEqual(v,{mode:'instant',angle:'deg',fmt:'dec',theme:'light',updates:'auto',domain:'real'});
   assert.equal(SettingsStore.save(storage,{...v,mode:'demand'}),true);
   assert.equal(SettingsStore.load(storage).mode,'demand');
   storage.data='{'; assert.equal(SettingsStore.load(storage).theme,'dark');
   assert.deepEqual(SettingsStore.validate(null),SettingsStore.validate({}));
+  assert.equal(SettingsStore.validate({domain:'complex'}).domain,'complex');
+  assert.equal(SettingsStore.validate({domain:'quaternion'}).domain,'real');
 });

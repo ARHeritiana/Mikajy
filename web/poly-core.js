@@ -183,6 +183,112 @@ const PolyCore = (() => {
     return roots.sort((x, y) => x.value - y.value);
   }
 
+
+  // ---- all complex roots (rational coefficients) ----
+  const isqrtBig = n => {                       // floor(sqrt(n)) for n >= 0n
+    if (n < 2n) return n;
+    let x = n, y = (x + 1n) >> 1n;
+    while (y < x) { x = y; y = (x + n / x) >> 1n; }
+    return x;
+  };
+  const exactSqrt = r => {                      // sqrt of a nonnegative rational when it is rational, else null
+    if (r.n < 0n) return null;
+    const a = isqrtBig(r.n), b = isqrtBig(r.d);
+    return a * a === r.n && b * b === r.d ? q(a, b) : null;
+  };
+  /** Aberth iteration in double precision for a polynomial given by double coefficients (low -> high). */
+  function aberth(coef) {
+    const n = coef.length - 1, lead = coef[n], c = coef.map(v => v / lead);
+    const ev = z => { let pr = 1, pi = 0, dr = 0, di = 0;          // Horner for p and p'
+      for (let i = n - 1; i >= 0; i--) {
+        const ndr = dr * z[0] - di * z[1] + pr, ndi = dr * z[1] + di * z[0] + pi;
+        const npr = pr * z[0] - pi * z[1] + c[i], npi = pr * z[1] + pi * z[0];
+        dr = ndr; di = ndi; pr = npr; pi = npi;
+      }
+      return [pr, pi, dr, di];
+    };
+    const radius = 1 + Math.max(...c.slice(0, n).map(Math.abs));
+    let z = Array.from({length: n}, (_, k) => { const a = 2 * Math.PI * k / n + .4; return [radius * .7 * Math.cos(a), radius * .7 * Math.sin(a)]; });
+    for (let it = 0; it < 500; it++) {
+      let moved = 0;
+      for (let k = 0; k < n; k++) {
+        const [pr, pi, dr, di] = ev(z[k]);
+        const dd = dr * dr + di * di;
+        if (dd === 0) { z[k] = [z[k][0] + 1e-3, z[k][1] + 1e-3]; moved = 1; continue; }
+        let wr = (pr * dr + pi * di) / dd, wi = (pi * dr - pr * di) / dd;         // Newton step p/p'
+        let sr = 0, si = 0;
+        for (let j = 0; j < n; j++) if (j !== k) {
+          const ar = z[k][0] - z[j][0], ai = z[k][1] - z[j][1], m = ar * ar + ai * ai || 1e-300;
+          sr += ar / m; si += -ai / m;
+        }
+        const den_r = 1 - (wr * sr - wi * si), den_i = -(wr * si + wi * sr), m = den_r * den_r + den_i * den_i || 1e-300;
+        const cr = (wr * den_r + wi * den_i) / m, ci = (wi * den_r - wr * den_i) / m;
+        z[k] = [z[k][0] - cr, z[k][1] - ci];
+        moved = Math.max(moved, Math.hypot(cr, ci) / Math.max(1, Math.hypot(...z[k])));
+      }
+      if (moved < 1e-15) break;
+    }
+    // residual check: refuse rather than return a non-root
+    for (const zk of z) {
+      const [pr, pi] = ev(zk);
+      let scale = 0; for (let i = 0; i <= n; i++) scale += Math.abs(c[i]) * Math.hypot(...zk) ** i;
+      if (!(Math.hypot(pr, pi) <= 1e-9 * Math.max(scale, 1e-300))) fail('unsupported');
+    }
+    return z;
+  }
+  /**
+   * Every distinct complex root of a nonconstant polynomial with rational coefficients, as
+   * {re, im, exactRe, exactIm} (value doubles, exact rationals or null), sorted by re then im.
+   * Rational roots and quadratic factors are exact; higher irreducible factors are numeric.
+   */
+  function complexRoots(p) {
+    if (!p.length || isConstant(p)) return [];
+    const g = pgcd(p, pderiv(p));
+    let rest = isConstant(g) ? p : pdivmod(p, g)[0];
+    const out = [];
+    const reals = realRoots(rest);
+    for (const r of reals) if (r.rational) {
+      rest = pdivmod(rest, [qneg(r.rational), ONE])[0];
+      out.push({re: r.value, im: 0, exactRe: r.rational, exactIm: ZERO});
+    }
+    const irrational = reals.filter(r => !r.rational);
+    for (const r of irrational) out.push({re: r.value, im: 0, exactRe: null, exactIm: ZERO});
+    if (degree(rest) === 2 && !irrational.length) {
+      const [c, b, a] = rest, disc = qsub(qmul(b, b), qmul(q(4n), qmul(a, c)));
+      const re = qdiv(qneg(b), qmul(q(2n), a));
+      const imSq = qdiv(qneg(disc), qmul(q(4n), qmul(a, a)));                 // disc < 0 here: no real roots were found
+      const exactIm = exactSqrt(imSq), im = exactIm ? toNumber(exactIm) : Math.sqrt(toNumber(imSq));
+      out.push({re: toNumber(re), im: -im, exactRe: re, exactIm: exactIm && qneg(exactIm)}, {re: toNumber(re), im, exactRe: re, exactIm});
+    } else if (degree(rest) > irrational.length) {
+      const z = aberth(rest.map(toNumber)).sort((u, v) => Math.abs(u[1]) - Math.abs(v[1]));
+      const nonreal = z.slice(irrational.length);                             // the |im|-smallest ones are the certified real roots
+      const upper = nonreal.filter(w => w[1] > 0), lower = nonreal.filter(w => w[1] < 0);
+      if (upper.length !== lower.length) fail('unsupported');
+      for (const w of upper) {
+        const m = lower.reduce((best, u) => Math.hypot(u[0] - w[0], u[1] + w[1]) < Math.hypot(best[0] - w[0], best[1] + w[1]) ? u : best);
+        const re = (w[0] + m[0]) / 2, im = (w[1] - m[1]) / 2;                // enforce exact conjugate symmetry
+        out.push({re, im: -im, exactRe: null, exactIm: null}, {re, im, exactRe: null, exactIm: null});
+      }
+    }
+    return out.sort((x, y) => x.re - y.re || x.im - y.im);
+  }
+  /** Like solveEquation, but over the complex numbers. */
+  function solveEquationComplex(left, right) {
+    let numerator = psub(pmul(left.n, right.d), pmul(right.n, left.d));
+    const denominator = pmul(left.d, right.d);
+    if (!numerator.length) {
+      if (isConstant(denominator)) return {kind: 'identity'};
+      fail('unsupported');
+    }
+    for (;;) {
+      const common = pgcd(numerator, denominator);
+      if (isConstant(common)) break;
+      numerator = pdivmod(numerator, common)[0];
+    }
+    if (isConstant(numerator)) return {kind: 'none'};
+    return {kind: 'roots', roots: complexRoots(numerator)};
+  }
+
   /**
    * Solve left = right for rational functions of x. Returns {kind: 'identity'|'none'|'roots', roots}.
    * Roots that make a denominator zero are excluded; an equation true everywhere except at such points
@@ -206,6 +312,6 @@ const PolyCore = (() => {
   }
 
   return Object.freeze({PolyError, MAX_DEGREE, q, qadd, qsub, qmul, qdiv, qneg, toNumber, constant, X, padd, psub, pmul, pdivmod, pgcd,
-    pderiv, peval, realRoots, rfConst, RF_X, rfAdd, rfSub, rfMul, rfDiv, rfNeg, rfPow, solveEquation});
+    pderiv, peval, realRoots, complexRoots, solveEquationComplex, exactSqrt, rfConst, RF_X, rfAdd, rfSub, rfMul, rfDiv, rfNeg, rfPow, solveEquation});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = PolyCore;

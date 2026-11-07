@@ -6,6 +6,7 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 ## [Unreleased]
 
 ### Added
+- **ℝ / ℂ number domain** (Settings → Numbers): complex arithmetic with exact Gaussian rationals, all complex roots of polynomial and rational-function equations (`complexRoots` in `poly-core.js`), `tests/complex.test.cjs`.
 - **Licence changed from GPL-3.0-or-later to MIT.**
 - **Maths engine:** `web/poly-core.js` — exact polynomials and rational functions over ℚ and certified real-root finding
   (Sturm sequences, exact bisection). Equations in `x` now return *every* real root for polynomials up to degree 32
