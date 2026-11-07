@@ -16,17 +16,38 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 for tool in gh keytool openssl base64 sha256sum; do
   command -v "$tool" >/dev/null 2>&1 || die "Missing $tool. Run in a GitHub Codespace with a JDK and GitHub CLI."
 done
-gh auth status >/dev/null 2>&1 || die "Sign in with gh auth login, then retry."
+# Codespaces injects a restricted GITHUB_TOKEN. It can push commits but cannot
+# administer GitHub Actions secrets. Prefer an explicitly authorized CLI login.
+# This affects only this script process (not the Codespace shell or git credentials).
+unset GH_TOKEN GITHUB_TOKEN
+echo "Checking GitHub permissions for the one-time signing setup..."
 
-# Verify access before generating private material. Preserve existing environment rules.
-if ! gh api "repos/$REPO/environments/$ENV" --silent >/dev/null 2>&1; then
+authorize() {
+  echo
+  echo "GitHub requires one-time authorization to store the encrypted release key."
+  echo "On your phone, open https://github.com/login/device when prompted"
+  echo "and enter the one-time code printed by GitHub CLI."
+  if gh auth status >/dev/null 2>&1; then
+    gh auth refresh --scopes repo,workflow ||
+      die "GitHub authorization was not completed. No signing key was generated."
+  else
+    gh auth login --hostname github.com --git-protocol https --web --scopes repo,workflow ||
+      die "GitHub authorization was not completed. No signing key was generated."
+  fi
+}
+
+# Creating/updating the environment needs repository administration privileges.
+# Do not make keys until this check succeeds.
+if ! gh api -X PUT "repos/$REPO/environments/$ENV" --silent >/dev/null 2>&1; then
+  authorize
   gh api -X PUT "repos/$REPO/environments/$ENV" --silent >/dev/null ||
-    die "Unable to create release environment. Check GitHub authorization."
+    die "Authorization still lacks repository administration access. No key generated."
 fi
+
 gh secret list -e "$ENV" -R "$REPO" >/dev/null ||
-  die "Cannot manage environment secrets. Reauthenticate with appropriate permissions."
+  die "Cannot list Actions environment secrets. No key generated."
 gh variable list -e "$ENV" -R "$REPO" >/dev/null ||
-  die "Cannot manage environment variables. Check GitHub authorization."
+  die "Cannot list Actions environment variables. No key generated."
 
 if [[ -e "$KEY" || -e "$PASSFILE" ]]; then
   [[ -f "$KEY" && -f "$PASSFILE" ]] || die "Incomplete local backup. Resolve it manually; no new key was made."
