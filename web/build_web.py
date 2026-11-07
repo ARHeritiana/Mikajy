@@ -17,6 +17,8 @@ html,body{margin:0;height:100%;background:var(--canvas);overflow:hidden}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block;background:var(--canvas)}
 button{font-family:inherit;cursor:pointer}
 #mb{position:fixed;top:calc(4px + env(safe-area-inset-top,0px));right:calc(4px + env(safe-area-inset-right,0px));width:46px;height:46px;border:0;background:none;color:var(--menu-ink);padding:0;display:grid;place-items:center;z-index:5}
+#zr{position:fixed;right:calc(8px + env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));display:none;z-index:5;padding:6px 12px;border-radius:14px;border:1px solid var(--rule);background:var(--paper);color:var(--menu-ink);font:13px system-ui,sans-serif}
+#zr:active{color:var(--ink)}
 #mb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 #mb:active{color:var(--ink)}
 #mb.upd::after{content:'';position:absolute;top:9px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--red)}
@@ -60,8 +62,8 @@ app = rd('app.js').replace('/*CLS*/', cls)
 CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; "
        "img-src data: blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'")
 html = ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + CSP + '"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
-        + css + '</head><body><canvas id="pad" role="img" aria-label="Handwriting canvas: write a calculation with your finger"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
-        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('recognizer.js') + '\n' + rd('math-core.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + rd('updates.js') + '\n' + app + '\n</script></body></html>')
+        + css + '</head><body><canvas id="pad" role="img" aria-label="Handwriting canvas: write a calculation with your finger"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><button id="zr" aria-label="Reset view">100%</button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
+        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script><script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('recognizer.js') + '\n' + rd('poly-core.js') + '\n' + rd('math-core.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + rd('updates.js') + '\n' + app + '\n</script></body></html>')
 out = os.path.join(here, '..', 'android', 'assets', 'index.html')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, 'w', encoding='utf-8').write(html)

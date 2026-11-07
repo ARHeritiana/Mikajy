@@ -27,6 +27,23 @@ const Calculator = (() => {
     const prefix = exactDisplay ? '' : '≈';
     return [textPiece(prefix + niceNumber(value))];
   }
+  /** a+bi for a complex number {re, im, eRe, eIm} (eRe/eIm: exact rationals or null); one leading ≈ when anything is approximate. */
+  function complexPieces(c, format) {
+    const exactAll = !!(c.eRe && c.eIm);
+    const tiny = (a, b) => Math.abs(a) < 1e-12 * Math.max(1, Math.abs(b));
+    const real = exactAll ? c.eIm.n === 0n : tiny(c.im, c.re), pure = exactAll ? c.eRe.n === 0n : tiny(c.re, c.im);
+    if (real) return numberPieces({value: c.re, rational: c.eRe}, format);
+    const out = exactAll ? [] : [textPiece('≈')];
+    const part = (v, r) => exactAll ? numberPieces({value: v, rational: r}, format) : [textPiece(niceNumber(v))];
+    if (!pure) out.push(...part(c.re, c.eRe));
+    const negative = c.im < 0;
+    out.push(textPiece(pure ? (negative ? '-' : '') : (negative ? '-' : '+')));
+    const unit = exactAll ? (c.eIm.n === 1n || c.eIm.n === -1n) && c.eIm.d === 1n : Math.abs(Math.abs(c.im) - 1) < 1e-12;
+    if (!unit) out.push(...part(Math.abs(c.im), exactAll ? (c.eIm.n < 0n ? {n: -c.eIm.n, d: c.eIm.d} : c.eIm) : null));
+    out.push(textPiece('i'));
+    return out;
+  }
+  const asComplex = r => ({re: r.re, im: r.im, eRe: r.exact ? r.exact.re : r.exactRe || null, eIm: r.exact ? r.exact.im : r.exactIm || null});
   function asResponse(pieces, value) {
     return {pieces, text: textOf(pieces), val: value};
   }
@@ -40,6 +57,11 @@ const Calculator = (() => {
         if (tokens.indexOf('=', eqIndex + 1) >= 0) return null;
         const left = tokens.slice(0, eqIndex), right = tokens.slice(eqIndex + 1);
         const result = Core.solve(left, right, settings);
+        if (result.kind === 'croots') {
+          const pieces = [textPiece('x=')];
+          result.roots.forEach((r, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(...complexPieces(asComplex(r), settings.fmt || 'dec')); });
+          return asResponse(pieces, result.roots.length === 1 && Math.abs(result.roots[0].im) < 1e-12 ? result.roots[0].re : undefined);
+        }
         if (result.kind === 'identity') return asResponse([textPiece('x∈ℝ')], undefined);
         if (result.kind === 'none') return asResponse([textPiece('S=∅')], undefined);
         const pieces = [textPiece('x=')];
@@ -51,6 +73,10 @@ const Calculator = (() => {
       }
       if (tokens.includes('x') && !tokens.some(t => ['Σ', '∫', 'lim', '∞', '→'].includes(t))) return null;
       if (tokens.length === 1 && !trailingEquals) return null;
+      if (settings.domain === 'complex') {
+        const z = Core.evaluateComplex(tokens, settings), pieces = complexPieces(asComplex(z), settings.fmt || 'dec');
+        return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...pieces], Math.abs(z.im) < 1e-12 ? z.re : undefined);
+      }
       const result = Core.evaluate(tokens, settings);
       return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...numberPieces(result, settings.fmt || 'dec')], result.value);
     } catch (error) {

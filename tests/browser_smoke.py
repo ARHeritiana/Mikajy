@@ -66,7 +66,7 @@ async def main():
             repeat: Calculator.compute(['(','x','-','1',')','^','(','2',')','=','0']).text,
             sin180: Calculator.compute(['sin','(','180',')'],{angle:'deg'}).text,
             hasCanvas: !!document.querySelector('#pad').getContext('2d')})""")
-        assert value == {"result": "=1/3", "repeat": "x=1", "sin180": "=≈0", "hasCanvas": True}, value
+        assert value == {"result": "=1/3", "repeat": "x=1", "sin180": "=0", "hasCanvas": True}, value
         await page.locator("#mb").click()
         await page.locator("button.opt[data-k='theme'][data-v='light']").click()
         assert await page.evaluate("document.documentElement.dataset.theme") == "light"

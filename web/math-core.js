@@ -1,9 +1,11 @@
 /* Mikajy mathematical core. No DOM, recognition, storage or Android dependencies.
- * Real-valued arithmetic and polynomial equations of degree at most two.
- * Exact rational arithmetic is retained only when mathematically justified.
+ * Real-valued arithmetic, polynomial and rational-function equations in one unknown (all real roots, certified
+ * by poly-core.js), and equations solved by exact inversion. Exact rational arithmetic is retained only when
+ * mathematically justified.
  */
 const MathCore = (() => {
   'use strict';
+  const Poly = typeof module !== 'undefined' && module.exports ? require('./poly-core.js') : PolyCore;
   const FUNCTIONS = new Set(['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
     'ln', 'log', 'exp', 'sqrt', 'abs']);
   const INVERSE = {sin: 'asin', cos: 'acos', tan: 'atan'};
@@ -14,7 +16,7 @@ const MathCore = (() => {
   }
   const fail = code => { throw new MathError(code); };
   const isNumber = t => typeof t === 'string' && /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t);
-  const startsAtom = t => isNumber(t) || t === '(' || t === 'π' || t === 'e' || t === 'x' || t === '√' || FUNCTIONS.has(t);
+  const startsAtom = t => isNumber(t) || t === '(' || t === 'π' || t === 'e' || t === 'x' || t === 'i' || t === '√' || FUNCTIONS.has(t);
   const MAX_BITS = 192;
   const abs = a => a < 0n ? -a : a;
   function gcd(a, b) { a = abs(a); b = abs(b); while (b) [a, b] = [b, a % b]; return a || 1n; }
@@ -67,7 +69,7 @@ const MathCore = (() => {
       const t = peek();
       if (t === '(') return group();
       if (isNumber(t)) { next(); return nodes('number', {raw: t}); }
-      if (t === 'π' || t === 'e' || t === 'x') { next(); return nodes('symbol', {name: t}); }
+      if (t === 'π' || t === 'e' || t === 'x' || t === 'i') { next(); return nodes('symbol', {name: t}); }
       if (t === '√') { next(); return nodes('function', {name: 'sqrt', arg: postfix()}); }
       if (FUNCTIONS.has(t)) {
         next();
@@ -89,7 +91,7 @@ const MathCore = (() => {
     const functionArgument = () => {
       let n = postfix();
       if (n.type !== 'number' && n.type !== 'symbol') return n;
-      while (peek() === 'π' || peek() === 'e' || peek() === 'x' || peek() === '√') {
+      while (peek() === 'π' || peek() === 'e' || peek() === 'x' || peek() === 'i' || peek() === '√') {
         enter(); const rhs = postfix(); leave();
         n = nodes('binary', {op: '*', left: n, right: rhs});
       }
@@ -138,20 +140,20 @@ const MathCore = (() => {
     return result;
   }
 
-  function exact(n) {
+  function exact(n, angle = 'rad') {
     switch (n.type) {
       case 'number': return literal(n.raw);
-      case 'negate': { const a = exact(n.arg); return a && neg(a); }
-      case 'percent': { const a = exact(n.arg); return a && div(a, rational(100n)); }
+      case 'negate': { const a = exact(n.arg, angle); return a && neg(a); }
+      case 'percent': { const a = exact(n.arg, angle); return a && div(a, rational(100n)); }
       case 'factorial': {
-        const a = exact(n.arg);
+        const a = exact(n.arg, angle);
         if (!a || a.d !== 1n || a.n < 0n || a.n > 170n) return null;
         let x = 1n; for (let j = 2n; j <= a.n; j++) x *= j;
         return rational(x);
       }
       case 'binary': {
-        if (n.op === '^' && n.left.type === 'symbol' && n.left.name === 'e') { const b = exact(n.right); return b && isZero(b) ? R1() : null; }
-        const a = exact(n.left), b = exact(n.right);
+        if (n.op === '^' && n.left.type === 'symbol' && n.left.name === 'e') { const b = exact(n.right, angle); return b && isZero(b) ? R1() : null; }
+        const a = exact(n.left, angle), b = exact(n.right, angle);
         if (!a || !b) return null;
         if (n.op === '+') return n.right.type === 'percent' ? add(a, mul(a, b)) : add(a, b);
         if (n.op === '-') return n.right.type === 'percent' ? sub(a, mul(a, b)) : sub(a, b);
@@ -166,25 +168,88 @@ const MathCore = (() => {
         return null;
       }
       case 'function': {
-        if (n.name === 'abs') { const a = exact(n.arg); return a && rational(abs(a.n), a.d); }
-        if (n.name === 'sqrt') { const a = exact(n.arg); return a && a.n >= 0n ? exactRoot(a) : null; }
-        return exactSpecial(n);
+        if (n.name === 'abs') { const a = exact(n.arg, angle); return a && rational(abs(a.n), a.d); }
+        if (n.name === 'sqrt') { const a = exact(n.arg, angle); return a && a.n >= 0n ? exactRoot(a) : null; }
+        return exactSpecial(n, angle);
       }
       default: return null;
     }
   }
 
   /** Values every real function takes at 0 / 1 / e / 10, independent of the angle unit. */
-  function exactSpecial(n) {
+  function exactSpecial(n, angle) {
     const isE = n.arg.type === 'symbol' && n.arg.name === 'e';
     if (n.name === 'ln' && isE) return R1();
-    const a = isE ? null : exact(n.arg);
-    if (!a) return null;
+    const a = isE ? null : exact(n.arg, angle);
+    if (!a) return exactTrigonometric(n, angle);
     const zero = isZero(a), one = a.n === 1n && a.d === 1n;
     if (zero && ['sin', 'tan', 'asin', 'atan', 'sinh', 'tanh'].includes(n.name)) return R0();
     if (zero && ['cos', 'cosh', 'sec', 'exp'].includes(n.name)) return R1();
     if (one && (n.name === 'ln' || n.name === 'log')) return R0();
     if (n.name === 'log' && a.n === 10n && a.d === 1n) return R1();
+    return exactTrigonometric(n, angle);
+  }
+
+  /** The AST as q*pi for a rational q (angles in radians), or null. */
+  function piMultiple(n) {
+    switch (n.type) {
+      case 'symbol': return n.name === 'π' ? R1() : null;
+      case 'number': { const a = literal(n.raw); return isZero(a) ? a : null; }
+      case 'negate': { const a = piMultiple(n.arg); return a && neg(a); }
+      case 'binary': {
+        if (n.op === '+' || n.op === '-') {
+          const a = piMultiple(n.left), b = piMultiple(n.right);
+          return a && b && (n.op === '+' ? add(a, b) : sub(a, b));
+        }
+        if (n.op === '*') {
+          const a = piMultiple(n.left), b = piMultiple(n.right);
+          if (a && !b) { const k = exactOrNull(n.right); return k && mul(a, k); }
+          if (b && !a) { const k = exactOrNull(n.left); return k && mul(b, k); }
+          return null;
+        }
+        if (n.op === '/') {
+          const a = piMultiple(n.left), k = exactOrNull(n.right);
+          return a && k && !isZero(k) ? div(a, k) : null;
+        }
+        return null;
+      }
+      default: return null;
+    }
+  }
+  const HALF = () => rational(1n, 2n);
+  /** sin(t*pi) for rational t when the value is rational (0, +-1/2, +-1), else null. */
+  function sinPi(t) {
+    const two = rational(2n);
+    // t mod 2 in [0, 2)
+    const whole = t.n / t.d - (t.n < 0n && t.n % t.d !== 0n ? 1n : 0n);
+    const m = sub(t, mul(two, rational(whole / 2n - (whole % 2n < 0n ? 1n : 0n))));
+    const key = m.n + '/' + m.d;
+    return {'0/1': R0(), '1/1': R0(), '1/6': HALF(), '5/6': HALF(), '7/6': neg(HALF()), '11/6': neg(HALF()),
+      '1/2': R1(), '3/2': neg(R1())}[key] || null;
+  }
+  /** Rational values of sin, cos, tan and their reciprocals at rational multiples of pi (30/45/60/90 degree angles). */
+  function exactTrigonometric(n, angle) {
+    if (!['sin', 'cos', 'tan', 'cot', 'sec', 'csc'].includes(n.name)) return null;
+    let t;
+    if (angle === 'deg') { const a = exactOrNull(n.arg); t = a && div(a, rational(180n)); }
+    else t = piMultiple(n.arg);
+    if (!t) return null;
+    const s = sinPi(t), c = sinPi(add(t, HALF()));
+    const recip = x => x && !isZero(x) ? div(R1(), x) : null;
+    switch (n.name) {
+      case 'sin': return s;
+      case 'cos': return c;
+      case 'sec': return recip(c);
+      case 'csc': return recip(s);
+      case 'tan': if (s && c && !isZero(c)) return div(s, c); break;
+      default: if (s && c && !isZero(s)) return div(c, s);
+    }
+    // tan/cot at odd multiples of pi/4 are +-1 although sin and cos are irrational
+    const q4 = mul(t, rational(4n));
+    if (q4.d === 1n && abs(q4.n) % 2n === 1n) {
+      const sameSign = ((q4.n % 4n) + 4n) % 4n === 1n;
+      return sameSign ? R1() : neg(R1());
+    }
     return null;
   }
 
@@ -204,7 +269,7 @@ const MathCore = (() => {
     const k = angle === 'deg' ? Math.PI / 180 : 1;
     switch (n.type) {
       case 'number': return finite(value(literal(n.raw)));
-      case 'symbol': return n.name === 'π' ? Math.PI : n.name === 'e' ? Math.E : x === undefined ? fail('unsupported') : finite(x);
+      case 'symbol': return n.name === 'π' ? Math.PI : n.name === 'e' ? Math.E : n.name === 'i' || x === undefined ? fail('unsupported') : finite(x);
       case 'negate': return -evaluateAst(n.arg, angle, x);
       case 'percent': return evaluateAst(n.arg, angle, x) / 100;
       case 'factorial': {
@@ -240,42 +305,28 @@ const MathCore = (() => {
     }
   }
 
-  function polynomial(n) {
-    const constant = a => [a];
-    const z = R0;
-    const combine = (a, b, operation) => {
-      const length = Math.max(a.length, b.length), out = [];
-      for (let i = 0; i < length; i++) out.push(operation(a[i] || z(), b[i] || z()));
-      return out;
-    };
-    const multiply = (a, b) => {
-      if (a.length + b.length > 4) fail('unsupported');
-      const out = Array.from({length: a.length + b.length - 1}, z);
-      for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) out[i + j] = add(out[i + j], mul(a[i], b[j]));
-      return out;
-    };
+  const toRational = r => rational(r.n, r.d);
+  const fromRational = r => Poly.q(r.n, r.d);
+  /** The AST as a rational function of x (see poly-core.js); anything else is 'unsupported'. */
+  function rationalFunction(n) {
     switch (n.type) {
-      case 'number': return constant(literal(n.raw));
-      case 'symbol': return n.name === 'x' ? [z(), R1()] : fail('unsupported');
-      case 'negate': return polynomial(n.arg).map(neg);
-      case 'percent': return polynomial(n.arg).map(a => div(a, rational(100n)));
+      case 'number': return Poly.rfConst(fromRational(literal(n.raw)));
+      case 'symbol': return n.name === 'x' ? Poly.RF_X : fail('unsupported');
+      case 'negate': return Poly.rfNeg(rationalFunction(n.arg));
+      case 'percent': return Poly.rfDiv(rationalFunction(n.arg), Poly.rfConst(Poly.q(100n)));
       case 'binary': {
-        const a = polynomial(n.left), b = polynomial(n.right);
-        if (n.op === '+') return n.right.type === 'percent' ? combine(a, multiply(a, b), add) : combine(a, b, add);
-        if (n.op === '-') return n.right.type === 'percent' ? combine(a, multiply(a, b), sub) : combine(a, b, sub);
-        if (n.op === '*') return multiply(a, b);
-        if (n.op === '/') {
-          if (b.length !== 1) fail('unsupported');
-          return a.map(t => div(t, b[0]));
-        }
+        const a = rationalFunction(n.left);
         if (n.op === '^') {
           const exp = exact(n.right);
-          if (!exp || exp.d !== 1n || exp.n < 0n || exp.n > 2n) fail('unsupported');
-          // x^0 can be undefined at x=0, so do not assert it is an identity.
-          if (exp.n === 0n && a.length > 1) fail('unsupported');
-          if (exp.n === 0n && a.length === 1 && isZero(a[0])) fail('undefined');
-          return exp.n === 0n ? [R1()] : exp.n === 1n ? a : multiply(a, a);
+          if (!exp || exp.d !== 1n || abs(exp.n) > BigInt(Poly.MAX_DEGREE)) fail('unsupported');
+          return Poly.rfPow(a, Number(exp.n));
         }
+        const b = rationalFunction(n.right), pct = n.right.type === 'percent';
+        const one = Poly.rfConst(Poly.q(1n));
+        if (n.op === '+') return pct ? Poly.rfMul(a, Poly.rfAdd(one, b)) : Poly.rfAdd(a, b);
+        if (n.op === '-') return pct ? Poly.rfMul(a, Poly.rfSub(one, b)) : Poly.rfSub(a, b);
+        if (n.op === '*') return Poly.rfMul(a, b);
+        if (n.op === '/') return Poly.rfDiv(a, b);
         fail('unsupported');
       }
       default: fail('unsupported');
@@ -300,28 +351,18 @@ const MathCore = (() => {
     const a = squareRoot(d.n), b = squareRoot(d.d);
     return a !== null && b !== null ? rational(a, b) : null;
   };
-  function solvePolynomial(left, right) {
-    const a = polynomial(nodes('binary', {op: '-', left, right}));
-    while (a.length > 1 && isZero(a[a.length - 1])) a.pop();
-    if (a.length === 1) return {kind: isZero(a[0]) ? 'identity' : 'none'};
-    if (a.length > 3) fail('unsupported');
-    if (a.length === 2) {
-      const r = div(neg(a[0]), a[1]);
-      return {kind: 'roots', roots: [{value: finite(value(r)), rational: r}]};
-    }
-    const [c, b, aa] = a;
-    const D = sub(mul(b, b), mul(rational(4n), mul(aa, c)));
-    if (D.n < 0n) return {kind: 'none'};
-    const sd = exactRoot(D), den = mul(rational(2n), aa);
-    if (sd) {
-      const roots = [div(sub(neg(b), sd), den), div(add(neg(b), sd), den)];
-      const unique = roots[0].n === roots[1].n && roots[0].d === roots[1].d ? roots.slice(0, 1) : roots;
-      return {kind: 'roots', roots: unique.map(r => ({value: finite(value(r)), rational: r})).sort((x,y) => x.value-y.value)};
-    }
-    const bv = value(b), cv = value(c), av = value(aa), delta = value(D);
-    const q = -0.5 * (bv + (bv >= 0 ? 1 : -1) * Math.sqrt(delta));
-    const roots = q === 0 ? [-bv / (2 * av)] : [q / av, cv / q];
-    return {kind: 'roots', roots: roots.map(v => ({value: finite(v), rational: null})).sort((x,y) => x.value-y.value)};
+  /** Every real root of left = right when both sides are rational functions of x (degree <= Poly.MAX_DEGREE). */
+  function solveRational(left, right) {
+    let found;
+    try { found = Poly.solveEquation(rationalFunction(left), rationalFunction(right)); }
+    catch (error) { if (error instanceof Poly.PolyError) fail(error.code); throw error; }
+    if (found.kind !== 'roots') return {kind: found.kind};
+    const roots = found.roots.map(r => {
+      let rat = null;
+      try { rat = r.rational && toRational(r.rational); } catch (error) { if (!(error instanceof MathError)) throw error; }
+      return {value: finite(r.value), rational: rat};
+    });
+    return {kind: 'roots', roots};
   }
   const occurrences = n => n.type === 'symbol' ? (n.name === 'x' ? 1 : 0) :
     ['negate', 'percent', 'factorial', 'function'].includes(n.type) ? occurrences(n.arg) :
@@ -330,74 +371,248 @@ const MathCore = (() => {
   const NONE = Object.freeze({kind: 'none'});
 
   /**
-   * Equations with a single occurrence of x (2^x=8, ln(x)=1, sqrt(x+1)=3, 5/x=2...) are solved by
-   * undoing one injective operation at a time. Operations that are not one-to-one on the reals
-   * (even powers, sin, cos, |x|...) are refused, never answered with a single "principal" value.
+   * Equations with a single occurrence of x (2^x=8, ln(x)=1, sqrt(x+1)=3, |x-1|=2, (x+1)^4=16...) are solved by
+   * undoing one operation at a time. One-to-one operations continue on a single branch; |u| and even powers
+   * split into their two branches. Periodic functions (sin, cos, tan...) have infinitely many solutions and are
+   * refused, never answered with a single "principal" value.
    */
+  const MAX_BRANCHES = 64;
   function solveInvertible(left, right, angle) {
     if (occurrences(left) + occurrences(right) !== 1) return null;
-    let node = occurrences(left) ? left : right;
-    const other = node === left ? right : left;
-    let v = finite(evaluateAst(other, angle)), r = exactOrNull(other);
-    const step = (u, ur) => { v = finite(u); r = ur; };
-    for (;;) {
-      if (node.type === 'symbol') return {kind: 'roots', roots: [{value: v, rational: r}]};
-      if (node.type === 'negate') { step(-v, r && neg(r)); node = node.arg; continue; }
-      if (node.type === 'function') {
-        if (node.name === 'exp') { if (v <= 0) return NONE; step(Math.log(v), r && r.n === r.d ? R0() : null); }
-        else if (node.name === 'ln') step(Math.exp(v), r && isZero(r) ? R1() : null);
-        else if (node.name === 'log') step(Math.pow(10, v), r && r.d === 1n && abs(r.n) <= 60n ? pow(rational(10n), Number(r.n)) : null);
-        else if (node.name === 'sqrt') { if (v < 0) return NONE; step(v * v, r && mul(r, r)); }
-        else return null;
-        node = node.arg; continue;
-      }
-      if (node.type !== 'binary' || node.right.type === 'percent') return null;
-      const onLeft = occurrences(node.left) > 0, operand = onLeft ? node.right : node.left;
-      const c = finite(evaluateAst(operand, angle)), cr = exactOrNull(operand), both = r && cr;
-      switch (node.op) {
-        case '+': step(v - c, both && sub(r, cr)); break;
-        case '-': onLeft ? step(v + c, both && add(r, cr)) : step(c - v, both && sub(cr, r)); break;
-        case '*':
-          if (c === 0) return v === 0 ? null : NONE;
-          step(v / c, both && div(r, cr)); break;
-        case '/':
-          if (onLeft) { if (c === 0) fail('undefined'); step(v * c, both && mul(r, cr)); }
-          else { if (c === 0) return v === 0 ? null : NONE; if (v === 0) return NONE; step(c / v, both && div(cr, r)); }
-          break;
-        case '^':
-          if (onLeft) {
-            // u^k = v is one-to-one only for odd integer k.
-            if (!cr || cr.d !== 1n || abs(cr.n) % 2n === 0n) return null;
-            const k = Number(cr.n);
-            if (v === 0) { if (k < 0) return NONE; step(0, R0()); break; }
-            let ur = null;
-            if (r && abs(k) <= 12) {
-              const rn = iroot(abs(r.n), abs(k)), rd = iroot(r.d, abs(k)), q = BigInt(abs(k));
-              if (rn ** q === abs(r.n) && rd ** q === r.d) { ur = rational(r.n < 0n ? -rn : rn, rd); if (k < 0) ur = div(R1(), ur); }
-            }
-            step(Math.sign(v) * Math.pow(Math.abs(v), 1 / k), ur);
-          } else {
-            if (!(c > 0) || c === 1) return null;
-            if (v <= 0) return NONE;
-            const u = Math.log(v) / Math.log(c);
-            let ur = null;
-            if (both && Math.abs(u) < 64 && Math.abs(u - Math.round(u)) < 1e-9) {
-              const k = Math.round(u), p = pow(cr, k);
-              if (p.n === r.n && p.d === r.d) ur = rational(BigInt(k));
-            } else if (r && r.n === r.d) ur = R0();
-            step(u, ur);
+    const start = occurrences(left) ? left : right;
+    const other = start === left ? right : left;
+    let unsupported = false, count = 0;
+    const out = [];
+    const undo = (node, v, r) => {
+      for (;;) {
+        if (unsupported) return;
+        if (node.type === 'symbol') {
+          if (++count > MAX_BRANCHES) { unsupported = true; return; }
+          out.push({value: v, rational: r}); return;
+        }
+        if (node.type === 'negate') { v = -v; r = r && neg(r); node = node.arg; continue; }
+        if (node.type === 'function') {
+          if (node.name === 'exp') { if (v <= 0) return; r = r && r.n === r.d ? R0() : null; v = Math.log(v); }
+          else if (node.name === 'ln') { v = Math.exp(v); r = r && isZero(r) ? R1() : null; }
+          else if (node.name === 'log') { r = r && r.d === 1n && abs(r.n) <= 60n ? pow(rational(10n), Number(r.n)) : null; v = Math.pow(10, v); }
+          else if (node.name === 'sqrt') { if (v < 0) return; r = r && mul(r, r); v = v * v; }
+          else if (node.name === 'abs') {
+            if (v < 0) return;
+            if (v === 0) { node = node.arg; r = R0(); continue; }
+            undo(node.arg, v, r); undo(node.arg, -v, r && neg(r)); return;
           }
-          break;
-        default: return null;
+          else { unsupported = true; return; }
+          finite(v); node = node.arg; continue;
+        }
+        if (node.type !== 'binary' || node.right.type === 'percent') { unsupported = true; return; }
+        const onLeft = occurrences(node.left) > 0, operand = onLeft ? node.right : node.left;
+        const c = finite(evaluateAst(operand, angle)), cr = exactOrNull(operand), both = r && cr;
+        switch (node.op) {
+          case '+': r = both && sub(r, cr); v = v - c; break;
+          case '-': if (onLeft) { r = both && add(r, cr); v = v + c; } else { r = both && sub(cr, r); v = c - v; } break;
+          case '*':
+            if (c === 0) { if (v === 0) unsupported = true; return; }
+            r = both && div(r, cr); v = v / c; break;
+          case '/':
+            if (onLeft) { if (c === 0) fail('undefined'); r = both && mul(r, cr); v = v * c; }
+            else {
+              if (c === 0) { if (v === 0) unsupported = true; return; }
+              if (v === 0) return;
+              r = both && div(cr, r); v = c / v;
+            }
+            break;
+          case '^':
+            if (onLeft) {
+              // u^k = v with integer k: odd k is one-to-one, even k has the branches +-v^(1/k)
+              if (!cr || cr.d !== 1n || cr.n === 0n || abs(cr.n) > 1000n) { unsupported = true; return; }
+              const k = Number(cr.n), even = abs(cr.n) % 2n === 0n;
+              if (v === 0) { if (k < 0) return; v = 0; r = R0(); break; }
+              if (even && v < 0) return;
+              const root = rootBranch(v, r, k);
+              if (!even) { v = root.v; r = root.r; break; }
+              undo(node.left, root.v, root.r); undo(node.left, -root.v, root.r && neg(root.r)); return;
+            }
+            if (!(c > 0) || c === 1) { unsupported = true; return; }
+            if (v <= 0) return;
+            {
+              const u = Math.log(v) / Math.log(c);
+              let ur = null;
+              if (both && Math.abs(u) < 64 && Math.abs(u - Math.round(u)) < 1e-9) {
+                const k = Math.round(u), p = pow(cr, k);
+                if (p.n === r.n && p.d === r.d) ur = rational(BigInt(k));
+              } else if (r && r.n === r.d) ur = R0();
+              v = u; r = ur;
+            }
+            break;
+          default: unsupported = true; return;
+        }
+        node = onLeft ? node.left : node.right;
       }
-      node = onLeft ? node.left : node.right;
+    };
+    /** |v|^(1/|k|) (inverted for k<0), carrying the sign of v, with an exact rational when the root is rational. */
+    const rootBranch = (v, r, k) => {
+      let ur = null;
+      if (r && abs(k) <= 1000) {
+        const rn = iroot(abs(r.n), abs(k)), rd = iroot(r.d, abs(k)), q = BigInt(abs(k));
+        if (rn ** q === abs(r.n) && rd ** q === r.d) { ur = rational(r.n < 0n ? -rn : rn, rd); if (k < 0) ur = div(R1(), ur); }
+      }
+      return {v: Math.sign(v) * Math.pow(Math.abs(v), 1 / k), r: ur};
+    };
+    undo(start, finite(evaluateAst(other, angle)), exactOrNull(other));
+    if (unsupported) return null;
+    if (!out.length) return NONE;
+    out.sort((x, y) => x.value - y.value);
+    const roots = out.filter((x, i) => !i || x.value !== out[i - 1].value);
+    return {kind: 'roots', roots};
+  }
+
+
+  // ---------------- complex numbers (opt-in: settings.domain === 'complex') ----------------
+  const cx = (re, im = 0) => ({re: re + 0, im: im + 0});            // + 0 turns -0 into 0, which would flip branch cuts
+  const cAdd = (a, b) => cx(a.re + b.re, a.im + b.im);
+  const cSub = (a, b) => cx(a.re - b.re, a.im - b.im);
+  const cMul = (a, b) => cx(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+  const cAbs = a => Math.hypot(a.re, a.im);
+  function cDiv(a, b) {
+    const d = b.re * b.re + b.im * b.im;
+    if (d === 0) fail('undefined');
+    return cx((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d);
+  }
+  const cExp = a => cx(Math.exp(a.re) * Math.cos(a.im), Math.exp(a.re) * Math.sin(a.im));
+  function cLn(a) { if (a.re === 0 && a.im === 0) fail('undefined'); return cx(Math.log(cAbs(a)), Math.atan2(a.im, a.re)); }
+  function cSqrt(a) { const m = cAbs(a); return cx(Math.sqrt((m + a.re) / 2), (a.im < 0 ? -1 : 1) * Math.sqrt(Math.max(0, (m - a.re) / 2))); }
+  function cPow(a, b) {
+    if (a.re === 0 && a.im === 0) { if (b.re > 0 && b.im === 0) return cx(0); fail('undefined'); }
+    if (b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1000) {            // repeated multiplication keeps integer powers clean
+      let r = cx(1), base = a, k = Math.abs(b.re);
+      while (k) { if (k & 1) r = cMul(r, base); base = cMul(base, base); k = Math.floor(k / 2); }
+      return b.re < 0 ? cDiv(cx(1), r) : r;
+    }
+    return cExp(cMul(b, cLn(a)));
+  }
+  const cSin = a => cx(Math.sin(a.re) * Math.cosh(a.im), Math.cos(a.re) * Math.sinh(a.im));
+  const cCos = a => cx(Math.cos(a.re) * Math.cosh(a.im), -Math.sin(a.re) * Math.sinh(a.im));
+  const cSinh = a => cx(Math.sinh(a.re) * Math.cos(a.im), Math.cosh(a.re) * Math.sin(a.im));
+  const cCosh = a => cx(Math.cosh(a.re) * Math.cos(a.im), Math.sinh(a.re) * Math.sin(a.im));
+  const cFinite = a => { finite(a.re); finite(a.im); return a; };
+
+  function evaluateComplexAst(n, angle) {
+    const k = angle === 'deg' ? Math.PI / 180 : 1, ev = m => evaluateComplexAst(m, angle);
+    switch (n.type) {
+      case 'number': return cx(finite(value(literal(n.raw))));
+      case 'symbol': return n.name === 'i' ? cx(0, 1) : n.name === 'π' ? cx(Math.PI) : n.name === 'e' ? cx(Math.E) : fail('unsupported');
+      case 'negate': { const a = ev(n.arg); return cx(-a.re, -a.im); }
+      case 'percent': { const a = ev(n.arg); return cx(a.re / 100, a.im / 100); }
+      case 'factorial': { const a = ev(n.arg); if (a.im !== 0) fail('unsupported'); return cx(evaluateAst({type: 'factorial', arg: {type: 'number', raw: String(a.re)}}, angle)); }
+      case 'binary': {
+        const a = ev(n.left), b = ev(n.right);
+        switch (n.op) {
+          case '+': return cFinite(cAdd(a, n.right.type === 'percent' ? cMul(a, b) : b));
+          case '-': return cFinite(cSub(a, n.right.type === 'percent' ? cMul(a, b) : b));
+          case '*': return cFinite(cMul(a, b));
+          case '/': return cFinite(cDiv(a, b));
+          case '^': return cFinite(cPow(a, b));
+          default: fail('unsupported');
+        }
+      }
+      case 'function': {
+        const a = ev(n.arg);
+        switch (n.name) {
+          case 'sqrt': return cSqrt(a);
+          case 'exp': return cFinite(cExp(a));
+          case 'ln': return cFinite(cLn(a));
+          case 'log': { const l = cLn(a); return cx(l.re / Math.LN10, l.im / Math.LN10); }
+          case 'abs': return cx(cAbs(a));
+          case 'sin': case 'cos': case 'tan': case 'cot': case 'sec': case 'csc': {
+            const z = cx(a.re * k, a.im * k), s = cSin(z), c = cCos(z);
+            return cFinite(n.name === 'sin' ? s : n.name === 'cos' ? c : n.name === 'tan' ? cDiv(s, c) : n.name === 'cot' ? cDiv(c, s) : n.name === 'sec' ? cDiv(cx(1), c) : cDiv(cx(1), s));
+          }
+          case 'sinh': return cFinite(cSinh(a));
+          case 'cosh': return cFinite(cCosh(a));
+          case 'tanh': return cFinite(cDiv(cSinh(a), cCosh(a)));
+          default: fail('unsupported');             // asin/acos/atan have branch cuts we do not claim
+        }
+      }
+      default: fail('unsupported');
     }
   }
 
-  function solve(leftTokens, rightTokens, settings = {}) {
+  /** Exact Gaussian rationals {re, im} (both rational) for expressions that stay in Q(i), else null. */
+  const gAdd = (a, b) => ({re: add(a.re, b.re), im: add(a.im, b.im)});
+  const gSub = (a, b) => ({re: sub(a.re, b.re), im: sub(a.im, b.im)});
+  const gMul = (a, b) => ({re: sub(mul(a.re, b.re), mul(a.im, b.im)), im: add(mul(a.re, b.im), mul(a.im, b.re))});
+  function gDiv(a, b) {
+    const d = add(mul(b.re, b.re), mul(b.im, b.im));
+    if (isZero(d)) fail('undefined');
+    return {re: div(add(mul(a.re, b.re), mul(a.im, b.im)), d), im: div(sub(mul(a.im, b.re), mul(a.re, b.im)), d)};
+  }
+  function exactComplex(n) {
+    const G = (re, im = R0()) => ({re, im});
+    switch (n.type) {
+      case 'number': return G(literal(n.raw));
+      case 'symbol': return n.name === 'i' ? G(R0(), R1()) : null;
+      case 'negate': { const a = exactComplex(n.arg); return a && G(neg(a.re), neg(a.im)); }
+      case 'percent': { const a = exactComplex(n.arg); return a && gDiv(a, G(rational(100n))); }
+      case 'binary': {
+        const a = exactComplex(n.left);
+        if (n.op === '^') {
+          const e = exact(n.right);
+          if (!a || !e || e.d !== 1n || abs(e.n) > 100n) return null;
+          if (isZero(a.re) && isZero(a.im) && e.n <= 0n) fail('undefined');
+          let r = G(R1()), base = a, k = abs(e.n);
+          while (k) { if (k & 1n) r = gMul(r, base); base = gMul(base, base); k >>= 1n; }
+          return e.n < 0n ? gDiv(G(R1()), r) : r;
+        }
+        const b = exactComplex(n.right);
+        if (!a || !b) return null;
+        const pct = n.right.type === 'percent';
+        if (n.op === '+') return gAdd(a, pct ? gMul(a, b) : b);
+        if (n.op === '-') return gSub(a, pct ? gMul(a, b) : b);
+        if (n.op === '*') return gMul(a, b);
+        if (n.op === '/') return gDiv(a, b);
+        return null;
+      }
+      case 'function': {
+        const a = exactComplex(n.arg);
+        if (!a) return null;
+        if (n.name === 'abs') { const r = exactRoot(add(mul(a.re, a.re), mul(a.im, a.im))); return r && G(r); }
+        if (n.name === 'sqrt' && isZero(a.im)) {
+          if (a.re.n >= 0n) { const r = exactRoot(a.re); return r && G(r); }
+          const r = exactRoot(neg(a.re)); return r && G(R0(), r);
+        }
+        return null;
+      }
+      default: return null;
+    }
+  }
+  /** Value of an expression over the complex numbers: {re, im (doubles), exact: {re, im} | null}. */
+  function evaluateComplex(tokens, settings = {}) {
+    const ast = parse(tokens), angle = settings.angle === 'deg' ? 'deg' : 'rad';
+    let ex = null;
+    try { ex = exactComplex(ast); }
+    catch (error) { if (!(error instanceof MathError) || error.code !== 'unsupported') throw error; }
+    const approx = cFinite(evaluateComplexAst(ast, angle));
+    return ex ? {re: value(ex.re), im: value(ex.im), exact: ex} : {re: approx.re, im: approx.im, exact: null};
+  }
+  /** All complex solutions of left = right (rational coefficients, one unknown). */
+  function solveComplex(leftTokens, rightTokens) {
     const left = parse(leftTokens), right = parse(rightTokens);
     if (!occurrences(left) && !occurrences(right)) fail('unsupported');
-    try { return solvePolynomial(left, right); }
+    let found;
+    try { found = Poly.solveEquationComplex(rationalFunction(left), rationalFunction(right)); }
+    catch (error) { if (error instanceof Poly.PolyError) fail(error.code); throw error; }
+    if (found.kind !== 'roots') return {kind: found.kind};
+    const roots = found.roots.map(r => {
+      const keep = q => { try { return q && toRational(q); } catch (error) { if (error instanceof MathError) return null; throw error; } };
+      return {re: finite(r.re), im: finite(r.im), exactRe: keep(r.exactRe), exactIm: keep(r.exactIm)};
+    });
+    return {kind: 'croots', roots};
+  }
+  function solve(leftTokens, rightTokens, settings = {}) {
+    if (settings.domain === 'complex') return solveComplex(leftTokens, rightTokens);
+    const left = parse(leftTokens), right = parse(rightTokens);
+    if (!occurrences(left) && !occurrences(right)) fail('unsupported');
+    try { return solveRational(left, right); }
     catch (error) { if (!(error instanceof MathError) || error.code !== 'unsupported') throw error; }
     const found = solveInvertible(left, right, settings.angle === 'deg' ? 'deg' : 'rad');
     if (!found) fail('unsupported');
@@ -407,9 +622,10 @@ const MathCore = (() => {
     const ast = parse(tokens);
     const angle = settings.angle === 'deg' ? 'deg' : 'rad';
     let rationalResult = null;
-    try { rationalResult = exact(ast); }
+    try { rationalResult = exact(ast, angle); }
     catch (error) { if (!(error instanceof MathError) || error.code !== 'unsupported') throw error; }
-    return {value: finite(evaluateAst(ast, angle)), rational: rationalResult};
+    const approx = finite(evaluateAst(ast, angle));
+    return {value: rationalResult ? finite(value(rationalResult)) : approx, rational: rationalResult};
   }
   function terminating(r) {
     let d = r.d;
@@ -427,6 +643,6 @@ const MathCore = (() => {
       (() => { const a = literal(displayed.replace(/^\+/, '')); return a.n === r.n && a.d === r.d; })(); }
     catch (_) { return false; }
   }
-  return Object.freeze({parse, evaluate, solve, MathError, exactDecimal});
+  return Object.freeze({parse, evaluate, evaluateComplex, solve, MathError, exactDecimal});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = MathCore;

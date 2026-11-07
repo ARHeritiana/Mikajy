@@ -22,3 +22,9 @@ release-key-backup/
 
 # Uploaded local credentials: these must never enter Git history
 PASSWORD.txt
+
+# Real handwriting you collect or scan: personal data, never commit
+training/real_data/
+training/real_scans/
+*.jsonl
+tools/collect/mikajy-collect.html

@@ -1,6 +1,15 @@
 const cv=document.getElementById('pad');let ctx=cv.getContext('2d');const $=id=>document.getElementById(id);
 let DPR=1,lastL=null,lp=null,drag=null,SW=0,SH=0,lines=[],fx=[],ghosts=[],cur=null,down=null,started=false,rt=null,raf=0,tPrev=0;
 const FONT='H, serif';
+/* Unlimited board: everything lives in world coordinates; V maps world -> screen (x,y translate, k zoom). */
+const V={x:0,y:0,k:1},ZMIN=.3,ZMAX=3,ptrs=new Map();let gest=null;
+const toW=(x,y)=>[(x-V.x)/V.k,(y-V.y)/V.k];
+const viewMoved=()=>V.x!==0||V.y!==0||V.k!==1;
+function setView(x,y,k){V.x=x;V.y=y;V.k=k;const b=$('zr');if(b){b.style.display=viewMoved()?'block':'none';b.textContent=Math.round(k*100)+'%'}kick()}
+function zoomAt(cx,cy,k){k=Math.min(ZMAX,Math.max(ZMIN,k));const w=toW(cx,cy);setView(cx-w[0]*k,cy-w[1]*k,k)}
+function drawGrid(){if(!viewMoved())return;const S=80,x0=Math.floor(-V.x/V.k/S)*S,x1=(SW-V.x)/V.k,y0=Math.floor(-V.y/V.k/S)*S,y1=(SH-V.y)/V.k;
+ if(((x1-x0)/S+1)*((y1-y0)/S+1)>4000)return;const r=1.6/Math.sqrt(V.k);ctx.globalAlpha=.16;ctx.fillStyle=palette.ink;
+ for(let x=x0;x<=x1;x+=S)for(let y=y0;y<=y1;y+=S)ctx.fillRect(x-r,y-r,2*r,2*r);ctx.globalAlpha=1}
 const disp=c=>c=='*'?'×':c=='/'?'÷':c=='-'?'−':c;
 const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
 const ch=g=>g.c[g.i].c;
@@ -38,8 +47,10 @@ function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;c
  if(g.ink&&g.a<.99){const k=Math.max(0,1-g.a*1.1);g.ink.forEach(s=>drawInk(s,k))}else g.ink=null}
 function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
  if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle=palette.ink;ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText('write a sum',SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
+ ctx.setTransform(DPR*V.k,0,0,DPR*V.k,DPR*V.x,DPR*V.y);drawGrid();
  for(const L of lines){L.syms.forEach(drawG);L.ans.forEach(drawG);L.ink.forEach(s=>drawInk(s,1))}
  fx.forEach(drawG);ghosts.forEach(g=>drawInk(g.pts,1-(now-g.t0)/420));if(cur)drawInk(cur,1);
+ ctx.setTransform(DPR,0,0,DPR,0,0);
  if(drag){ctx.font='44px '+FONT;const w=ctx.measureText(drag.text).width+30,x=drag.x-w/2,y=drag.y-86;ctx.save();ctx.shadowColor=palette.dragShadow;ctx.shadowBlur=16;ctx.shadowOffsetY=4;ctx.fillStyle=palette.dragBackground;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.fill();ctx.restore();ctx.strokeStyle=palette.accent;ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.stroke();ctx.fillStyle=palette.accent;ctx.textBaseline='middle';ctx.fillText(drag.text,x+15,y+32);ctx.textBaseline='alphabetic'}}
 function stepG(g,dt,now){if(now<g.delay)return true;const k=1-Math.exp(-dt*7),k2=1-Math.exp(-dt*8);g.x+=(g.tx-g.x)*k;g.y+=(g.ty-g.y)*k;g.sz+=(g.tsz-g.sz)*k;g.a+=(g.ta-g.a)*k2;if(g.ot>0)g.ot=Math.max(0,g.ot-dt*4);
  let r=Math.abs(g.tx-g.x)>.3||Math.abs(g.ty-g.y)>.3||Math.abs(g.tsz-g.sz)>.3||Math.abs(g.ta-g.a)>.01||g.ot>0;
@@ -61,8 +72,8 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
  const sf=g=>g.sup?.62:1,first=(g,k)=>g.ans&&(k==0||!items[k-1].ans),extra=(g,k)=>(first(g,k)?.28*F:0)+(ch(g)=='§'&&k>0?.1*F:0),trail=g=>.06*F*sf(g)+(g.ans&&ch(g)=='='?.14*F:0);
  const seqW=(A,s)=>A.reduce((w,g)=>w+adv(ch(g),s*sf(g))+.06*s*sf(g),0);
  items.forEach((g,k)=>{if(ch(g)=='§'){g.nW=seqW(partsOf(L,g,'n'),.8*F);g.dW=seqW(partsOf(L,g,'d'),.8*F);g.w0=Math.max(g.nW,g.dW)+.4*F}else g.w0=adv(ch(g),F*sf(g));tot+=g.w0+trail(g)+extra(g,k)});
- let x0=L.x0,f=Math.min(1,(SW-24-x0)/tot);if(f<.6){x0=12;f=Math.min(1,(SW-24)/tot)}
- const base=Math.min(SH-24,Math.max(F*f*.95+12,L.base));let x=x0;
+ let x0=L.x0,f=1;
+ const base=L.base;let x=x0;
  items.forEach((g,k)=>{x+=extra(g,k)*f;g.tx=x;g.tsz=F*f*sf(g);g.w=g.w0*f;
   if(ch(g)=='§'){const ay=base-.28*F*f;g.ty=ay;g.bwt=g.w;if(!g.bw)g.bw=g.w;const sn=.8*F*f;let nx=x+(g.w-g.nW*f)/2,dx=x+(g.w-g.dW*f)/2;
    for(const s of partsOf(L,g,'n')){const a=adv(ch(s),.8*F*sf(s));s.tx=nx;s.tsz=sn*sf(s);s.ty=ay-.14*F*f-(s.sup?.42*sn:0);s.w=a*f;nx+=(a+.06*.8*F*sf(s))*f}
@@ -72,7 +83,7 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Set();let inSup=false,num='',word='';
- const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='x'||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
+ const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='x'||(word=='i'&&SET.domain=='complex')||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
  A.forEach((g,k)=>{const c=ch(g);
   if(g.sup&&!inSup){fN();fW();out.push('^','(');inSup=true}
   if(!g.sup&&inSup){fN();fW();out.push(')');inSup=false}
@@ -253,15 +264,26 @@ async function doRecognize(){moveBarsToHosts();for(const L of lines.slice())if(L
  kick()}
 function learnLater(g){clearTimeout(g.lt);g.lt=setTimeout(()=>{if(g.fv&&g.c[g.i])remember(g.fv,g.c[g.i].c)},2500)}
 function tapCycle(p){for(const L of lines)for(const g of L.syms){const b=gbox(g);if(g.c.length>1&&p[0]>b.x0-8&&p[0]<b.x1+8&&p[1]>b.y0-8&&p[1]<b.y1+8){g.old=ch(g);g.ot=1;g.i=(g.i+1)%g.c.length;g.locked=true;layout(L);updateAns(L);if(g.fv)learnLater(g);kick();return true}}return false}
-const pt=e=>[e.clientX,e.clientY];
-cv.onpointerdown=e=>{if(!e.isPrimary)return;clearTimeout(rt);cv.setPointerCapture(e.pointerId);started=true;cur=[pt(e)];down={t:performance.now(),p:pt(e),len:0};clearTimeout(lp);
- lp=setTimeout(()=>{if(cur&&down.len<8){const d=hitDrag(down.p);if(d){cur=null;beginDrag(d,down.p)}}},450);kick()};
-cv.onpointermove=e=>{if(!e.isPrimary)return;if(drag){dragMove(pt(e));return}if(!cur)return;const es=e.getCoalescedEvents?e.getCoalescedEvents():[e];
- for(const ev of es){const q=pt(ev),l=cur[cur.length-1];const d=Math.hypot(q[0]-l[0],q[1]-l[1]);if(d<2.5)continue;down.len+=d;cur.raw=q;cur.push([l[0]*.35+q[0]*.65,l[1]*.35+q[1]*.65])}if(down.len>=8)clearTimeout(lp)};
-cv.onpointerup=cv.onpointercancel=e=>{if(e&&e.isPrimary===false)return;clearTimeout(lp);if(drag){dragEnd();return}let s=cur;cur=null;if(!s)return;if(s.raw&&s.length>1)s.push(s.raw);
+const pt=e=>toW(e.clientX,e.clientY),spt=e=>[e.clientX,e.clientY];
+function gestureStart(){const [a,b]=[...ptrs.values()];clearTimeout(lp);clearTimeout(rt);
+ if(cur){cur=null;down=null}                                            /* a second finger means pan/zoom: drop the half-drawn stroke */
+ const c=[(a[0]+b[0])/2,(a[1]+b[1])/2];gest={d0:Math.max(20,Math.hypot(a[0]-b[0],a[1]-b[1])),k0:V.k,w:toW(c[0],c[1])};kick()}
+function gestureMove(){const [a,b]=[...ptrs.values()],c=[(a[0]+b[0])/2,(a[1]+b[1])/2],k=Math.min(ZMAX,Math.max(ZMIN,gest.k0*Math.hypot(a[0]-b[0],a[1]-b[1])/gest.d0));
+ setView(c[0]-gest.w[0]*k,c[1]-gest.w[1]*k,k)}
+function ptrEnd(e){ptrs.delete(e.pointerId);if(gest&&ptrs.size<2){if(!ptrs.size){gest=null;if(lines.some(L=>L.ink.length))rt=setTimeout(recognize,650)}else gest.dead=true}}
+cv.onpointerdown=e=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}ptrs.set(e.pointerId,spt(e));
+ if(ptrs.size===2&&e.pointerType!=='mouse'){gestureStart();return}if(ptrs.size>2||gest)return;
+ if(!e.isPrimary)return;clearTimeout(rt);started=true;cur=[pt(e)];down={t:performance.now(),p:pt(e),s:spt(e),len:0};clearTimeout(lp);
+ lp=setTimeout(()=>{if(cur&&down.len<8){const d=hitDrag(down.p);if(d){cur=null;beginDrag(d,down.s)}}},450);kick()};
+cv.onpointermove=e=>{if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,spt(e));if(gest){if(ptrs.size>=2&&!gest.dead)gestureMove();return}
+ if(!e.isPrimary)return;if(drag){dragMove(spt(e));return}if(!cur)return;const es=e.getCoalescedEvents&&e.getCoalescedEvents().length?e.getCoalescedEvents():[e];
+ for(const ev of es){const q=pt(ev),l=cur[cur.length-1];const d=Math.hypot(q[0]-l[0],q[1]-l[1])*V.k;if(d<2.5)continue;down.len+=d;cur.raw=q;cur.push([l[0]*.35+q[0]*.65,l[1]*.35+q[1]*.65])}if(down.len>=8)clearTimeout(lp)};
+cv.onpointerup=cv.onpointercancel=e=>{const wasGest=!!gest;ptrEnd(e);if(wasGest||e&&e.isPrimary===false)return;clearTimeout(lp);if(drag){dragEnd();return}let s=cur;cur=null;if(!s)return;if(s.raw&&s.length>1)s.push(s.raw);
  if(down.len<8&&performance.now()-down.t<350&&tapCycle(down.p)){return}
  if(isScribble(s))scribble(s);else{const r=radical(s);attach(r||s)}
  rt=setTimeout(recognize,650);kick()};
+$('zr').onclick=()=>setView(0,0,1);
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,V.k*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)))},{passive:false});
 addEventListener('resize',fit);
 document.fonts.load('40px H').then(()=>{fit()});fit();
 
@@ -284,7 +306,7 @@ function beginDrag(d,p){drag={text:d.text,src:d.src,fromMem:d.fromMem,x:p[0],y:p
 function dragMove(p){drag.x=p[0];drag.y=p[1];$('mem').classList.toggle('hot',p[1]>SH-70);kick()}
 function dragEnd(){const d=drag;drag=null;memRender();drop(d);kick()}
 const typed=t=>[...t].filter(c=>/[0-9.\-+πe]/.test(c)).map(c=>newG([{c,p:1}],{fresh:false}));
-function drop(d){const x=d.x,y=d.y;if(y>SH-70){if(!d.fromMem)memAdd(d.text);return}
+function drop(d){if(d.y>SH-70){if(!d.fromMem)memAdd(d.text);return}const [x,y]=toW(d.x,d.y);
  const gs=typed(d.text);if(!gs.length)return;let tgt=null;for(const L of lines){if(!L.syms.length)continue;const[a,z]=lineBox(L);if(y>=a-30&&y<=z+30){tgt=L;break}}
  if(d.src&&d.src.run){const r=d.src.run,b0=gbox(r[0]),b1=gbox(r[r.length-1]);if(Math.abs(x-(b0.x0+b1.x1)/2)<30&&Math.abs(y-(b0.y0+b0.y1)/2)<60)return;
   const SL=d.src.L;r.forEach(kill);SL.syms=SL.syms.filter(s=>!r.includes(s));
@@ -304,7 +326,7 @@ const serial=L=>L.syms.map(g=>({c:ch(g),sup:g.sup?1:0,fp:g.fp||'',fid:g.fid||'',
 window.histSave=function(L){if(!L.syms.length)return;L.hid=L.hid||Date.now()+'-'+Math.random().toString(36).slice(2,6);clearTimeout(L.ht);
  L.ht=setTimeout(()=>{const r=computeAns(L);if(!r||!lines.includes(L))return;const e={id:L.hid,ts:Date.now(),syms:serial(L),F:L.F,ans:r.text,text:textOf(L)},i=HIST.findIndex(h=>h.id==L.hid);
   if(i>=0)HIST[i]=e;else HIST.unshift(e);HIST=HIST.slice(0,100);histPersist()},1500)};
-function openHist(e){closeSheet();const L={syms:[],ans:[],ink:[],x0:30,base:SH*.35,F:e.F||70,at:null,hid:e.id};for(const q of lines)L.base=Math.max(L.base,q.base+q.F*1.5);
+function openHist(e){closeSheet();const L={syms:[],ans:[],ink:[],x0:toW(30,0)[0],base:toW(0,SH*.35)[1],F:e.F||70,at:null,hid:e.id};for(const q of lines)L.base=Math.max(L.base,q.base+q.F*1.5);
  e.syms.forEach(s=>L.syms.push(newG([{c:s.c,p:1}],{sup:!!s.sup,fp:s.fp||undefined,fid:s.fid||undefined,cover:s.cover,fresh:false})));
  lines.push(L);layout(L);L.syms.forEach(g=>{g.x=g.tx;g.y=g.ty+12;g.sz=g.tsz*.9;g.a=0;g.ta=1});updateAns(L);kick()}
 /* ---------- export ---------- */
@@ -333,7 +355,7 @@ function fitRings(){document.querySelectorAll('#panel .opt').forEach((b,n)=>{con
 function openSheet(page){const p=$('panel'),s=$('sheet'),first=s.style.display!='block';s.style.display='block';
  if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="Back">${ico('back')}</button><h2>History</h2><button class="done" data-a="hexp">Export</button></div>`+
   (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="Copy">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="Delete">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">Clear history</button>`:`<p class="empty">Nothing here yet.<br>Calculations are saved as you write them.</p>`)}
- else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}${hasUpdater()?row('Updates','updates',[['auto','Auto'],['off','Off']]):''}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}${updTools()}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.${updHint()}</p>`;
+ else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Numbers','domain',[['real','ℝ real'],['complex','ℂ complex']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}${hasUpdater()?row('Updates','updates',[['auto','Auto'],['off','Off']]):''}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}${updTools()}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.${updHint()}</p>`;
  if(first){s.classList.remove('in');void s.offsetWidth}s.classList.add('in');fitRings()}
 const cleanAns=L=>L&&L.at?L.at.replace(/^=/,''):'';
 $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;

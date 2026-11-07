@@ -58,9 +58,10 @@ test('verified polynomial roots including repeated roots and irrational roots', 
 test('never identify identities by numerical sampling or cross singularities', () => {
   fails(()=>solve(['sin','(','π','x',')'],['0']),'unsupported');
   fails(()=>solve(['x','/','x'],['1']),'unsupported');
-  fails(()=>solve(['(','x','^','(','2',')',')','/','(','x','-','1',')'],['0']),'unsupported');
+  // x²/(x−1)=0 has the single solution x=0 (x=1 is excluded by the denominator)
+  assert.deepEqual(solve(['(','x','^','(','2',')',')','/','(','x','-','1',')'],['0']).roots.map(r=>r.value),[0]);
   fails(()=>solve(['x','^','(','0',')'],['1']),'unsupported');
-  fails(()=>solve(['x','^','(','4',')'],['16']),'unsupported'); // two real roots: never answer with one
+  assert.deepEqual(solve(['x','^','(','4',')'],['16']).roots.map(r=>r.value),[-2,2]); // every real root, never one
   fails(()=>solve(['1'],['1']),'unsupported');
 });
 test('polynomial coefficients handled exactly without floating point identity guesses', () => {

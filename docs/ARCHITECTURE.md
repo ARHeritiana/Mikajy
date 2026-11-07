@@ -17,7 +17,8 @@ and no runtime dependency.
 ## Modules (`web/`)
 | File | Responsibility | Tested by |
 |------|----------------|-----------|
-| `math-core.js` | Strict recursive-descent parser → AST; exact rational arithmetic (BigInt, bounded); real evaluation with domain checks; polynomial solver; invertible single-`x` solver | `math-core.test.cjs`, `math-extended.test.cjs` |
+| `poly-core.js` | Exact polynomials and rational functions over ℚ (BigInt); all real roots by Sturm sequences + exact bisection; rational roots certified by exact substitution | `poly-core.test.cjs` |
+| `math-core.js` | Strict recursive-descent parser → AST; exact rational arithmetic (BigInt, bounded); real evaluation with domain checks; exact special-angle trig; polynomial / rational-function solver (via `poly-core`); branch-aware invertible single-`x` solver | `math-core.test.cjs`, `math-extended.test.cjs`, `poly-core.test.cjs` |
 | `calculator.js` | Chooses equation vs expression, renders exact/approximate results (`≈` only for inexact) | `calculator.test.cjs` |
 | `recognizer.js` | Pure heuristics over `{c:[{c,p}], i, b}` glyph objects | `recognizer.test.cjs` |
 | `core_cnn.js` | conv-pool-conv-pool-fc-fc inference on float16 weights | `cnn.test.cjs` |
@@ -27,7 +28,7 @@ and no runtime dependency.
 | `app.js` | Canvas, animation, editing, history, memory, settings sheet, update UI | `browser_*.py` (headless Chromium) |
 
 `web/build_web.py` concatenates these (plus the font and model) into `android/assets/index.html`. Load order matters:
-`storage → core_main → recognizer → math-core → calculator → settings → updates → app`.
+`storage → core_main → recognizer → poly-core → math-core → calculator → settings → updates → app`.
 
 ## Android shell (`android/`)
 - `MainActivity` – immersive WebView, bridge (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `openUpdate`).

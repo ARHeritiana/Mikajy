@@ -76,15 +76,13 @@ test('equations with one occurrence of x are solved by exact inversion', () => {
   within(root('1 0 ^ ( x )'.replace('1 0', '10'), '1000')[0].value, 3);
 });
 
-test('inversion reports empty solution sets and refuses non-injective forms', () => {
+test('inversion reports empty solution sets and refuses what has no finite answer', () => {
   assert.equal(solve(T('e ^ ( x )'), T('- 1')).kind, 'none');
   assert.equal(solve(T('sqrt ( x )'), T('- 2')).kind, 'none');
   assert.equal(solve(T('2 ^ ( x )'), T('0')).kind, 'none');
   assert.equal(solve(T('0 / x'), T('3')).kind, 'none');
-  for (const [l, r] of [['sin ( x )', '0'], ['cos ( x )', '1'], ['abs ( x )', '2'], ['x ^ ( 2 )', '4'],
-    ['x ^ ( 4 )', '16'], ['1 ^ ( x )', '1'], ['x e ^ ( x )', '1'], ['x !', '120']]) {
-    // x^2 = 4 is a quadratic and IS supported through the polynomial path; the rest must be refused.
-    if (l === 'x ^ ( 2 )') { assert.equal(solve(T(l), T(r)).roots.length, 2); continue; }
+  // periodic, or not solvable by undoing one operation at a time
+  for (const [l, r] of [['sin ( x )', '0'], ['cos ( x )', '1'], ['1 ^ ( x )', '1'], ['x e ^ ( x )', '1'], ['x !', '120']]) {
     fails(() => solve(T(l), T(r)), 'unsupported');
   }
 });

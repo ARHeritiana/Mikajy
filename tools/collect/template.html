@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Mikajy collector</title>
+<style>
+:root{--bg:#fff;--ink:#111;--mut:#666;--rule:#ddd;--acc:#d71920;--card:#f6f6f6}
+@media (prefers-color-scheme:dark){:root{--bg:#0e0e0e;--ink:#f2f2f2;--mut:#999;--rule:#2b2b2b;--acc:#ff2a36;--card:#181818}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,sans-serif;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%}
+#top{padding:10px 14px;background:var(--card);border-bottom:1px solid var(--rule)}
+#meta{display:flex;justify-content:space-between;gap:8px;color:var(--mut);font-size:13px}
+#instr{margin:4px 0 8px;font-size:14px}#instr b{color:var(--acc)}
+#prompt{font-size:30px;line-height:1.2;overflow-x:auto;white-space:nowrap;padding:4px 0}
+.line{margin:6px 0}
+.hl{color:var(--acc);border-bottom:2px dotted var(--acc)}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 .15em}
+.frac>.n{border-bottom:2px solid currentColor;padding:0 .2em}.frac>.d{padding:0 .2em}
+sup,sub{font-size:.65em;line-height:0}
+.sq{display:inline-flex;align-items:stretch;vertical-align:middle}.sq>.r{padding-right:.1em}.sq>.b{border-top:2px solid currentColor;padding:0 .1em}
+.pr{display:inline-flex;align-items:stretch;vertical-align:middle}.pr>.l,.pr>.rr{width:.28em;border:2px solid currentColor;border-radius:40%}
+.pr>.l{border-right:0;border-radius:60% 0 0 60%/50% 0 0 50%}.pr>.rr{border-left:0;border-radius:0 60% 60% 0/0 50% 50% 0}
+.pr.sqb>.l,.pr.sqb>.rr{border-radius:0}.pr.bar>.l{border:0;border-left:2px solid currentColor;width:.1em}.pr.bar>.rr{border:0;border-right:2px solid currentColor;width:.1em}
+.mat{display:inline-grid;gap:.15em .7em;align-items:center;justify-items:center;padding:.1em .3em}
+.ov{border-top:2px solid currentColor}.fn{font-style:normal;margin-right:.2em}
+#stagebar{display:none;padding:6px 14px;background:var(--card);border-bottom:1px solid var(--rule);font-size:14px}
+#stagebar button{margin-left:8px}
+#padwrap{position:relative;flex:1;min-height:120px}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;background:var(--bg)}
+#hint{position:absolute;left:14px;bottom:8px;color:var(--mut);font-size:12px;pointer-events:none}
+#bar{display:flex;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--rule);background:var(--card);flex-wrap:wrap}
+button{font:inherit;padding:10px 14px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);border-radius:10px}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600;flex:1}
+#sp{flex:1}
+dialog{border:1px solid var(--rule);border-radius:14px;background:var(--bg);color:var(--ink);max-width:min(480px,92vw)}
+dialog::backdrop{background:#0008}label{display:block;margin:10px 0 4px;font-size:13px;color:var(--mut)}
+input,select{font:inherit;width:100%;padding:8px;border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--ink)}
+</style></head><body><div id="app">
+<div id="top"><div id="meta"><span id="count"></span><span id="cat"></span></div>
+<div id="instr"></div><div id="prompt"></div></div>
+<div id="stagebar"><span id="stagetxt"></span><button id="stagebtn" class="pri">Done, show the next part</button></div>
+<div id="padwrap"><canvas id="pad"></canvas><div id="hint">write below with your finger or pen</div></div>
+<div id="bar"><button id="undo">Undo stroke</button><button id="clear">Clear</button><button id="skip">Skip</button><span id="sp"></span><button id="menu">⋯</button><button id="save" class="pri">Save &amp; next</button></div>
+</div>
+<dialog id="dlg"><form method="dialog"><b>Collector</b>
+<p style="font-size:13px;color:var(--mut)">Everything stays on this device. Nothing is sent anywhere. <b>Export</b> makes a file you can share with the developer, or keep.</p>
+<label>Your anonymous id (no real name needed)</label><input id="who" maxlength="40" placeholder="e.g. writer-1">
+<label>Writing tool</label><select id="tool"><option>finger</option><option>stylus / pen</option><option>mouse</option></select>
+<p id="stat" style="font-size:13px"></p>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="export" type="button" class="pri">Export file</button><button id="del" type="button">Delete all saved samples</button><button value="close">Close</button></div></form></dialog>
+<script>
+'use strict';
+const PROMPTS=/*PROMPTS*/[];
+const KEY='mikajy-collect-v1', st={done:[],idx:0,who:'',tool:'finger'};
+try{Object.assign(st,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
+const $=id=>document.getElementById(id);
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(st));return true}catch(e){alert('Storage is full: please Export, then delete saved samples.');return false}}
+/* ---- prompt rendering (same group-path scheme as training/make_collect_app.py) ---- */
+const SYM={'×':'×','÷':'÷','≡':'≡','-':'−','/':'/'};
+function R(n,path,target){
+  const e=(tag,cls,kids)=>{const x=document.createElement(tag);if(cls)x.className=cls;(kids||[]).forEach(k=>x.append(k));return x};
+  const sub=(c,name)=>R(c,path?path+'/'+name:name,target);
+  let out;const k=n[0];
+  if(k==='num'||k==='var')out=document.createTextNode(n[1]);
+  else if(k==='op')out=document.createTextNode((n[1] in SYM?SYM[n[1]]:n[1]));
+  else if(k==='seq'){out=e('span','',[]);n[1].forEach((c,i)=>{const p=(path?path+'/':'')+'i'+i;const el=R(c,p,target);out.append(el);if(c[0]==='op')el.textContent;out.append(' ')})}
+  else if(k==='frac')out=e('span','frac',[e('span','n',[sub(n[1],'num')]),e('span','d',[sub(n[2],'den')])]);
+  else if(k==='sup')out=e('span','',[sub(n[1],'base'),e('sup','',[sub(n[2],'exp')])]);
+  else if(k==='sub')out=e('span','',[sub(n[1],'base'),e('sub','',[sub(n[2],'sub')])]);
+  else if(k==='sqrt')out=e('span','sq',[e('span','r',['√']),e('span','b',[sub(n[1],'arg')])]);
+  else if(k==='paren')out=e('span','pr '+(n[2]==='['?'sqb':n[2]==='|'?'bar':''),[e('span','l'),sub(n[1],'in'),e('span','rr')]);
+  else if(k==='func')out=e('span','',[e('span','fn',[n[1]==='mod'?'mod':n[1]]),sub(n[2],'arg')]);
+  else if(k==='over')out=e('span','ov',[sub(n[1],'base')]);
+  else if(k==='mat'){const g=e('span','mat');g.style.gridTemplateColumns='repeat('+n[1][0].length+',auto)';
+    n[1].forEach((r,i)=>r.forEach((c,j)=>g.append(R(c,(path?path+'/':'')+'r'+i+'c'+j,target))));
+    out=e('span','pr '+(n[2]==='['?'sqb':n[2]==='|'?'bar':''),[e('span','l'),g,e('span','rr')])}
+  else out=document.createTextNode('?');
+  if(target&&path&&(path===target)){const w=e('span','hl',[out]);return w}
+  return out;
+}
+/* ---- canvas ---- */
+const cv=$('pad'),ctx=cv.getContext('2d');let strokes=[],cur=null,t0=null,stage=0,stageCut=null;
+function size(){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);redraw()}
+function redraw(){const r=cv.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.lineCap=ctx.lineJoin='round';ctx.lineWidth=2.6;
+  const ink=getComputedStyle(document.body).color;
+  strokes.forEach((s,i)=>{ctx.strokeStyle=(stageCut!==null&&i>=stageCut)?'#d71920':ink;ctx.beginPath();s.forEach((p,j)=>j?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));if(s.length===1)ctx.lineTo(s[0][0]+.1,s[0][1]);ctx.stroke()});
+  $('hint').style.display=strokes.length?'none':'block'}
+cv.addEventListener('pointerdown',e=>{if(cur)return;cv.setPointerCapture(e.pointerId);const r=cv.getBoundingClientRect();if(t0===null)t0=e.timeStamp;cur=[[Math.round((e.clientX-r.left)*10)/10,Math.round((e.clientY-r.top)*10)/10,Math.round(e.timeStamp-t0)]];strokes.push(cur);redraw();e.preventDefault()});
+cv.addEventListener('pointermove',e=>{if(!cur)return;const r=cv.getBoundingClientRect();const co=e.getCoalescedEvents?e.getCoalescedEvents():[];for(const c of (co.length?co:[e])){cur.push([Math.round((c.clientX-r.left)*10)/10,Math.round((c.clientY-r.top)*10)/10,Math.round(c.timeStamp-t0)])}redraw();e.preventDefault()});
+const up=e=>{cur=null};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+addEventListener('resize',size);
+/* ---- flow ---- */
+function show(){
+  stage=0;stageCut=null;strokes=[];t0=null;redraw();
+  if(st.idx>=PROMPTS.length){$('prompt').textContent='All prompts done — thank you! Open ⋯ and Export.';$('instr').textContent='';$('count').textContent=st.done.length+' saved';return}
+  const p=PROMPTS[st.idx];
+  $('count').textContent='Sample '+(st.done.length+1)+' of '+PROMPTS.length+' · '+st.done.length+' saved';$('cat').textContent=p.domain+' · '+p.kind;
+  const pr=$('prompt');pr.textContent='';
+  p.trees.forEach((t,i)=>{const d=document.createElement('div');d.className='line';
+    let shown=t;
+    if(p.kind==='extend'){shown=['seq',t[1].slice(0,p.cut)]}
+    d.append(R(shown,'',p.kind==='late'?p.target:null));pr.append(d)});
+  let msg='Style: <b>'+p.style+'</b>. ';
+  if(p.kind==='plain')msg+='Write it as you naturally would.';
+  if(p.kind==='lines')msg+='Write each line on its own line, one under the other, top to bottom.';
+  if(p.kind==='late')msg+='Write everything <b>except the red dotted part</b> first, then come back and add the red part last (leave room for it).';
+  if(p.kind==='extend')msg+='Write this first. Then press the button: more will be revealed to <b>add after it</b>, on the same line.';
+  $('instr').innerHTML=msg;
+  $('stagebar').style.display=p.kind==='extend'?'block':'none';$('stagetxt').textContent='Step 1 of 2';$('stagebtn').style.display='inline-block';
+}
+$('stagebtn').onclick=()=>{const p=PROMPTS[st.idx];stageCut=strokes.length;stage=1;const pr=$('prompt');pr.textContent='';const d=document.createElement('div');d.className='line';d.append(R(p.trees[0],'',null));pr.append(d);
+  $('instr').innerHTML='Style: <b>'+p.style+'</b>. Now add the rest after what you wrote (shown in red).';$('stagetxt').textContent='Step 2 of 2';$('stagebtn').style.display='none';redraw()};
+$('undo').onclick=()=>{strokes.pop();if(stageCut!==null&&strokes.length<stageCut)stageCut=strokes.length;redraw()};
+$('clear').onclick=()=>{strokes=[];t0=null;if(stage===1)stageCut=0;redraw()};
+$('skip').onclick=()=>{st.idx++;persist();show()};
+$('save').onclick=()=>{
+  if(st.idx>=PROMPTS.length)return;const p=PROMPTS[st.idx];
+  if(!strokes.length){alert('Nothing written yet.');return}
+  if(p.kind==='extend'&&stage===0){alert('Press "Done, show the next part" first.');return}
+  const r=cv.getBoundingClientRect();
+  st.done.push({id:p.id,source:'collector',domain:p.domain,behaviour:p.kind==='late'?'late':p.kind==='extend'?'extend':p.kind==='lines'?'lines':'plain',
+    style:p.style,latex:p.latex,late_group:p.target||null,stage_strokes:stageCut,width:Math.round(r.width),height:Math.round(r.height),
+    who:st.who,tool:st.tool,strokes:strokes.map(s=>({pts:s}))});
+  st.idx++;if(persist())show();else st.done.pop()};
+/* ---- settings / export ---- */
+const dlg=$('dlg');
+function stat(){$('stat').textContent=st.done.length+' samples saved on this device (~'+Math.round(JSON.stringify(st.done).length/1024)+' KB).'}
+$('menu').onclick=()=>{$('who').value=st.who;$('tool').value=st.tool;stat();dlg.showModal()};
+$('who').onchange=()=>{st.who=$('who').value.replace(/[^\w .-]/g,'').slice(0,40);persist()};
+$('tool').onchange=()=>{st.tool=$('tool').value;persist()};
+$('export').onclick=()=>{if(!st.done.length){alert('Nothing saved yet.');return}
+  const blob=new Blob([st.done.map(s=>JSON.stringify(s)).join('\n')+'\n'],{type:'application/x-ndjson'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mikajy-samples-'+(st.who||'anon')+'-'+new Date().toISOString().slice(0,10)+'.jsonl';document.body.append(a);a.click();a.remove()};
+$('del').onclick=()=>{if(confirm('Delete all '+st.done.length+' saved samples from this device? Export first if you want to keep them.')){st.done=[];persist();stat();show()}};
+size();show();
+</script></body></html>
