@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Unit tests (maths, calculator, settings, storage)
+      - name: Unit tests (maths, recogniser, calculator, settings, storage, updates)
         run: node --test tests/*.test.cjs
       - name: Build the offline page and check CSP / no-eval / syntax
         run: python3 tests/build_check.py
@@ -30,6 +30,10 @@ jobs:
           python3 -m playwright install --with-deps chromium
       - name: Browser smoke test (worker + fallback inference, CSP, hostile storage, no network)
         run: python3 tests/browser_smoke.py
+      - name: Drawn-stroke end-to-end test (recogniser, exponents, answer)
+        run: python3 tests/browser_strokes.py
+      - name: Update UI test (mocked Android bridge)
+        run: python3 tests/browser_updates.py
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -40,6 +44,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends openjdk-21-jdk-headless aapt zipalign \
             android-sdk-platform-23 dalvik-exchange python3
+      - name: Update checker (compile with -Werror, parser and URL guard tests)
+        run: bash scripts/test-update-checker.sh
       - name: Compile and package (unsigned, verification only)
         env:
           MIKAJY_UNSIGNED_ONLY: '1'
