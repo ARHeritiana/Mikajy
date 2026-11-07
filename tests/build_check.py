@@ -29,12 +29,12 @@ with tempfile.TemporaryDirectory() as temp:
     path.write_text(script.group(1), encoding="utf-8")
     subprocess.run(["node", "--check", str(path)], check=True)
 # The shipped float16 model must be exactly what training/pack_model.py produces from the checkpoint.
-import base64, json
-import numpy as np
+import base64, json, struct
+# Python's IEEE 754 half-precision encoder validates the shipped model without NumPy.
 src = json.loads((ROOT / "training/model4.json").read_text())
 shipped = json.loads((ROOT / "web/model/model4.f16.json").read_text())
 assert shipped["fmt"] == "f16" and shipped["cls"] == src["cls"], "model metadata out of sync"
 for key in ("w1", "b1", "w2", "b2", "w3", "b3", "w4", "b4"):
-    expect = np.frombuffer(base64.b64decode(src[key]), dtype="<f4").astype("<f2").tobytes()
+    expect = b"".join(struct.pack("<e", values[0]) for values in struct.iter_unpack("<f", base64.b64decode(src[key])))
     assert base64.b64decode(shipped[key]) == expect, f"{key}: run training/pack_model.py"
 print("Offline HTML build, CSP, no-eval and assembled JavaScript syntax: PASS")
