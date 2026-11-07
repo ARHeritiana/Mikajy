@@ -92,12 +92,14 @@ Logo: the user-selected white **M** over a black-and-red rounded square, extract
 web/                       the app (one HTML page, HTML5 canvas, no dependencies)
   core_cnn.js              CNN inference (runs in a Web Worker; falls back to main thread)
   core_main.js             stroke grouping, personalisation (kNN over your corrections), classification
+  seq-core.js              stroke-sequence recogniser: featurisation, int8 transformer inference, LaTeX → board glyphs
   recognizer.js            exponent detection, function-word matching, cursive segmentation (pure, tested)
   math-core.js             strict parser, AST, real evaluation, exact rationals, equation solving
   calculator.js            formatting and UI-facing calculation adapter
   updates.js               what an update answer means and when to ask again
   settings.js, storage.js  validated, size-bounded local preferences / history / memory
   app.js                   canvas, animation, interaction, editing, history, memory, settings sheet
+  model/seq1.json          shipped int8 weights of the stroke-sequence model (training/pack_seq.py)
   model/model4.f16.json    shipped float16 weights (packed from training/model4.json by training/pack_model.py)
   fonts/hand.woff2         Caveat subset (SIL OFL) used to typeset the handwriting
   build_web.py             assembles android/assets/index.html
@@ -133,7 +135,34 @@ The build fails on any compiler warning and checks that the APK has the expected
 `android/assets/index.html` in desktop Chrome after `python3 web/build_web.py` (bridge calls fall back to
 clipboard/new tab; the update UI is hidden).
 
-## Recogniser
+## Stroke-sequence recogniser (Settings → Recogniser → Sequence, the default)
+Strokes in, LaTeX tokens out: a small transformer (encoder over strokes, autoregressive decoder, 7.6 M parameters, int8 weights, ~10 MB inside the page)
+reads *everything written on a line at once*, so it handles late additions, extended lines, denominators written last, exponents, matrices, complex numbers, `mod`
+and several lines without hand-written grouping rules. It runs fully offline in its own Web Worker (`web/seq-core.js`, plain JS, no `eval`, CSP unchanged);
+if the worker cannot start the page falls back to the classic recogniser automatically.
+* **What you see changes:** your ink stays where you wrote it and the typeset reading plus the answer appear *below* it (the model needs the ink in one
+  coordinate frame, so it is not replaced by typeset glyphs). Add a stroke later and the line is re-read. Scribbling hard over ink erases it.
+* **Known limits:** nested fractions and fractions inside exponents are shown inline as `(a)/(b)` (the board has one level of fraction parts); no tap-to-cycle
+  alternatives (the model gives one reading); matrices, `mod`, `det` are *read* but the maths engine does not evaluate them; tested only in desktop Chromium, not on a phone.
+* **Training data:** only strokes from our own generator (OFL handwriting fonts, `training/synth/`). No MNIST, no third-party corpus, no user data; four fonts are held out.
+
+Measured through the shipped page (`training/eval_app.py --rec classic|seq`, same bag-of-symbols metric restricted to the classic CNN's symbol set; recall / precision):
+
+| Test set | Classic | Sequence |
+|---|---|---|
+| 29 real finger-written samples (never trained on; 347 scored symbols) | 49.0 % / 54.5 % | 74.1 % / 60.5 % |
+| 120 synthetic samples in 4 fonts unseen in training (1138 scored symbols) | 39.4 % / 50.7 % | 83.3 % / 60.1 % |
+
+Model alone in PyTorch (`training/eval_seq.py`, whole LaTeX token sequences): real samples token error rate 28.9 %, exactly right 1/29; unseen-font synthetic token error rate 4.6 %, exactly right 61 %.
+Be careful with these numbers: 29 samples is tiny (about ±5 points on recall); the real set was *used to diagnose* two generator flaws (one-stroke `+`/`×`/`x`, strokes written ~3× slower than the synthetic ones),
+so later real-data gains are not independent evidence; the precision column is lowered by the extra letters the model sometimes reads (`a t i m`) in synthetic cursive.
+The classic baseline was re-measured after fixing the harness (the browser cannot deliver pointer events outside the viewport; some real samples extend to x = 725).
+
+Rebuild: `fetch_assets.sh`; `python3 -I training/gen_corpus.py --fonts $MIKAJY_ASSETS/fonts --n 130000 --out DIR/train.npz --seed 12` (plus `--heldout` / `--seed 2` for `held.npz`, `--seed 3` for `val.npz`);
+`python3 training/train_seq.py --data DIR --out RUN --minutes 100` (CUDA PyTorch; `--init CKPT --aug2` fine-tunes with stroke merge/split, per-stroke wobble and time scaling);
+`python3 training/pack_seq.py RUN/ckpt.pt web/model/seq1.json`; `python3 web/build_web.py`. `tests/seq-core.test.cjs` checks the JS port against PyTorch when `MIKAJY_SEQ_MODEL` / `MIKAJY_SEQ_PARITY` are set (`training/parity_seq.py`).
+
+## Classic recogniser
 Input: every group of strokes is rendered (4x supersampled, bbox scaled to 20 px, centred in 28x28,
 pen ~2.9 px). Model: conv3x3(24)-pool-conv3x3(48)-pool-fc(192)-fc, with legacy advanced classes filtered at inference.
 Supported classes include `0-9 + - * / ( ) =`, function-name letters, `π √ ! %`.
