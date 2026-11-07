@@ -21,6 +21,7 @@ RECOGNIZE = """async () => {
 CORRUPT = """
   localStorage.setItem('inkhist', '[{"id":5,"syms":"nope"},null,{"id":"ok","ts":1,"syms":[{"c":"1"}],"ans":"=<img src=x onerror=alert(1)>","text":"<img src=x onerror=alert(2)>"}]');
   localStorage.setItem('inkmem', '["1e+21","<b>x</b>",5,"42"]');
+  localStorage.setItem('ink4', '[{"c":"1","v":"AAAA"},"junk",{"c":"nope","v":[]}]');
   localStorage.setItem('ink3', '[{"c":"1","v":[1,2,3]},"junk",{"c":"nope","v":[]}]');
   localStorage.setItem('inkset', '{"theme":"neon","angle":"deg","__proto__":{"x":1}}');
 """

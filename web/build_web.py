@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Assemble android/assets/index.html (single self-contained page) from the web/ sources.
-   The CNN weights are embedded twice-free: once inside <script id="cnn"> (run in a Web Worker),
-   the class list is inlined into the main script."""
+   The float16 CNN weights (web/model/model4.f16.json, made by training/pack_model.py) are embedded once,
+   inside <script id="cnn" type="text/plain"> (run in a Web Worker); the class list is inlined into the main script."""
 import base64, json, os
 here = os.path.dirname(os.path.abspath(__file__))
 rd = lambda p: open(os.path.join(here, p), encoding='utf-8').read()
-model = rd('model/model4.json')
+model = rd('model/model4.f16.json')
 cls = json.dumps(json.loads(model)['cls'])
 font = base64.b64encode(open(os.path.join(here, 'fonts/hand.woff2'), 'rb').read()).decode()
 css = """<style>@font-face{font-family:H;src:url(data:font/woff2;base64,__FONT__) format('woff2')}

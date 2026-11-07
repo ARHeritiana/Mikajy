@@ -23,16 +23,51 @@ const Store = (() => {
     return list.filter(v => str(v, 24) && PLAIN_NUMBER.test(v)).slice(0, max);
   }
 
-  /** Personalisation samples: {c: known class, v: 784 bytes}. */
+  /* Personalisation samples: {c: known class, v: 784 bytes}.
+   * Stored packed (base64, ~1 KB each) under SAMPLES_KEY; the legacy format (JSON arrays of 784
+   * integers, ~3 KB each, key LEGACY_SAMPLES_KEY) is still read and migrated on the next save. */
+  const SAMPLES_KEY = 'ink4', LEGACY_SAMPLES_KEY = 'ink3', SAMPLE_BYTES = 784;
+  const B64_SAMPLE = /^[A-Za-z0-9+/]{1046}==$/;   // 784 bytes -> 1048 base64 chars
+
+  function decodeSample(v) {
+    if (Array.isArray(v)) {
+      if (v.length !== SAMPLE_BYTES || !v.every(n => Number.isInteger(n) && n >= 0 && n <= 255)) return null;
+      return Uint8Array.from(v);
+    }
+    if (typeof v !== 'string' || !B64_SAMPLE.test(v)) return null;
+    try {
+      const bin = atob(v);
+      if (bin.length !== SAMPLE_BYTES) return null;
+      const out = new Uint8Array(SAMPLE_BYTES);
+      for (let i = 0; i < SAMPLE_BYTES; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    } catch (_) { return null; }
+  }
+  function encodeSample(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  /** @returns {{c: string, v: Uint8Array}[]} at most `max` valid samples (the most recent ones). */
   function cleanSamples(list, classes, max = 400) {
     const known = new Set(classes);
     const out = [];
     for (const m of list) {
-      if (!isObject(m) || !known.has(m.c) || !Array.isArray(m.v) || m.v.length !== 784) continue;
-      if (!m.v.every(n => Number.isInteger(n) && n >= 0 && n <= 255)) continue;
-      out.push({c: m.c, v: m.v});
+      if (!isObject(m) || !known.has(m.c)) continue;
+      const v = decodeSample(m.v);
+      if (v) out.push({c: m.c, v});
     }
     return out.slice(-max);
+  }
+  function loadSamples(storage, classes) {
+    const packed = loadArray(storage, SAMPLES_KEY);
+    return cleanSamples(packed.length ? packed : loadArray(storage, LEGACY_SAMPLES_KEY), classes);
+  }
+  function saveSamples(storage, samples) {
+    const ok = save(storage, SAMPLES_KEY, samples.map(({c, v}) => ({c, v: encodeSample(v)})));
+    if (ok) { try { storage?.removeItem?.(LEGACY_SAMPLES_KEY); } catch (_) { /* nothing to clean */ } }
+    return ok;
   }
 
   /** History entries: rebuilt field by field so no unexpected property or type survives. */
@@ -65,6 +100,6 @@ const Store = (() => {
     return PLAIN_NUMBER.test(s) ? s : null;
   }
 
-  return Object.freeze({loadArray, save, cleanChips, cleanSamples, cleanHistory, plainNumber, PLAIN_NUMBER});
+  return Object.freeze({loadArray, save, cleanChips, cleanSamples, loadSamples, saveSamples, cleanHistory, plainNumber, PLAIN_NUMBER});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Store;

@@ -67,7 +67,7 @@ web/                       the app (one HTML page, HTML5 canvas, no dependencies
   storage.js               validated, size-bounded access to localStorage (history, memory, personalisation)
   app.js                   canvas, animation, interaction, editing, history and memory
   core_main.js             stroke grouping, personalisation and classification
-  model/model4.json        trained weights (legacy classification model)
+  model/model4.f16.json    shipped float16 weights (packed from training/model4.json by training/pack_model.py)
   fonts/hand.woff2         Caveat subset (SIL OFL) used to typeset the handwriting
   build_web.py             assembles android/assets/index.html
 android/                   WebView shell
@@ -109,7 +109,7 @@ pen ~2.9 px). Model: conv3x3(24)-pool-conv3x3(48)-pool-fc(192)-fc, with legacy a
 Supported classes include `0-9 + - * / ( ) =`, function-name letters, `π √ ! %`.
 Fractions, exponents, roots, dots (`.`, `i`, `!`) and function words are resolved geometrically and by a
 word matcher over each symbol's top-5 candidates, not by the CNN.
-Corrections you confirm are stored in `localStorage` and bias later predictions (cosine kNN, 400 samples).
+Corrections you confirm are stored in `localStorage` (packed base64, ~1 KB each; the older array format is migrated automatically) and bias later predictions (cosine kNN, 400 samples).
 
 Measured (not on a phone): MNIST test digits 98.8 %; synthetic stroke symbols 98.7 %; 4 handwriting fonts
 unseen in training 89.7 % (all 33 classes, harder than real use); on those fonts 58/60 test strings such as
@@ -121,7 +121,8 @@ Needs: python3, numpy, scipy, jax, optax, opencv-python-headless, scikit-image, 
   — `training/fetch_assets.sh` downloads all of them (SIL OFL fonts from github.com/google/fonts).
   `train4.py` runs from the `training/` folder and reads `train.py` (the synthetic-stroke generator) next to it.
 `python3 training/train4.py 6` generates per-class data (cached in `./cache/`, safe to interrupt),
-trains with checkpoints (`ckpt4.pkl`, resumable) and writes `model4.json`; copy it to `web/model/`.
+trains with checkpoints (`ckpt4.pkl`, resumable) and writes `model4.json` (float32 checkpoint, kept in `training/`); then run `python3 training/pack_model.py` to produce the
+half-size `web/model/model4.f16.json` that the app ships (`tests/build_check.py` fails if the two are out of sync).
 Synthetic strokes (`train.py`) cover digits/operators/π/√/!/%; letters come only from fonts
 (skeletonised, warped, re-inked at pen width), so real handwriting is the main unknown.
 

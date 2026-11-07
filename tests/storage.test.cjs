@@ -30,6 +30,19 @@ test('personalisation samples are validated for class, length and byte range', (
   assert.equal(out[0].c, 'a');
   assert.equal(Store.cleanSamples(Array.from({length: 450}, () => sample('a')), ['a']).length, 400);
 });
+test('samples accept the packed (base64) and the legacy (array) format and round-trip losslessly', () => {
+  const bytes = Uint8Array.from({length: 784}, (_, i) => (i * 7) % 256);
+  const store = {d: {ink3: JSON.stringify([{c: 'a', v: Array.from(bytes)}])},
+    getItem(k) { return this.d[k] ?? null; }, setItem(k, v) { this.d[k] = v; }, removeItem(k) { delete this.d[k]; }};
+  const loaded = Store.loadSamples(store, ['a']);
+  assert.equal(loaded.length, 1);
+  assert.deepEqual(Array.from(loaded[0].v), Array.from(bytes));
+  assert.equal(Store.saveSamples(store, loaded), true);
+  assert.equal(store.d.ink3, undefined, 'legacy key is removed after migration');
+  assert.ok(store.d.ink4.length < 1200, 'packed form is ~1 KB per sample');
+  assert.deepEqual(Array.from(Store.loadSamples(store, ['a'])[0].v), Array.from(bytes));
+  assert.equal(Store.cleanSamples([{c: 'a', v: 'not-base64'}, {c: 'a', v: 'A'.repeat(1048)}], ['a']).length, 0);
+});
 test('history entries are rebuilt field by field', () => {
   const ok = {id: 'a-1', ts: 1, F: 70, ans: '=5', text: '2+3', syms: [{c: '2', fid: 7, fp: 'n', evil: 1}, {c: '+'}]};
   const [h] = Store.cleanHistory([ok, {id: 5}, null, {...ok, syms: []}, {...ok, id: 'b', syms: [{c: 'toolong'}]}, {...ok, id: 'c', ans: 'x'.repeat(500)}]);

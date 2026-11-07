@@ -1,5 +1,5 @@
 const cv=document.getElementById('pad');let ctx=cv.getContext('2d');const $=id=>document.getElementById(id);
-let lastL=null,lp=null,drag=null,SW=0,SH=0,lines=[],fx=[],ghosts=[],cur=null,down=null,started=false,rt=null,raf=0,tPrev=0;
+let DPR=1,lastL=null,lp=null,drag=null,SW=0,SH=0,lines=[],fx=[],ghosts=[],cur=null,down=null,started=false,rt=null,raf=0,tPrev=0;
 const FONT='H, serif';
 const disp=c=>c=='*'?'×':c=='/'?'÷':c=='-'?'−':c;
 const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
@@ -22,7 +22,7 @@ function applyTheme(){
 }
 
 function fmt(v){if(!isFinite(v))return'undefined';if(Math.abs(v)<1e-12)v=0;return String(parseFloat(v.toPrecision(10)))}
-function fit(){const d=Math.min(devicePixelRatio||1,2);SW=innerWidth;SH=innerHeight;cv.width=SW*d;cv.height=SH*d;lines.forEach(layout);kick()}
+function fit(){const d=DPR=Math.min(devicePixelRatio||1,2);SW=innerWidth;SH=innerHeight;cv.width=SW*d;cv.height=SH*d;lines.forEach(layout);kick()}
 function strokePath(s){ctx.beginPath();ctx.moveTo(...s[0]);ctx.lineTo(...mid(s[0],s[1]));for(let i=1;i<s.length-1;i++)ctx.quadraticCurveTo(...s[i],...mid(s[i],s[i+1]));ctx.lineTo(...s[s.length-1]);ctx.stroke()}
 function drawInk(s,a){if(a<=.01)return;ctx.globalAlpha=a;ctx.strokeStyle=ctx.fillStyle=palette.ink;ctx.lineWidth=4.5;ctx.lineCap=ctx.lineJoin='round';
  if(s.length==1){ctx.beginPath();ctx.arc(s[0][0],s[0][1],2.6,0,7);ctx.fill()}else strokePath(s);ctx.globalAlpha=1}
@@ -36,7 +36,7 @@ function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;c
  else{if(g.ot>0&&g.old){ctx.globalAlpha=a*g.ot;ctx.fillText(disp(g.old),g.x,g.y);ctx.globalAlpha=a*(1-g.ot)}else ctx.globalAlpha=a;
   ctx.fillText(disp(c),g.x,g.y);ctx.globalAlpha=1}
  if(g.ink&&g.a<.99){const k=Math.max(0,1-g.a*1.1);g.ink.forEach(s=>drawInk(s,k))}else g.ink=null}
-function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);const d=Math.min(devicePixelRatio||1,2);ctx.setTransform(d,0,0,d,0,0);
+function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
  if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle=palette.ink;ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText('write a sum',SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
  for(const L of lines){L.syms.forEach(drawG);L.ans.forEach(drawG);L.ink.forEach(s=>drawInk(s,1))}
  fx.forEach(drawG);ghosts.forEach(g=>drawInk(g.pts,1-(now-g.t0)/420));if(cur)drawInk(cur,1);
@@ -45,8 +45,9 @@ function stepG(g,dt,now){if(now<g.delay)return true;const k=1-Math.exp(-dt*7),k2
  let r=Math.abs(g.tx-g.x)>.3||Math.abs(g.ty-g.y)>.3||Math.abs(g.tsz-g.sz)>.3||Math.abs(g.ta-g.a)>.01||g.ot>0;
  if(g.vtx!==undefined){g.vx+=(g.vtx-g.vx)*k;if(Math.abs(g.vtx-g.vx)>.3)r=true}
  if(g.bwt!==undefined){g.bw+=(g.bwt-g.bw)*k;if(Math.abs(g.bwt-g.bw)>.3)r=true}return r}
-function step(dt,now){let act=false;for(const L of lines)for(const g of L.syms.concat(L.ans))if(stepG(g,dt,now))act=true;
- for(const g of fx)if(stepG(g,dt,now))act=true;fx=fx.filter(g=>g.a>.02);ghosts=ghosts.filter(g=>now-g.t0<420);return act||ghosts.length>0}
+function step(dt,now){let act=false;const tick=g=>{if(stepG(g,dt,now))act=true};
+ for(const L of lines){L.syms.forEach(tick);L.ans.forEach(tick)}
+ fx.forEach(tick);if(fx.length)fx=fx.filter(g=>g.a>.02);if(ghosts.length)ghosts=ghosts.filter(g=>now-g.t0<420);return act||ghosts.length>0}
 function kick(){if(!raf){tPrev=performance.now();raf=requestAnimationFrame(frame)}}
 function frame(now){raf=0;const dt=Math.min(.05,(now-tPrev)/1000);tPrev=now;const act=step(dt,now);render(now);if(act||cur)kick()}
 const adv=(c,F)=>{if(c=='√')return F*.62;ctx.font=F+'px '+FONT;return ctx.measureText(disp(c)).width};
@@ -155,31 +156,34 @@ function assignCover(A){A.forEach((g,k)=>{if(ch(g)=='√'&&g.vin){let n=0;for(le
 const CLS=/*CLS*/;
 loadMem(CLS);
 const cnnSrc=document.getElementById('cnn').textContent;
-let wk=null,pend=new Map(),pid=0,local=null,workerUrl=null;
+const CNN_BOOT_MS=10000,CNN_REQUEST_MS=4000;
+let wk=null,pend=new Map(),pid=0,local=null,workerUrl=null,wkReady=false,wkBoot=0;
 function localPredict(x){if(!local){const s=document.createElement('script');s.textContent='window.__mikajyPredict=(function(){'+cnnSrc+';return predict})();';
   document.head.appendChild(s);s.remove();local=window.__mikajyPredict;delete window.__mikajyPredict}return local(x)}
 function localFallback(q){
  setTimeout(()=>{try{q.res(localPredict(q.x))}catch(e){q.reject(e)}},0);
 }
 function stopCNN(){
+ clearTimeout(wkBoot);wkReady=false;
  if(wk){wk.terminate();wk=null}
  if(workerUrl){URL.revokeObjectURL(workerUrl);workerUrl=null}
  const old=[...pend.values()];pend.clear();
  for(const q of old){clearTimeout(q.t);localFallback(q)}
 }
 function initCNN(){try{
- const b=new Blob([cnnSrc+"\nonmessage=function(e){postMessage({id:e.data.id,p:predict(e.data.x)})};predict(new Float32Array(784));"],{type:'text/javascript'});
+ const b=new Blob([cnnSrc+"\nonmessage=function(e){postMessage({id:e.data.id,p:predict(e.data.x)})};predict(new Float32Array(784));postMessage({ready:true});"],{type:'text/javascript'});
  workerUrl=URL.createObjectURL(b);
- wk=new Worker(workerUrl);
+ wk=new Worker(workerUrl);wkBoot=setTimeout(stopCNN,CNN_BOOT_MS);
  wk.onmessage=e=>{
   if(workerUrl){URL.revokeObjectURL(workerUrl);workerUrl=null}
+  if(e.data.ready){wkReady=true;clearTimeout(wkBoot);for(const q of pend.values())q.t=setTimeout(stopCNN,CNN_REQUEST_MS);return}
   const q=pend.get(e.data.id);if(q){pend.delete(e.data.id);clearTimeout(q.t);q.res(e.data.p)}
  };
  wk.onerror=()=>stopCNN();
  }catch(e){stopCNN()}}
 function predictAsync(x){return new Promise((res,reject)=>{
  if(!wk){localFallback({res,reject,x});return}
- const id=++pid,q={res,reject,x,t:setTimeout(stopCNN,4000)};
+ const id=++pid,q={res,reject,x,t:wkReady?setTimeout(stopCNN,CNN_REQUEST_MS):0};
  pend.set(id,q);
  try{wk.postMessage({id,x})}catch(e){stopCNN()}
 })}

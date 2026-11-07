@@ -28,15 +28,27 @@ a CI job that could never have passed, a few UX/maths artefacts, and a recognise
 | 12 | A11y | No language, unlabeled canvas | `lang="en"`, `role="img"` + label |
 Tests: 10 → 18 unit tests, browser smoke test extended (CSP enforced, worker + fallback, hostile storage, zero network).
 
+## Performance pass (post-4.5)
+Measured in Node on a desktop CPU; **not** on a device (see "Known debt" 5).
+
+| Change | Effect |
+|--------|--------|
+| Model shipped as float16 (`training/pack_model.py` -> `web/model/model4.f16.json`), decoded through a 64K lookup table; duplicate `web/model/model4.json` removed | Page 2.5 MB -> 1.3 MB; decode time unchanged (~5 ms); 100 % top-1 agreement and max probability change < 0.001 on 2 460 glyph/stroke probes. int8 was evaluated and **rejected** (top-5 candidate lists changed in ~12 % of probes) |
+| Inference uses pre-allocated scratch buffers and an allocation-free softmax | ~2.1 -> ~1.4 ms per symbol; identical output to the old code on float32 weights (max difference 2e-7) |
+| Personalisation samples stored packed (base64, ~1 KB each) under `ink4`; legacy `ink3` migrated and removed; kNN uses pre-normalised vectors | ~2.7x smaller synchronous `localStorage` write on every confirmed correction; one dot product per comparison; behaviour pinned by `tests/recogniser-memory.test.cjs` against the original formula |
+| Animation step no longer allocates (`concat`/`filter`) every frame; device-pixel-ratio cached | Less GC churn during drawing/animation |
+| Worker request time-outs start only once the worker reports `ready` (separate 10 s boot watchdog) | A slow first load can no longer permanently push inference onto the main thread |
+Tests: 18 -> 27 unit tests; `tests/build_check.py` also fails if the shipped model is not the exact packing of the checkpoint.
+
 ## Known debt (deliberately not "fixed" blind)
 1. **`web/app.js` and `web/core_main.js` are dense, global-state, 300-character-per-line code.** They hold the
    recogniser heuristics (stroke grouping, fractions, roots, scribble-erase, drag & drop). They work, but cannot be
    reviewed or safely modified. A real rewrite needs characterisation tests built from recorded strokes and device
    testing; rewriting them untested would trade known behaviour for unknown bugs. Recommended next step: record
    stroke fixtures → split into modules (`geometry`, `layout`, `recognizer`, `history`, `ui`) one at a time behind those tests.
-2. **Model size.** 2.5 MB of float32 weights are base64-embedded and parsed at every launch (and copied into the worker).
-   int8/float16 quantisation would cut this 2–4× but must be validated against the training set.
-3. **The same model is stored twice** (`training/model4.json`, `web/model/model4.json`).
+2. **Model size.** Halved by the float16 packing above. Further reduction (int8) changes the recogniser's alternative
+   candidates and needs real handwriting validation first.
+3. ~~The same model is stored twice~~ — resolved: `training/model4.json` is the float32 checkpoint, `web/model/model4.f16.json` the shipped file.
 4. **Compiled against API 23** (the only platform package in Ubuntu). Newer callbacks such as `onRenderProcessGone`
    (API 26) therefore cannot be overridden; with a newer `android.jar` it should be added.
 5. **No on-device verification** of performance, battery or the share sheet. The PNG is not deleted right after sharing
