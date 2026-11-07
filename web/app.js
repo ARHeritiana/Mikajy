@@ -82,16 +82,16 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
   x+=(g.w0+trail(g))*f});
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
- const out=[],close=new Set();let inSup=false,num='',word='';
+ const out=[],close=new Map();let inSup=false,num='',word='';
  const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='x'||(word=='i'&&SET.domain=='complex')||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
  A.forEach((g,k)=>{const c=ch(g);
   if(g.sup&&!inSup){fN();fW();out.push('^','(');inSup=true}
   if(!g.sup&&inSup){fN();fW();out.push(')');inSup=false}
-  if(/[0-9.]/.test(c)){fW();num+=c}else if(/[a-z]/.test(c)){fN();word+=c}
+  if(/[0-9.]/.test(c)){fW();num+=c}else if(/[a-z]/.test(c)){fN();if(g.wb)fW();word+=c}
   else{fN();fW();
    if(c=='§'){const n=tokSeq(L,partsOf(L,g,'n'),false),d=tokSeq(L,partsOf(L,g,'d'),false);if(!n.length||!d.length)throw new Error('empty fraction part');out.push('(','(',...n,')','/','(',...d,')',')')}
-   else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.add(k+n)}}else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||g.sup&&!(pv&&pv.sup)||'+-*/=)%→d'.includes(nc)||!pv||'+-*/=(d∫→'.includes(pc))?'x':'*')}else out.push(c)}
-  if(close.has(k)){fN();fW();if(inSup&&!(A[k+1]&&A[k+1].sup)){out.push(')');inSup=false}out.push(')')}});
+   else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.set(k+n,(close.get(k+n)||0)+1)}}else if(c=='*'&&g.mul)out.push('*');else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||g.sup&&!(pv&&pv.sup)||'+-*/=)%→d'.includes(nc)||!pv||'+-*/=(d∫→'.includes(pc))?'x':'*')}else out.push(c)}
+  if(close.has(k)){fN();fW();if(inSup&&!(A[k+1]&&A[k+1].sup)){out.push(')');inSup=false}for(let q=close.get(k);q>0;q--)out.push(')')}});
  fN();fW();if(inSup)out.push(')');return out}
 function tokenize(L){return tokSeq(L,seqs(L)[0],true)}
 /* Mathematical parsing and evaluation live in math-core.js + calculator.js. */
@@ -109,14 +109,15 @@ function newG(c,o){return Object.assign({c,i:0,x:0,y:0,sz:60,tx:0,ty:0,tsz:60,a:
 function updateAns(L){const r=computeAns(L),key=r?r.text:null;if(key===L.at)return;L.at=key;L.val=r?r.val:undefined;lastL=L;L.ans.forEach(kill);L.ans=[];if(!r)return;
  L.ans=buildAns(r.pieces);layout(L);L.ans.forEach(g=>{g.x=g.tx+4;g.y=g.ty+L.F*.35;g.sz=g.tsz;if(g.fp=='bar')g.bw=0});if(window.histSave)histSave(L)}
 function kill(g){g.ta=0;g.tsz*=.75;g.ty+=16;g.ink=null;g.delay=0;fx.push(g)}
-function lineBox(L){if(L.syms.length||L.ans.length)return[L.base-1.05*L.F,L.base+.4*L.F];let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const h=y1-y0,m=Math.max(.4*h+10,35);return[y0-m,y1+m]}
+function inkBand(L){let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const m=Math.max(.4*(y1-y0)+10,35);return[y0-m,y1+m]}
+function lineBox(L){if(L.seq&&L.ink.length)return inkBand(L);if(L.syms.length||L.ans.length)return[L.base-1.05*L.F,L.base+.4*L.F];let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const h=y1-y0,m=Math.max(.4*h+10,35);return[y0-m,y1+m]}
 const isBar=s=>{const b=bb(s);return!s.vin&&b.w>=56&&b.h<.2*b.w};
 function attach(s){const b=bb(s),cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;
  for(const L of lines)for(const t of L.ink){if(t===s)continue;const tb=bb(t);
   if(isBar(t)&&!isBar(s)){if(cx>=tb.x0-12&&cx<=tb.x1+12&&Math.abs(cy-(tb.y0+tb.y1)/2)<Math.max(130,tb.w)){L.ink.push(s);return}}
   else if(isBar(s)&&!isBar(t)){const tc=(tb.x0+tb.x1)/2;if(tc>=b.x0-12&&tc<=b.x1+12&&Math.abs((tb.y0+tb.y1)/2-cy)<Math.max(130,b.w)){L.ink.push(s);return}}}
  let best=null,bd=1e9;
- for(const L of lines){const[a,z]=lineBox(L);const d=cy<a?a-cy:cy>z?cy-z:0;if(d<bd){bd=d;best=L}}
+ for(const L of lines){if(L.kidOf)continue;const[a,z]=lineBox(L);const d=cy<a?a-cy:cy>z?cy-z:0;if(d<bd){bd=d;best=L}}
  if(best&&bd==0){best.ink.push(s);return}
  lines.push({syms:[],ans:[],ink:[s],x0:0,base:0,F:80,at:null})}
 const ovl=(a,e)=>{const w=Math.min(a.x1,e.x1)-Math.max(a.x0,e.x0),h=Math.min(a.y1,e.y1)-Math.max(a.y0,e.y0);return w>0&&h>0?w*h/Math.max(1,(a.x1-a.x0)*(a.y1-a.y0)):0};
@@ -132,9 +133,11 @@ function revs(v,amp){let d=0,ext=v[0],n=0;for(const x of v){if(d==0){if(Math.abs
 function scribStats(s){const b=bb(s),m=Math.max(b.w,b.h);let len=0;for(let i=1;i<s.length;i++)len+=Math.hypot(s[i][0]-s[i-1][0],s[i][1]-s[i-1][1]);
  const pts=resamp(s,6);return{m,ratio:len/Math.max(m,1),c:cusps(s),over:allBoxes().some(q=>coverage(pts,q)>=.15)}}
 function isScribble(s){if(s.length<8)return false;const k=scribStats(s);if(k.m<18)return false;
+ if(seqOn()){if(!((k.c>=5&&k.ratio>=3.5)||(k.c>=4&&k.ratio>=7)))return false;const pts=resamp(s,6);return allBoxes().some(q=>coverage(pts,q)>=.4)}   // ink stays on the board: only a real wiggle over existing ink erases (a looped 2 or a cursive x overlaps a neighbour)
  return k.over?((k.c>=3&&k.ratio>=2.2)||(k.c>=2&&k.ratio>=2.6)||k.ratio>=4.2):((k.c>=4&&k.ratio>=3.5)||k.ratio>=6)}
 function scribble(s){const now=performance.now();ghosts.push({pts:s,t0:now});const pts=resamp(s,6),cov=(b,r)=>coverage(pts,b,r),cg=g=>ch(g)=='§'?cov(gbox(g),6)*(.22/.45):cov(gbox(g),18);
- for(const L of lines.slice()){L.ink=L.ink.filter(t=>{const q=bb(t);if(cov({x0:q.x0-8,y0:q.y0-8,x1:q.x1+8,y1:q.y1+8})>=.22){ghosts.push({pts:t,t0:now});return false}return true});
+ for(const L of lines.slice()){const nIn=L.ink.length;L.ink=L.ink.filter(t=>{const q=bb(t);if(cov({x0:q.x0-8,y0:q.y0-8,x1:q.x1+8,y1:q.y1+8})>=.22){ghosts.push({pts:t,t0:now});return false}return true});
+  if(L.seq){if(L.ink.length!==nIn){L.sk=null;if(!L.ink.length){clearReading(L);lines.splice(lines.indexOf(L),1)}}continue}
   if(L.ans.some(g=>cg(g)>=.22)){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null}
   else{const rem=L.syms.filter(g=>cg(g)>=.22);rem.filter(g=>g.fp=='bar').forEach(bar=>L.syms.forEach(s=>{if(s.fid===bar.fid&&!rem.includes(s))rem.push(s)}));
    if(rem.length){rem.forEach(kill);L.syms=L.syms.filter(g=>!rem.includes(g));if(L.syms.length){layout(L);updateAns(L)}else{L.ans.forEach(kill);L.ans=[];L.at=null}}}
@@ -184,9 +187,47 @@ function predictAsync(x){return new Promise((res,reject)=>{
  pend.set(id,q);
  try{wk.postMessage({id,x})}catch(e){stopCNN()}
 })}
+/* ---------- sequence recogniser: the ink stays where it was written; its typeset reading and the answer appear below it ---------- */
+const seqEl=document.getElementById('seq');
+let sw=null,swPend=new Map(),swId=0,swDead=!seqEl,swUrl=null,swBoot=0;
+const seqOn=()=>SET.recogniser==='seq'&&!swDead;
+function seqFail(){swDead=true;clearTimeout(swBoot);if(sw){sw.terminate();sw=null}if(swUrl){URL.revokeObjectURL(swUrl);swUrl=null}
+ for(const q of swPend.values()){clearTimeout(q.t);q.rej(new Error('sequence recogniser unavailable'))}swPend.clear();
+ for(const L of lines.slice())if(L.seq)dropReading(L)}
+function seqBoot(){if(swDead||sw||SET.recogniser!=='seq')return;try{
+ swUrl=URL.createObjectURL(new Blob([seqEl.textContent+"\nconst M=SeqCore.load(SEQ_MODEL);onmessage=e=>{let t=null;try{t=SeqCore.recognise(M,e.data.s)}catch(x){}postMessage({id:e.data.id,t})};postMessage({ready:true});"],{type:'text/javascript'}));
+ sw=new Worker(swUrl);swBoot=setTimeout(seqFail,60000);
+ sw.onmessage=e=>{if(swUrl){URL.revokeObjectURL(swUrl);swUrl=null}if(e.data.ready){clearTimeout(swBoot);return}
+  const q=swPend.get(e.data.id);if(q){swPend.delete(e.data.id);clearTimeout(q.t);e.data.t?q.res(e.data.t):q.rej(new Error('recognition failed'))}};
+ sw.onerror=seqFail}catch(e){seqFail()}}
+function seqRun(S){return new Promise((res,rej)=>{seqBoot();if(!sw){rej(new Error('no worker'));return}
+ const id=++swId,pts=S.map(s=>s.map((p,k)=>[p[0],p[1],k==0?s.t0||0:k==s.length-1?s.t1||0:0]));
+ swPend.set(id,{res,rej,t:setTimeout(seqFail,90000)});try{sw.postMessage({id,s:pts})}catch(e){seqFail()}})}
+function dropReading(L){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null;
+ (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=null}
+const clearReading=dropReading;
+function mkGlyphs(row){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
+ return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
+function placeRow(L,gs,x0,base,F){L.syms=gs;L.x0=x0;L.base=base;L.F=F;layout(L);
+ for(const g of gs){g.x=g.tx;g.y=g.ty+10;g.sz=g.tsz;g.a=0;g.ta=1;if(ch(g)=='√')g.vx=g.tx+.56*g.tsz}updateAns(L)}
+function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)return;
+ const rows=[[]];for(const t of tokens)t==='<nl>'?rows.push([]):rows[rows.length-1].push(t);
+ dropReading(L);L.tk=key;
+ let x0=1e9,y1=-1e9;const hs=[];for(const s of L.ink){const b=bb(s);x0=Math.min(x0,b.x0);y1=Math.max(y1,b.y1);if(b.h>=12)hs.push(b.h)}
+ hs.sort((a,b)=>a-b);const h=hs.length?hs[Math.floor(hs.length*.75)]:40,F=Math.max(48,Math.min(110,h/.55*.85));
+ L.seq=true;placeRow(L,mkGlyphs(rows[0]),x0,y1+1.1*F,F);
+ let base=L.base;rows.slice(1).forEach(r=>{base+=1.5*F;const K={syms:[],ans:[],ink:[],x0,base,F,at:null,kidOf:L};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,base,F)})}
+async function doRecognizeSeq(){
+ for(const L of lines.slice()){if(L.kidOf||!L.ink.length||!lines.includes(L))continue;
+  const snap=L.ink.slice(),key=snap.length+':'+snap.map(s=>s.length).join(',');if(L.sk===key)continue;
+  const toks=await seqRun(snap);
+  if(!lines.includes(L)||L.ink.length!==snap.length||L.ink.some((s,k)=>s!==snap[k]))continue;
+  if(toks.length)applyReading(L,toks);L.sk=key}
+ kick()}
 initCNN();
+seqBoot();
 let recBusy=false,recAgain=false;
-function recognize(){if(recBusy){recAgain=true;return}recBusy=true;doRecognize().catch(e=>console.error(e)).then(()=>{recBusy=false;if(recAgain){recAgain=false;recognize()}})}
+function recognize(){if(recBusy){recAgain=true;return}recBusy=true;(seqOn()?doRecognizeSeq().catch(e=>{console.error(e);seqFail();return doRecognize()}):doRecognize()).catch(e=>console.error(e)).then(()=>{recBusy=false;if(recAgain){recAgain=false;recognize()}})}
 function typesetNum(L,b){const bcy=(b.y0+b.y1)/2;if(L.syms.some(g=>ch(g)=='§'&&g.x+g.bw>b.x0-15&&g.x<b.x1+15))return[];
  return L.syms.filter(g=>{if(isPart(g))return false;const q=gbox(g),cx=(q.x0+q.x1)/2;return cx>=b.x0-15&&cx<=b.x1+15&&q.y1<bcy+10})}
 function hostOK(L,b){const top=L.syms.filter(g=>!isPart(g));if(!top.length)return false;const x0=Math.min(...top.map(g=>g.tx)),x1=Math.max(...top.map(g=>g.tx+g.w)),bcy=(b.y0+b.y1)/2,ov=Math.min(b.x1,x1)-Math.max(b.x0,x0);
@@ -278,9 +319,9 @@ cv.onpointerdown=e=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}ptrs.set(e.
 cv.onpointermove=e=>{if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,spt(e));if(gest){if(ptrs.size>=2&&!gest.dead)gestureMove();return}
  if(!e.isPrimary)return;if(drag){dragMove(spt(e));return}if(!cur)return;const es=e.getCoalescedEvents&&e.getCoalescedEvents().length?e.getCoalescedEvents():[e];
  for(const ev of es){const q=pt(ev),l=cur[cur.length-1];const d=Math.hypot(q[0]-l[0],q[1]-l[1])*V.k;if(d<2.5)continue;down.len+=d;cur.raw=q;cur.push([l[0]*.35+q[0]*.65,l[1]*.35+q[1]*.65])}if(down.len>=8)clearTimeout(lp)};
-cv.onpointerup=cv.onpointercancel=e=>{const wasGest=!!gest;ptrEnd(e);if(wasGest||e&&e.isPrimary===false)return;clearTimeout(lp);if(drag){dragEnd();return}let s=cur;cur=null;if(!s)return;if(s.raw&&s.length>1)s.push(s.raw);
+cv.onpointerup=cv.onpointercancel=e=>{const wasGest=!!gest;ptrEnd(e);if(wasGest||e&&e.isPrimary===false)return;clearTimeout(lp);if(drag){dragEnd();return}let s=cur;cur=null;if(!s)return;if(s.raw&&s.length>1)s.push(s.raw);s.t0=down.t;s.t1=performance.now();
  if(down.len<8&&performance.now()-down.t<350&&tapCycle(down.p)){return}
- if(isScribble(s))scribble(s);else{const r=radical(s);attach(r||s)}
+ if(isScribble(s))scribble(s);else{const r=seqOn()?null:radical(s);attach(r||s)}
  rt=setTimeout(recognize,650);kick()};
 $('zr').onclick=()=>setView(0,0,1);
 cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,V.k*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)))},{passive:false});
@@ -355,11 +396,11 @@ function fitRings(){document.querySelectorAll('#panel .opt').forEach((b,n)=>{con
 function openSheet(page){const p=$('panel'),s=$('sheet'),first=s.style.display!='block';s.style.display='block';
  if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="Back">${ico('back')}</button><h2>History</h2><button class="done" data-a="hexp">Export</button></div>`+
   (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="Copy">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="Delete">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">Clear history</button>`:`<p class="empty">Nothing here yet.<br>Calculations are saved as you write them.</p>`)}
- else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Numbers','domain',[['real','ℝ real'],['complex','ℂ complex']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}${hasUpdater()?row('Updates','updates',[['auto','Auto'],['off','Off']]):''}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}${updTools()}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.${updHint()}</p>`;
+ else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Recogniser','recogniser',[['seq','Sequence'],['classic','Classic']])}${row('Numbers','domain',[['real','ℝ real'],['complex','ℂ complex']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}${hasUpdater()?row('Updates','updates',[['auto','Auto'],['off','Off']]):''}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}${updTools()}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.${updHint()}</p>`;
  if(first){s.classList.remove('in');void s.offsetWidth}s.classList.add('in');fitRings()}
 const cleanAns=L=>L&&L.at?L.at.replace(/^=/,''):'';
 $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
- if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='theme')applyTheme();else if(d.k!=='updates')refreshAll();else if(SET.updates==='auto')checkUpdates(false);return}
+ if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='theme')applyTheme();else if(d.k!=='updates'){if(d.k==='recogniser')seqBoot();refreshAll()}else if(SET.updates==='auto')checkUpdates(false);return}
  const i=+d.i;switch(d.a){case'done':closeSheet();break;case'hist':openSheet('hist');break;case'back':openSheet('main');break;
   case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast('No result yet');closeSheet();break}
   case'img':{const u=exportPNG();if(!u)toast('Nothing to share');else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}

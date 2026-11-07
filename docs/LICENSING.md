@@ -28,6 +28,8 @@ The recogniser weights are derived from training data, so the data's terms matte
 | Source | Status | Action |
 |--------|--------|--------|
 | Synthetic strokes (`training/train.py`) | Own work | OK |
+| **Stroke-sequence model** (`training/gen_corpus.py`, `train_seq.py`) | Trained only on strokes our own generator makes from OFL handwriting fonts (`training/synth/`): no MNIST, no third-party handwriting corpus, no user data. Four fonts are held out of training and used only for testing | OK |
+| Your 29 real finger-written samples (`training/real_data/`) | Collected from you with `tools/collect/`; gitignored. Used **only** as a test set, never to train | Keep out of the repository |
 | OFL handwriting fonts (`fetch_assets.sh`) | OFL does not restrict what you render from a font; fonts are not redistributed | OK; keep the font list in this repo |
 | **MNIST** | Terms are not stated clearly by its distributors (derived from NIST data; some mirrors say CC BY-SA 3.0, which has share-alike implications) | **Recommended: retrain without it** (digits from fonts + synthetic strokes + data you collect), or get counsel's opinion. See `training/train4.py` `--no-mnist` |
 | IAM-OnDB, CROHME, MathWriting and similar handwriting corpora | Typically research / non-commercial terms (verify each licence text) | **Do not train on them** for a commercial product without written permission |
