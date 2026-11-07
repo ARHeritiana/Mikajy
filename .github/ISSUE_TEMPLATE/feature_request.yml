@@ -1,0 +1,10 @@
+name: Feature request
+description: Suggest a symbol, function or behaviour
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should Mikajy be able to do?
+      description: Give an example of the handwriting and the answer you expect.
+    validations: {required: true}

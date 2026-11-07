@@ -23,7 +23,7 @@ a CI job that could never have passed, a few UX/maths artefacts, and a recognise
 | 7 | Android | File access enabled, debugging flag implicit | `setAllowFileAccess(false)` (assets unaffected), geolocation/form-save off, debugging explicitly off, `usesCleartextTraffic=false` |
 | 8 | Input | A second finger/palm replaced the stroke in progress | Secondary pointers ignored |
 | 9 | CI | Workflow ran `./build_apk.sh` on a runner with no Android tools → always red | Dedicated `android` job installs the toolchain; jobs have timeouts and concurrency control |
-| 10 | Build | `-Werror` absent, APK never inspected, exec bit lost, no key helper | Warnings are errors; package id / no-permission / content checks; `tools_make_keystore.sh` |
+| 10 | Build | `-Werror` absent, APK never inspected, exec bit lost, no key helper | Warnings are errors; package id / no-permission / content checks; `scripts/make-keystore.sh` |
 | 11 | Quality | `throw 0`, duplicated number formatter, history actions trusted indices | Real `Error`s, single formatter, guarded actions |
 | 12 | A11y | No language, unlabeled canvas | `lang="en"`, `role="img"` + label |
 Tests: 10 → 18 unit tests, browser smoke test extended (CSP enforced, worker + fallback, hostile storage, zero network).

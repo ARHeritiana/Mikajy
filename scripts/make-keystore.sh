@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Create a NEW private release keystore (do this once; back it up; never commit it).
-# Usage: ./tools_make_keystore.sh path/to/mikajy-release.jks
+# Usage: ./scripts/make-keystore.sh path/to/mikajy-release.jks
 set -euo pipefail
 out="${1:?usage: $0 path/to/mikajy-release.jks}"
 [[ ! -e "$out" ]] || { echo "$out already exists - refusing to overwrite a signing key" >&2; exit 1; }

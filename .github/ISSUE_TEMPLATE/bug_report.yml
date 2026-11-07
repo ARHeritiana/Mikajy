@@ -1,0 +1,23 @@
+name: Bug report
+description: Something is recognised or calculated wrongly, or the app misbehaves
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What did you write, and what did Mikajy show?
+      description: A screenshot of the canvas (Settings → Share image) helps a lot for recognition problems.
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations: {required: true}
+  - type: input
+    id: version
+    attributes:
+      label: Mikajy version (Settings, bottom hint)
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
