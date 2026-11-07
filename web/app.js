@@ -4,7 +4,7 @@ const FONT='H, serif';
 const disp=c=>c=='*'?'×':c=='/'?'÷':c=='-'?'−':c;
 const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
 const ch=g=>g.c[g.i].c;
-const FUNCS=new Set(['sin','cos','tan','asin','acos','atan','sinh','cosh','tanh','ln','log','abs']);
+const FUNCS=new Set(['sin','cos','tan','cot','sec','csc','asin','acos','atan','sinh','cosh','tanh','ln','log','exp','sqrt','abs']);
 let SET=SettingsStore.load(localStorage);
 function saveSet(){SettingsStore.save(localStorage,SET)}
 const PALETTES={
@@ -72,14 +72,14 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Set();let inSup=false,num='',word='';
- const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
+ const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='x'||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
  A.forEach((g,k)=>{const c=ch(g);
   if(g.sup&&!inSup){fN();fW();out.push('^','(');inSup=true}
   if(!g.sup&&inSup){fN();fW();out.push(')');inSup=false}
   if(/[0-9.]/.test(c)){fW();num+=c}else if(/[a-z]/.test(c)){fN();word+=c}
   else{fN();fW();
    if(c=='§'){const n=tokSeq(L,partsOf(L,g,'n'),false),d=tokSeq(L,partsOf(L,g,'d'),false);if(!n.length||!d.length)throw new Error('empty fraction part');out.push('(','(',...n,')','/','(',...d,')',')')}
-   else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.add(k+n)}}else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||'+-*/=)%→d'.includes(nc)||!pv||'+-*/=(d∫→'.includes(pc))?'x':'*')}else out.push(c)}
+   else if(c=='√'){out.push('√');const n=coverN(A,k);if(n>0){out.push('(');close.add(k+n)}}else if(c=='*'){const nx=A[k+1],pv=A[k-1],nc=nx&&ch(nx),pc=pv&&ch(pv);out.push((!nx||nx.sup||g.sup&&!(pv&&pv.sup)||'+-*/=)%→d'.includes(nc)||!pv||'+-*/=(d∫→'.includes(pc))?'x':'*')}else out.push(c)}
   if(close.has(k)){fN();fW();if(inSup&&!(A[k+1]&&A[k+1].sup)){out.push(')');inSup=false}out.push(')')}});
  fN();fW();if(inSup)out.push(')');return out}
 function tokenize(L){return tokSeq(L,seqs(L)[0],true)}
@@ -111,7 +111,7 @@ function attach(s){const b=bb(s),cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;
 const ovl=(a,e)=>{const w=Math.min(a.x1,e.x1)-Math.max(a.x0,e.x0),h=Math.min(a.y1,e.y1)-Math.max(a.y0,e.y0);return w>0&&h>0?w*h/Math.max(1,(a.x1-a.x0)*(a.y1-a.y0)):0};
 const GB={'(':.9,')':.9,'√':.85,l:.7,t:.62};
 const gbox=g=>{const c=ch(g);if(c=='§')return{x0:g.x,x1:g.x+Math.max(g.bw,g.w),y0:g.y-.12*g.sz,y1:g.y+.12*g.sz};return{x0:g.x,x1:g.x+Math.max(g.w,g.sz*.3),y0:g.y-(GB[c]||.62)*g.sz,y1:g.y+(c=='g'?.25:.12)*g.sz}};
-function resamp(s,step){const o=[s[0]];let acc=0,a=s[0];for(let i=1;i<s.length;i++){const b=s[i];let d=Math.hypot(b[0]-a[0],b[1]-a[1]);while(acc+d>=step){const t=(step-acc)/d;a=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];o.push(a);d=Math.hypot(b[0]-a[0],b[1]-a[1]);acc=0}acc+=d;a=b}return o}
+const resamp=Recognizer.resample;
 function cusps(s){const p=resamp(s,8);let n=0;for(let i=0;i+6<p.length;){const a=[p[i+3][0]-p[i][0],p[i+3][1]-p[i][1]],b=[p[i+6][0]-p[i+3][0],p[i+6][1]-p[i+3][1]];
  const c=(a[0]*b[0]+a[1]*b[1])/(Math.hypot(...a)*Math.hypot(...b)||1);if(c<-.5){n++;i+=4}else i++}return n}
 function coverage(pts,b,r=18){const gx=7,gy=4;let hit=0;for(let i=0;i<gx;i++)for(let j=0;j<gy;j++){const cx=b.x0+(i+.5)*(b.x1-b.x0)/gx,cy=b.y0+(j+.5)*(b.y1-b.y0)/gy;
@@ -137,21 +137,7 @@ function ctxfix(arr){let pc='',open=0;arr.forEach((y,k)=>{if(y.fresh){const last
  if(('*/)'.includes(c)||c=='→')&&(k==0||'+-*/('.includes(pc)))f*=.25;if(c==')'&&open<=0)f*=.3;if(c=='='&&!last)f*=.3;if(last&&'+-*/'.includes(c))f*=.5;o.p*=f});
  y.c.sort((a,b)=>b.p-a.p);y.c=y.c.slice(0,5);y.i=0;y.fresh=false}
  const c=ch(y);if(c=='(')open++;if(c==')')open--;pc=c})}
-const WORDS=['sinh','cosh','tanh','asin','acos','atan','sin','cos','tan','log','ln','abs'];
-function wordfix(A){const n=A.length,used=new Array(n).fill(false),idx=(g,c)=>g.c.findIndex(o=>o.c==c&&o.p>.002);
- for(let i=0;i<n;i++){let best=null;for(const w of WORDS){if(i+w.length>n)continue;let sc=1,ok=true;
-  for(let j=0;j<w.length;j++){const g=A[i+j];if(g.locked||used[i+j]){ok=false;break}const k=idx(g,w[j]);if(k<0||(g.c[0].p>.9&&g.c[0].c!=w[j]&&!/[a-z]/.test(g.c[0].c))){ok=false;break}sc*=g.c[k].p}
-  if(ok&&(!best||w.length>best.w.length||(w.length==best.w.length&&sc>best.sc)))best={w,sc}}
-  if(best&&best.sc>1e-6){for(let j=0;j<best.w.length;j++){A[i+j].i=idx(A[i+j],best.w[j]);used[i+j]=true}i+=best.w.length-1}}
- A.forEach((g,k)=>{if(used[k]||g.locked||!g.b)return;const c=ch(g);if(/[a-z]/.test(c)&&!(c=='e'&&g.c[g.i].p>.5)){const j=g.c.findIndex(o=>!/[a-z]/.test(o.c)&&o.p>.01);if(j>=0)g.i=j}})}
-function assignSup(A){let B=null,inSup=false;for(const g of A){const c=ch(g),b=g.b;g.sup=false;if(!b){continue}
- if(c=='.'){continue}
- const isOp='+-*/=()'.includes(c);let sup=false;
- if(B){const bh=Math.max(B.b.h,20),rel=(B.b.y1-b.y1)/bh;
-  if(inSup)sup=rel>.28&&c!='='&&b.h<.85*bh;
-  else if(c=='-')sup=b.y1<B.b.y0+.25*bh&&b.w<.6*bh;
-  else if(!isOp||c=='(')sup=rel>.3&&b.h<.85*bh}
- if(sup){g.sup=true;inSup=true}else{inSup=false;B=(isOp&&c!=')')||c=='√'?null:g}}}
+const {wordfix,assignSup}=Recognizer;
 function assignCover(A){A.forEach((g,k)=>{if(ch(g)=='√'&&g.vin){let n=0;for(let j=k+1;j<A.length;j++){if(!A[j].b)break;const cx=(A[j].b.x0+A[j].b.x1)/2;if(cx>=g.vin.x0-10&&cx<=g.vin.x1+14)n++;else break}g.cover=n}})}
 const CLS=/*CLS*/;
 loadMem(CLS);
@@ -214,7 +200,12 @@ function moveBarsToHosts(){for(const L2 of lines.slice()){if(!L2.ink.length)cont
   const H=Math.max(30,...info.filter(o=>inr(o)&&big(o)).map(o=>o.b.h)),up=info.filter(o=>inr(o)&&o.b.y1<=bcy+10&&bcy-o.b.y1<1.3*H),dn=info.filter(o=>inr(o)&&o.b.y0>=bcy-10&&o.b.y0-bcy<1.3*H);
   if(up.some(big)||!dn.some(big))continue;const host=lines.find(L1=>L1!==L2&&L1.syms.length&&hostOK(L1,b0));
   if(host){const mv=[bar.s,...dn.map(o=>o.s)];L2.ink=L2.ink.filter(s=>!mv.includes(s));host.ink.push(...mv);if(!L2.ink.length&&!L2.syms.length)lines.splice(lines.indexOf(L2),1);break}}}}
-async function doRecognize(){moveBarsToHosts();const jobs=[];
+/** A cursive word written in one pen-down (sin, ln, 12) is cut into its letters before recognition. */
+async function splitCursive(L){
+ const cut=new Map(),classify=async ss=>{const x=feat(ss);return classifyP(await predictAsync(x),x)};
+ for(const s of L.ink.slice()){if(s.vin||s.length<12)continue;const parts=await Recognizer.segmentStroke(s,classify);if(parts.length>1)cut.set(s,parts)}
+ if(cut.size)L.ink=L.ink.flatMap(s=>cut.get(s)||[s])}
+async function doRecognize(){moveBarsToHosts();for(const L of lines.slice())if(L.ink.length)await splitCursive(L);const jobs=[];
  const mk=(g,G,fp,fid)=>{const b=g.b;if(g.tiny&&G.length>1||Math.max(b.w,b.h)<16)return{g,dot:true,fp,fid};const rs=g.s.find(t=>t.vin);return{g,x:feat(g.s),vin:rs&&rs.vin,fp,fid}};
  for(const L of lines){if(!L.ink.length)continue;const snap=L.ink.slice(),{out,used}=findFractions(snap,L),items=[];
   for(const f of out){const fid=++FID;if(f.conv){items.push({g:{s:[f.bar],b:bb(f.bar)},bar:true,fp:'bar',fid,conv:f.conv});const G=group(f.d);G.forEach(g=>items.push(mk(g,G,'d',fid)));continue}items.push({g:{s:[f.bar],b:bb(f.bar)},bar:true,fp:'bar',fid});for(const[p,S] of [['n',f.n],['d',f.d]]){const G=group(S);G.forEach(g=>items.push(mk(g,G,p,fid)))}}
@@ -250,7 +241,7 @@ async function doRecognize(){moveBarsToHosts();const jobs=[];
    L.base=dg.length?med(dg.map(b=>b.y1)):bars.length?(bars[0].b.y0+bars[0].b.y1)/2+.28*L.F:(fresh.map(g=>(g.b.y0+g.b.y1)/2)[0]+.3*L.F);L.x0=Math.min(...fresh.map(g=>g.b.x0))}
   else L.x0=Math.min(L.x0,...fresh.filter(g=>g.fp!='n'&&g.fp!='d').map(g=>g.b.x0));
   layout(L);
-  const HR={'(':.88,')':.88,a:.38,c:.38,e:.38,n:.34,o:.37,s:.43,g:.6,l:.67,i:.53,t:.56,'π':.4,'!':.6},DS={g:.2,'(':.13,')':.13};
+  const {HR,DS}=Recognizer;
   for(const g of fresh){const c=ch(g);
    if(c=='§'){g.sz=L.F;g.x=g.b.x0;g.y=(g.b.y0+g.b.y1)/2;g.bw=g.b.w;g.a=0;g.ta=1;continue}
    const dgt=/[0-9a-z()!π]/.test(c);let sz;
@@ -331,7 +322,7 @@ function closeSheet(){$('sheet').classList.remove('in');setTimeout(()=>{if(!$('s
 const IC={hist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/>',copy:'<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>',
  share:'<path d="M12 15V4M8 7.5l4-4 4 4"/><path d="M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/>',mem:'<path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-4-6 4V5.5a1 1 0 0 1 1-1z"/>',
  trash:'<path d="M5 7h14M10 7V5h4v2M7 7l.8 11.6A1.5 1.5 0 0 0 9.3 20h5.4a1.5 1.5 0 0 0 1.5-1.4L17 7"/>',eraser:'<path d="M4.5 15.5l8.2-8.7a2 2 0 0 1 2.8-.1l3 3a2 2 0 0 1 0 2.8L13 18.5H8z"/><path d="M8 18.5H4.5M10.2 10.8l5 5"/>',
- back:'<path d="M14.5 5.5L8 12l6.5 6.5"/>',close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'};
+ sync:'<path d="M19 8.5A7.5 7.5 0 0 0 5.6 7M5 4v3.5h3.5"/><path d="M5 15.5A7.5 7.5 0 0 0 18.4 17M19 20v-3.5h-3.5"/>',get:'<path d="M12 4v11M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/>',back:'<path d="M14.5 5.5L8 12l6.5 6.5"/>',close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'};
 const ico=n=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
 const row=(label,k,opts)=>`<div class="row"><span class="lab">${label}</span><div class="opts">${opts.map(o=>`<button class="opt${SET[k]==o[0]?' on':''}" data-k="${k}" data-v="${o[0]}">${o[1]}<svg class="ring" aria-hidden="true"><path pathLength="1"/></svg></button>`).join('')}</div></div>`;
 const tool=(a,i,t,c='')=>`<button class="tool ${c}" data-a="${a}">${ico(i)}<span>${t}</span></button>`;
@@ -342,11 +333,11 @@ function fitRings(){document.querySelectorAll('#panel .opt').forEach((b,n)=>{con
 function openSheet(page){const p=$('panel'),s=$('sheet'),first=s.style.display!='block';s.style.display='block';
  if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="Back">${ico('back')}</button><h2>History</h2><button class="done" data-a="hexp">Export</button></div>`+
   (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="Copy">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="Delete">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">Clear history</button>`:`<p class="empty">Nothing here yet.<br>Calculations are saved as you write them.</p>`)}
- else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.</p>`;
+ else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}${hasUpdater()?row('Updates','updates',[['auto','Auto'],['off','Off']]):''}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}${updTools()}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.${updHint()}</p>`;
  if(first){s.classList.remove('in');void s.offsetWidth}s.classList.add('in');fitRings()}
 const cleanAns=L=>L&&L.at?L.at.replace(/^=/,''):'';
 $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
- if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='theme')applyTheme();else refreshAll();return}
+ if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='theme')applyTheme();else if(d.k!=='updates')refreshAll();else if(SET.updates==='auto')checkUpdates(false);return}
  const i=+d.i;switch(d.a){case'done':closeSheet();break;case'hist':openSheet('hist');break;case'back':openSheet('main');break;
   case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast('No result yet');closeSheet();break}
   case'img':{const u=exportPNG();if(!u)toast('Nothing to share');else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}
@@ -355,8 +346,28 @@ $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b
   case'clear':lines.forEach(L=>L.syms.concat(L.ans).forEach(kill));lines=[];kick();closeSheet();break;
   case'hopen':if(HIST[i])openHist(HIST[i]);break;case'hcopy':if(HIST[i])copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
   case'hdel':if(HIST[i]){HIST.splice(i,1);histPersist();openSheet('hist')}break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
+  case'upd':checkUpdates(true);break;
+  case'getupd':{const u=pendingUpdate();if(u)Android.openUpdate(u.apk||u.url);break}
   case'hexp':shareText(HIST.map(h=>h.text+' '+h.ans.replace(/^=/,'= ')).join('\n'));break}};
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
 window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
+/* ---------- updates (the Android shell makes the request; this page only interprets the answer) ---------- */
+let UPD=Updates.load(localStorage),updManual=false;
+const hasUpdater=()=>!!(window.Android&&typeof Android.checkForUpdates==='function'&&typeof Android.version==='function');
+const appVersion=()=>{try{return String(Android.version())}catch(e){return''}};
+const pendingUpdate=()=>hasUpdater()?Updates.pending(UPD,appVersion()):null;
+function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync','Check for updates')+(u?tool('getupd','get','Get Mikajy '+esc(u.version),'danger'):'')}
+function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return` Mikajy ${esc(appVersion())}${u?' · version '+esc(u.version)+' is available':''}. Updates are looked up on GitHub at most once a day; nothing about you is sent.`}
+function updBadge(){$('mb').classList.toggle('upd',!!pendingUpdate())}
+window.onUpdateResult=json=>{
+ const manual=updManual;updManual=false;let r;
+ try{r=Updates.interpret(JSON.parse(json),appVersion())}catch(e){r={status:'error'}}
+ if(r.status==='offline'||r.status==='error'){if(manual)toast(r.status==='offline'?'You are offline':'Could not check');return}
+ UPD=Updates.record(UPD,r,Date.now());Updates.save(localStorage,UPD);updBadge();
+ if(r.status==='available')toast('Mikajy '+r.version+' is available');else if(manual)toast('Mikajy is up to date');
+ if($('sheet').classList.contains('in'))openSheet('main')};
+function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual)toast('Checking…');try{Android.checkForUpdates()}catch(e){updManual=false}}
+updBadge();
+if(hasUpdater()&&Updates.shouldCheck(UPD,Date.now(),SET.updates))setTimeout(()=>checkUpdates(false),5000);
 memRender();
 applyTheme();
