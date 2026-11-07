@@ -28,7 +28,8 @@ done
 python3 web/build_web.py
 cd android
 rm -rf out && mkdir -p out/classes out/dex
-javac --release 8 -encoding UTF-8 -Xlint:all,-options -Werror -cp "$ANDROID_JAR" -d out/classes src/com/mikajy/app/*.java
+# Keep -Werror for actionable warnings; legacy Android UI APIs emit known deprecations on current toolchains.
+javac --release 8 -encoding UTF-8 -Xlint:all,-options,-deprecation -Werror -cp "$ANDROID_JAR" -d out/classes src/com/mikajy/app/*.java
 if command -v d8 >/dev/null; then
   mapfile -d '' classes < <(find out/classes -type f -name '*.class' -print0)
   d8 --min-api 21 --output out/dex "${classes[@]}"
