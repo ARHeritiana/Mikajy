@@ -87,8 +87,9 @@ the self-contained offline WebView page. CI runs these checks on each push.
 The build script also supports `MIKAJY_UNSIGNED_ONLY=1 ./build_apk.sh` to
 compile and package an **unsigned, non-installable verification APK** with the
 Android SDK tools. CI exercises this unsigned build on a Linux runner.
-An installable release APK requires the existing private release-signing key;
-no signing key is stored in this repository.
+An installable release APK requires the persistent private release-signing key,
+generated once in a GitHub Codespace and stored as encrypted GitHub Actions
+environment secrets; no signing key is stored in this repository.
 
 ## Build
 ```
@@ -150,40 +151,65 @@ A signing key must **not** be committed. Keep the signing keystore safely backed
 
 ## Automated signed releases (GitHub Actions)
 
-The tag-triggered workflow `.github/workflows/release.yml` first reruns the same
-mathematical, offline-browser and unsigned-Android checks as CI. Only if **all**
-checks pass does the release job build and sign an APK, verify that its
-signing certificate matches the already-published **Mikajy 4.5** certificate,
-and publish `Mikajy-<version>.apk` together with `SHA256SUMS.txt`.
+The tag-triggered workflow `.github/workflows/release.yml` reruns all
+mathematical, browser and unsigned Android tests **before** signing. On success,
+it builds and signs an APK using the *same* key on every future release,
+verifies the pinned public certificate fingerprint and publishes the APK with
+`SHA256SUMS.txt` on GitHub Releases.
 
-### One-time private setup (no signing material belongs in Git)
+### First-time setup: generate a new key inside GitHub Codespaces
 
-1. Open **Settings → Environments → New environment** and create `release`.
-   Prefer adding **required reviewers** (manual approval) and restricting deployment
-   to protected `v*` release tags; protect those tags with a repository ruleset.
-2. Add these *environment secrets* under `release` (repository secrets with
-   the same names also work, but environment secrets can have an approval gate):
-   - `MIKAJY_KEYSTORE_B64`: base64 encoding of the **existing** signing keystore,
-     created locally on Linux with `base64 -w 0 "Mikajy release.jks"`.
-     **Encoding is not encryption**; paste the value into GitHub's encrypted secret
-     field, never into a commit, issue, or chat.
-   - `MIKAJY_ALIAS`: alias of the original signing key (inspect with `keytool -list
-     -keystore "Mikajy release.jks"` locally).
-   - `MIKAJY_STOREPASS`: original keystore password.
-   - `MIKAJY_KEYPASS`: original key password (possibly the same as store password).
-3. Keep the original `.jks` securely backed up. Do **not** generate a replacement:
-   updates to installed apps need the original key.
+**This intentionally replaces the old Mikajy 4.5 signing identity.** A new APK
+signed with this key cannot ordinarily update an installed 4.5 APK in place.
+Uninstalling the old app may erase its locally saved history and training data.
 
-### Each future release
+1. On [Mikajy](https://github.com/ARHeritiana/Mikajy), choose **Code →
+   Codespaces → Create codespace on main**.
+2. In the Codespaces terminal, run:
+   ```bash
+   bash scripts/setup-release-signing.sh
+   ```
+   The script creates the GitHub Actions `release` environment if necessary,
+   generates a **new** 4096-bit RSA signing key and a random 256-bit password,
+   and uploads the keystore and credentials to GitHub as *encrypted environment
+   secrets*. It stores the new certificate fingerprint as the environment
+   variable `MIKAJY_CERT_SHA256`, required by the release workflow.
+   The script asks you to explicitly confirm creating/replacing the key.
+   It is safe to rerun after an interrupted upload: **it reuses the local key**
+   instead of generating another one.
+3. If the GitHub CLI reports insufficient permissions, authenticate your
+   personal account inside the Codespace (do not paste tokens into this repo):
+   ```bash
+   unset GH_TOKEN GITHUB_TOKEN
+   gh auth login --web -s repo,workflow
+   bash scripts/setup-release-signing.sh
+   ```
+   Grant access only if you recognize the GitHub authorization prompt.
+4. **Before deleting your Codespace, download both private backup files**
+   from the file explorer and store them securely:
+   `release-key-backup/mikajy-release.jks` and
+   `release-key-backup/signing-password.txt`. The backup folder is
+   git-ignored, not committed, and locally permission-restricted. The password
+   file is sensitive; never paste it into issues, commits or chat.
+   GitHub Actions secrets cannot be read back in plaintext if lost.
+5. Consider requiring approval and protecting the release tags using
+   [GitHub's release environment settings](https://github.com/ARHeritiana/Mikajy/settings/environments).
+   The script will not silently reset any existing environment rules.
 
-Update `android/AndroidManifest.xml`'s `android:versionName` (e.g. `4.6`)
-and increment `android:versionCode` (greater than 14). After the changes
-have been merged into `main` and normal checks pass, create and push a matching
-tag (e.g. `v4.6`). The tag runs all verification again, then publishes the signed
-APK at [GitHub Releases](https://github.com/ARHeritiana/Mikajy/releases).
-A tag whose version does not match the manifest fails safely.
-No signed release is published without all four secrets.
+The setup creates:
+- Environment secrets: `MIKAJY_KEYSTORE_B64`, `MIKAJY_ALIAS`,
+  `MIKAJY_STOREPASS`, `MIKAJY_KEYPASS`.
+- Environment variable: `MIKAJY_CERT_SHA256` (a public fingerprint, not a secret).
 
-The public SHA-256 certificate fingerprint is pinned in the release workflow;
-changing the signing key is intentionally treated as an error. The APK and
-signing keystore are never committed to the repository.
+### Publishing later versions
+
+Increment `android:versionCode` above 14 and update
+`android:versionName` (e.g. `4.6`) in
+`android/AndroidManifest.xml`. After merging and testing the changes,
+push the matching tag (e.g. `v4.6`). GitHub Actions then verifies, signs,
+and publishes `Mikajy-4.6.apk` and its SHA-256 checksum to
+[GitHub Releases](https://github.com/ARHeritiana/Mikajy/releases).
+
+**Do not rerun the setup in a fresh Codespace to make ordinary releases.**
+That could create a different identity. The encrypted secrets persist across
+releases. Keep the backup safely for disaster recovery.

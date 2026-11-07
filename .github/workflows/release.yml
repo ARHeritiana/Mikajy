@@ -53,13 +53,14 @@ jobs:
             openjdk-21-jdk-headless aapt apksigner zipalign \
             android-sdk-platform-23 dalvik-exchange python3 unzip
 
-      - name: Build, sign and verify with the existing Mikajy certificate
+      - name: Build, sign and verify with Mikajy's persistent release certificate
         shell: bash
         env:
           MIKAJY_KEYSTORE_B64: ${{ secrets.MIKAJY_KEYSTORE_B64 }}
           MIKAJY_ALIAS: ${{ secrets.MIKAJY_ALIAS }}
           MIKAJY_STOREPASS: ${{ secrets.MIKAJY_STOREPASS }}
           MIKAJY_KEYPASS: ${{ secrets.MIKAJY_KEYPASS }}
+          MIKAJY_CERT_SHA256: ${{ vars.MIKAJY_CERT_SHA256 }}
         run: |
           set -euo pipefail
           for name in MIKAJY_KEYSTORE_B64 MIKAJY_ALIAS MIKAJY_STOREPASS MIKAJY_KEYPASS; do
@@ -76,17 +77,22 @@ jobs:
           ./build_apk.sh
           apksigner verify --verbose Mikajy.apk
 
-          # Certificate from the known-good signed Mikajy 4.5 APK.
-          # Refuse to publish an APK signed with a different key.
-          expected='3D8A1617B09ADBF444E08DBB0067DB892E1EA42BD3C49172A654B69C04FE84FA'
+          # The one-time Codespaces setup stores the new public SHA-256 fingerprint
+          # as a protected release-environment variable. Refuse accidental key rotation.
+          expected="$(printf '%s' "$MIKAJY_CERT_SHA256" |
+            tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "$expected" =~ ^[0-9A-F]{64}$ ]]; then
+            echo "::error::Missing/invalid release environment variable MIKAJY_CERT_SHA256."
+            exit 1
+          fi
           actual="$(apksigner verify --print-certs Mikajy.apk |
             sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
             tr -d ':' | tr '[:lower:]' '[:upper:]')"
           if [[ "$actual" != "$expected" ]]; then
-            echo "::error::The APK signing certificate does not match Mikajy 4.5."
+            echo "::error::APK certificate does not match the configured persistent signing key."
             exit 1
           fi
-          echo "Verified existing Mikajy release-signing certificate."
+          echo "Verified Mikajy release-signing certificate."
 
       - name: Prepare release assets
         shell: bash

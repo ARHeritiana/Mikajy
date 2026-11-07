@@ -16,3 +16,6 @@ __pycache__/
 .pytest_cache/
 node_modules/
 .DS_Store
+
+# Temporary Codespaces signing-key backup; NEVER commit
+release-key-backup/
