@@ -1,0 +1,107 @@
+name: Mikajy signed release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Run mathematics, browser and unsigned Android checks
+    uses: ./.github/workflows/checks.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Sign and publish Android APK
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Ensure tag matches Android version
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
+            echo "::error::Release tag must be vMAJOR.MINOR or vMAJOR.MINOR.PATCH"
+            exit 1
+          }
+          version="$(python3 -c 'import xml.etree.ElementTree as ET; root=ET.parse("android/AndroidManifest.xml").getroot(); print(root.attrib["{http://schemas.android.com/apk/res/android}versionName"])')"
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Android versionName $version"
+            exit 1
+          fi
+
+      - name: Install Android build and signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            openjdk-21-jdk-headless aapt apksigner zipalign \
+            android-sdk-platform-23 dalvik-exchange python3 unzip
+
+      - name: Build, sign and verify with the existing Mikajy certificate
+        shell: bash
+        env:
+          MIKAJY_KEYSTORE_B64: ${{ secrets.MIKAJY_KEYSTORE_B64 }}
+          MIKAJY_ALIAS: ${{ secrets.MIKAJY_ALIAS }}
+          MIKAJY_STOREPASS: ${{ secrets.MIKAJY_STOREPASS }}
+          MIKAJY_KEYPASS: ${{ secrets.MIKAJY_KEYPASS }}
+        run: |
+          set -euo pipefail
+          for name in MIKAJY_KEYSTORE_B64 MIKAJY_ALIAS MIKAJY_STOREPASS MIKAJY_KEYPASS; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $name (configure environment 'release')"
+              exit 1
+            fi
+          done
+
+          export MIKAJY_KEYSTORE="$RUNNER_TEMP/mikajy-release.jks"
+          trap 'rm -f "$MIKAJY_KEYSTORE"' EXIT
+          (umask 077; printf '%s' "$MIKAJY_KEYSTORE_B64" | base64 --decode > "$MIKAJY_KEYSTORE")
+          unset MIKAJY_KEYSTORE_B64
+          ./build_apk.sh
+          apksigner verify --verbose Mikajy.apk
+
+          # Certificate from the known-good signed Mikajy 4.5 APK.
+          # Refuse to publish an APK signed with a different key.
+          expected='3D8A1617B09ADBF444E08DBB0067DB892E1EA42BD3C49172A654B69C04FE84FA'
+          actual="$(apksigner verify --print-certs Mikajy.apk |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+            tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::The APK signing certificate does not match Mikajy 4.5."
+            exit 1
+          fi
+          echo "Verified existing Mikajy release-signing certificate."
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="Mikajy-${GITHUB_REF_NAME#v}.apk"
+          mv Mikajy.apk "$apk"
+          sha256sum "$apk" > SHA256SUMS.txt
+
+      - name: Publish signed APK and checksum to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="Mikajy-${GITHUB_REF_NAME#v}.apk"
+          gh release create "$GITHUB_REF_NAME" "$apk" SHA256SUMS.txt \
+            --verify-tag --generate-notes --title "Mikajy ${GITHUB_REF_NAME#v}"

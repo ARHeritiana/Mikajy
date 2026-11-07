@@ -147,3 +147,43 @@ Caveat ships in the app. Source licensing is governed by LICENSE; third-party fo
 
 ## Release signing
 A signing key must **not** be committed. Keep the signing keystore safely backed up; Android requires the same signing key for updates to an installed package. If you installed an APK signed with a different key or package ID, it cannot be updated in place.
+
+## Automated signed releases (GitHub Actions)
+
+The tag-triggered workflow `.github/workflows/release.yml` first reruns the same
+mathematical, offline-browser and unsigned-Android checks as CI. Only if **all**
+checks pass does the release job build and sign an APK, verify that its
+signing certificate matches the already-published **Mikajy 4.5** certificate,
+and publish `Mikajy-<version>.apk` together with `SHA256SUMS.txt`.
+
+### One-time private setup (no signing material belongs in Git)
+
+1. Open **Settings → Environments → New environment** and create `release`.
+   Prefer adding **required reviewers** (manual approval) and restricting deployment
+   to protected `v*` release tags; protect those tags with a repository ruleset.
+2. Add these *environment secrets* under `release` (repository secrets with
+   the same names also work, but environment secrets can have an approval gate):
+   - `MIKAJY_KEYSTORE_B64`: base64 encoding of the **existing** signing keystore,
+     created locally on Linux with `base64 -w 0 "Mikajy release.jks"`.
+     **Encoding is not encryption**; paste the value into GitHub's encrypted secret
+     field, never into a commit, issue, or chat.
+   - `MIKAJY_ALIAS`: alias of the original signing key (inspect with `keytool -list
+     -keystore "Mikajy release.jks"` locally).
+   - `MIKAJY_STOREPASS`: original keystore password.
+   - `MIKAJY_KEYPASS`: original key password (possibly the same as store password).
+3. Keep the original `.jks` securely backed up. Do **not** generate a replacement:
+   updates to installed apps need the original key.
+
+### Each future release
+
+Update `android/AndroidManifest.xml`'s `android:versionName` (e.g. `4.6`)
+and increment `android:versionCode` (greater than 14). After the changes
+have been merged into `main` and normal checks pass, create and push a matching
+tag (e.g. `v4.6`). The tag runs all verification again, then publishes the signed
+APK at [GitHub Releases](https://github.com/ARHeritiana/Mikajy/releases).
+A tag whose version does not match the manifest fails safely.
+No signed release is published without all four secrets.
+
+The public SHA-256 certificate fingerprint is pinned in the release workflow;
+changing the signing key is intentionally treated as an error. The APK and
+signing keystore are never committed to the repository.
