@@ -3,6 +3,8 @@ const Calculator = (() => {
   'use strict';
   const Core = typeof module !== 'undefined' && module.exports ? require('./math-core.js') : MathCore;
   const Calc = typeof module !== 'undefined' && module.exports ? require('./calculus.js') : Calculus;
+  const Latex = typeof module !== 'undefined' && module.exports ? require('./latex-eval.js') : LatexEval;
+  const Linalg = typeof module !== 'undefined' && module.exports ? require('./linalg-core.js') : LinalgCore;
   const I18 = typeof module !== 'undefined' && module.exports ? require('./i18n.js') : I18n;
   const textPiece = s => ({s: String(s)});
   const textOf = pieces => pieces.map(p => p.s === undefined ? p.f.join('/') : p.s).join('');
@@ -112,6 +114,31 @@ const Calculator = (() => {
       return asResponse([textPiece('= ' + W(error.code === 'undefined' ? 'undefined' : 'unsupported'))], undefined);
     }
   }
-  return Object.freeze({compute, numberPieces});
+
+  /** Matrices, modular arithmetic and congruences, evaluated from the recogniser's LaTeX tokens (see latex-eval.js).
+   *  Returns undefined when the reading is not for this module, null when there is nothing to show yet, else a response. */
+  function computeLatex(tokens, settings = {}, trailingEquals = false) {
+    if (!Latex.applies(tokens)) return undefined;
+    const W = key => I18.t(settings.lang, key);
+    const explicit = trailingEquals || tokens[tokens.length - 1] === '=';
+    if (settings.mode === 'demand' && !explicit) return null;
+    try {
+      const r = Latex.evaluate(tokens), eq = !(explicit && trailingEquals) && !tokens.includes('\\equiv') ? [textPiece('=')] : [];
+      switch (r.kind) {
+        case 'scalar': return asResponse([...eq, ...numberPieces({value: Number(r.q.n) / Number(r.q.d), rational: r.q}, settings.fmt || 'dec')], Number(r.q.n) / Number(r.q.d));
+        case 'matrix': return asResponse([...eq, textPiece('[' + Linalg.toTextM(r.rows) + ']')], undefined);
+        case 'bool': return asResponse([textPiece(W(r.value ? 'true' : 'false'))], undefined);
+        case 'congruence': return asResponse([textPiece(`x≡${r.r} (mod ${r.m})`)], undefined);
+        case 'all': return asResponse([textPiece('x∈ℤ')], undefined);
+        case 'none': return asResponse([textPiece('S=∅')], undefined);
+        default: return null;
+      }
+    } catch (error) {
+      const code = error && error.code;
+      if (!code || code === 'syntax' || !explicit) return null;
+      return asResponse([textPiece('= ' + W(code === 'undefined' ? 'undefined' : 'unsupported'))], undefined);
+    }
+  }
+  return Object.freeze({compute, computeLatex, numberPieces});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Calculator;

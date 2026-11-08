@@ -64,3 +64,9 @@ test('a fraction inside a fraction stays stacked (own bar with a parent link); o
   const inl = SeqCore.toGlyphs('{ x } ^ { \\frac { 1 } { 2 } }'.split(' '));
   assert.equal(inl.some(x => x.fp === 'bar'), false);
 });
+
+test('a matrix environment becomes brackets on the board, never its own name', () => {
+  const g = SeqCore.toGlyphs('\\begin { b m a t r i x } 1 & 2 \\\\ 3 & 4 \\end { b m a t r i x }'.split(' ')).map(x => x.c).join('');
+  assert.equal(g, '[1,2;3,4]');
+  assert.equal(SeqCore.toGlyphs('\\begin { p m a t r i x } 1 \\end { p m a t r i x }'.split(' ')).map(x => x.c).join(''), '(1)');
+});

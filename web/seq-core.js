@@ -294,8 +294,11 @@ const SeqCore = (() => {
       else if (t === '\\div') glyph('/', ctx);
       else if (t === '\\pi') glyph('π', ctx);
       else if (t === '\\equiv') glyph('≡', ctx);
-      else if (t === '\\begin') { item(ctx); glyph('[', ctx); }
-      else if (t === '\\end') { item(ctx); glyph(']', ctx); }
+      else if (t === '\\begin' || t === '\\end') {                  // \begin{bmatrix} ... \end{bmatrix}: brackets only, never the environment's name
+        let name = ''; if (peek() === '{') { next(); while (i < tokens.length && peek() !== '}') name += next(); if (peek() === '}') next(); }
+        const pair = {bmatrix: '[]', matrix: '[]', pmatrix: '()', vmatrix: '||'}[name] || '[]';
+        glyph(pair[t === '\\begin' ? 0 : 1], ctx);
+      }
       else if (t === '&') glyph(',', ctx);
       else if (t === '\\\\') glyph(';', ctx);
       else if (t === '\\overline') { item(ctx); }

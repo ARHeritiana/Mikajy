@@ -110,6 +110,7 @@ function tokenize(L){return tokSeq(L,seqs(L)[0],true)}
 /* Mathematical parsing and evaluation live in math-core.js + calculator.js. */
 function computeAns(L) {
   const last=L.syms[L.syms.length-1],trailingEquals=!!(last&&ch(last)=='=');
+  if(L.rt){const lx=Calculator.computeLatex(L.rt.split(' '),{...SET,lang:LANG},trailingEquals);if(lx!==undefined)return lx}   // matrices, mod, congruences: from the model's LaTeX
   let tokens;
   try { tokens=tokenize(L); } catch (_) { return null; }
   return Calculator.compute(tokens,{...SET,lang:LANG},trailingEquals);
@@ -217,7 +218,7 @@ function seqRun(S){return new Promise((res,rej)=>{seqBoot();if(!sw){rej(new Erro
  const id=++swId,pts=S.map(s=>s.map((p,k)=>[p[0],p[1],k==0?s.t0||0:k==s.length-1?s.t1||0:0]));
  swPend.set(id,{res,rej,t:setTimeout(seqFail,90000)});try{sw.postMessage({id,s:pts})}catch(e){seqFail()}})}
 function dropReading(L){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null;
- (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=null}
+ (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=L.rt=null}
 const clearReading=dropReading;
 function mkGlyphs(row){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
  return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
@@ -228,8 +229,8 @@ function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)
  dropReading(L);L.tk=key;
  let x0=1e9,y1=-1e9;const hs=[];for(const s of L.ink){const b=bb(s);x0=Math.min(x0,b.x0);y1=Math.max(y1,b.y1);if(b.h>=12)hs.push(b.h)}
  hs.sort((a,b)=>a-b);const h=hs.length?hs[Math.floor(hs.length*.75)]:40,F=Math.max(48,Math.min(110,h/.55*.85));
- L.seq=true;placeRow(L,mkGlyphs(rows[0]),x0,y1+1.1*F,F);
- let base=L.base;rows.slice(1).forEach(r=>{base+=1.5*F;const K={syms:[],ans:[],ink:[],x0,base,F,at:null,kidOf:L};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,base,F)})}
+ L.seq=true;L.rt=rows[0].join(' ');placeRow(L,mkGlyphs(rows[0]),x0,y1+1.1*F,F);
+ let base=L.base;rows.slice(1).forEach(r=>{base+=1.5*F;const K={syms:[],ans:[],ink:[],x0,base,F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,base,F)})}
 async function doRecognizeSeq(){
  for(const L of lines.slice()){if(L.kidOf||!L.ink.length||!lines.includes(L))continue;
   const snap=L.ink.slice(),key=snap.length+':'+snap.map(s=>s.length).join(',');if(L.sk===key)continue;
