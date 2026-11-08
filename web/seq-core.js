@@ -172,7 +172,7 @@ const SeqCore = (() => {
   }
 
   /** Greedy decode. Returns the token strings (without bos/eos). `maxLen` caps runaway output. */
-  function decode(M, E, maxLen = 120) {
+  function decode(M, E, maxLen = 120, alts) {
     const {W, cfg, vocab} = M, d = cfg.d, h = d / 32, ff = cfg.ff, V = vocab.length, L = cfg.layers;
     const selfK = Array.from({length: L}, () => new Float32Array(maxLen * d)), selfV = Array.from({length: L}, () => new Float32Array(maxLen * d));
     const out = [];
@@ -196,12 +196,19 @@ const SeqCore = (() => {
       }
       const z = layerNorm(x, 1, d, W['decn.weight'], W['decn.bias']);
       let best = -1, bv = -Infinity;
+      const sc = alts ? new Float32Array(V) : null;
       for (let o = 0; o < V; o++) {
         let s = 0;
         for (let c = 0; c < d; c++) s += z[c] * W['emb.weight'][o * d + c];
+        if (sc) sc[o] = s;
         if (s > bv) { bv = s; best = o; }
       }
       if (best === M.eos) break;
+      if (alts) {                                                    // the runners-up at this position, with their probabilities (tap-to-correct)
+        let sum = 0; for (let o = 0; o < V; o++) sum += Math.exp(sc[o] - bv);
+        const order = Array.from(sc.keys()).filter(o => o !== M.eos && o !== M.bos && o !== best).sort((a, b) => sc[b] - sc[a]).slice(0, 4);
+        alts.push(order.map(o => ({t: vocab[o], p: Math.exp(sc[o] - bv) / sum})));
+      }
       out.push(vocab[best]); tok = best;
     }
     return out;
@@ -212,6 +219,12 @@ const SeqCore = (() => {
     if (!strokes.length) return [];
     const {P, T, S} = featurise(strokes);
     return decode(M, encode(M, P, T, Math.min(S, 160)), maxLen);
+  }
+  /** Like recognise, but also returns, for every output token, the next most likely tokens at that position: {t: tokens, a: [[{t, p}]]} */
+  function recogniseAlts(M, strokes, maxLen) {
+    if (!strokes.length) return {t: [], a: []};
+    const {P, T, S} = featurise(strokes), a = [];
+    return {t: decode(M, encode(M, P, T, Math.min(S, 160)), maxLen, a), a};
   }
   /** Tokens -> LaTeX text, one string per line. */
   function toLatex(tokens) {
@@ -276,6 +289,7 @@ const SeqCore = (() => {
     function run(ctx, stop) { while (i < tokens.length && peek() !== stop) one(ctx, next()); }
     function word(w, ctx) { [...w].forEach((c, k) => glyph(c, ctx, k ? undefined : {wb: true})); }
     function one(ctx, t) {
+      const ti = i - 1;                                              // index of this token, so a glyph can be traced back to it (tap-to-correct)
       if (t === '{') { run(ctx, '}'); if (peek() === '}') next(); }
       else if (t === '}' || t === '<nl>' || t === '\\left' || t === '\\right' || t === '\\quad') { /* structure only */ }
       else if (t === '^') item(Object.assign({}, ctx, {sup: true}));
@@ -291,9 +305,9 @@ const SeqCore = (() => {
           item({sup: false, fid: id, fp: 'n', cnt: {n: 0}, depth: 1}); item({sup: false, fid: id, fp: 'd', cnt: {n: 0}, depth: 1});
         }
       } else if (t === '\\sqrt') { const g = glyph('√', ctx), before = ctx.cnt.n; item(ctx); g.cover = ctx.cnt.n - before; }
-      else if (t === '\\times') glyph('*', ctx, {mul: true});
-      else if (t === '\\div') glyph('/', ctx);
-      else if (t === '\\pi') glyph('π', ctx);
+      else if (t === '\\times') glyph('*', ctx, {mul: true, ti});
+      else if (t === '\\div') glyph('/', ctx, {ti});
+      else if (t === '\\pi') glyph('π', ctx, {ti});
       else if (t === '\\equiv') glyph('≡', ctx);
       else if (t === '\\sim') glyph('~', ctx);
       else if (t === '\\le' || t === '\\leq') glyph('≤', ctx);
@@ -319,13 +333,13 @@ const SeqCore = (() => {
       else if (t === '\\\\') glyph(';', ctx);
       else if (t === '\\overline') { const g = glyph('‾', ctx), before = ctx.cnt.n; item(ctx); g.cover = ctx.cnt.n - before; }   // a bar over what follows, like the root sign's reach
       else if (t.startsWith('\\')) word(WORD_OF[t.slice(1)] || t.slice(1), ctx);
-      else if (/^[a-zA-Z]$/.test(t)) glyph(t, ctx, {wb: true});
-      else glyph(t, ctx);
+      else if (/^[a-zA-Z]$/.test(t)) glyph(t, ctx, {wb: true, ti});
+      else glyph(t, ctx, {ti});
     }
     run({cnt: {n: 0}}, undefined);
     return flat;
   }
 
-  return Object.freeze({K, featurise, load, encode, decode, recognise, toLatex, toMathTokens, toGlyphs});
+  return Object.freeze({K, featurise, load, encode, decode, recognise, recogniseAlts, toLatex, toMathTokens, toGlyphs});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SeqCore;

@@ -255,10 +255,10 @@ function seqFail(){swDead=true;clearTimeout(swBoot);if(sw){sw.terminate();sw=nul
  for(const q of swPend.values()){clearTimeout(q.t);q.rej(new Error('sequence recogniser unavailable'))}swPend.clear();
  for(const L of lines.slice())if(L.seq)dropReading(L)}
 function seqBoot(){if(swDead||sw||SET.recogniser!=='seq')return;try{
- swUrl=URL.createObjectURL(new Blob([seqEl.textContent+"\nconst M=SeqCore.load(SEQ_MODEL);onmessage=e=>{let t=null;try{t=SeqCore.recognise(M,e.data.s)}catch(x){}postMessage({id:e.data.id,t})};postMessage({ready:true});"],{type:'text/javascript'}));
+ swUrl=URL.createObjectURL(new Blob([seqEl.textContent+"\nconst M=SeqCore.load(SEQ_MODEL);onmessage=e=>{let t=null,a=null;try{const r=SeqCore.recogniseAlts(M,e.data.s);t=r.t;a=r.a}catch(x){}postMessage({id:e.data.id,t,a})};postMessage({ready:true});"],{type:'text/javascript'}));
  sw=new Worker(swUrl);swBoot=setTimeout(seqFail,60000);
  sw.onmessage=e=>{if(swUrl){URL.revokeObjectURL(swUrl);swUrl=null}if(e.data.ready){clearTimeout(swBoot);return}
-  const q=swPend.get(e.data.id);if(q){swPend.delete(e.data.id);clearTimeout(q.t);e.data.t?q.res(e.data.t):q.rej(new Error('recognition failed'))}};
+  const q=swPend.get(e.data.id);if(q){swPend.delete(e.data.id);clearTimeout(q.t);e.data.t?q.res(Object.assign(e.data.t,{alts:e.data.a})):q.rej(new Error('recognition failed'))}};
  sw.onerror=seqFail}catch(e){seqFail()}}
 function seqRun(S){return new Promise((res,rej)=>{seqBoot();if(!sw){rej(new Error('no worker'));return}
  const id=++swId,pts=S.map(s=>s.map((p,k)=>[p[0],p[1],k==0?s.t0||0:k==s.length-1?s.t1||0:0]));
@@ -266,11 +266,14 @@ function seqRun(S){return new Promise((res,rej)=>{seqBoot();if(!sw){rej(new Erro
 function dropReading(L){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null;
  (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=L.rt=null}
 const clearReading=dropReading;
-function mkGlyphs(row,extra){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
- return newG([{c:o.c,p:1}],Object.assign({sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,br:o.br,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false},extra&&extra()))})}
+const SYMTOK=/^([0-9a-zA-Z+\-=().,<>!]|\\times|\\div|\\pi)$/,TOKCH={'\\times':'*','\\div':'/','\\pi':'π'};
+function candidates(o,row,off,alts){const base=[{c:o.c,p:1,tok:row[o.ti]}];if(o.ti===undefined||!alts||!SYMTOK.test(row[o.ti]))return base;
+ for(const a of alts[off+o.ti]||[])if(a.p>=.02&&SYMTOK.test(a.t)&&a.t!==row[o.ti])base.push({c:TOKCH[a.t]||a.t,p:a.p,tok:a.t});return base}
+function mkGlyphs(row,extra,off,alts){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
+ const g=newG(candidates(o,row,off||0,alts),Object.assign({sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,br:o.br,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false},extra&&extra()));if(o.ti!==undefined)g.ti=(off||0)+o.ti;return g})}
 function placeRow(L,gs,x0,base,F){L.syms=gs;L.x0=x0;L.base=base;L.F=F;layout(L);
  for(const g of gs){g.x=g.tx;g.y=g.ty+10;g.sz=g.tsz;g.a=0;g.ta=1;if(ch(g)=='√')g.vx=g.tx+.56*g.tsz}updateAns(L)}
-function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)return;
+function applyReading(L,tokens,alts){const key=tokens.join(' ');if(L.seq&&L.tk===key)return;alts=alts||tokens.alts;L.alts=alts;L.toks=tokens;
  const rows=[[]];for(const t of tokens)t==='<nl>'?rows.push([]):rows[rows.length-1].push(t);
  dropReading(L);L.tk=key;
  let x0=1e9,y0=1e9,y1=-1e9;const hs=[];for(const s of L.ink){const b=bb(s);x0=Math.min(x0,b.x0);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1);if(b.h>=12)hs.push(b.h)}
@@ -278,8 +281,8 @@ function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)
  if(R>1)F=Math.max(40,Math.min(F,(y1-y0)/R/1.45));                                  // every row must fit in its share of the ink's height
  // The reading takes the place of the handwriting: its rows are centred on the ink's rows (the baseline sits .32 F below the centre line).
  const baseOf=k=>y0+(k+.5)*(y1-y0)/R+.32*F;
- L.seq=true;L.rt=rows[0].join(' ');placeRow(L,mkGlyphs(rows[0]),x0,baseOf(0),F);
- rows.slice(1).forEach((r,k)=>{const K={syms:[],ans:[],ink:[],x0,base:baseOf(k+1),F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,K.base,F)});boardChanged(L)}
+ L.seq=true;L.rt=rows[0].join(' ');placeRow(L,mkGlyphs(rows[0],null,0,alts),x0,baseOf(0),F);
+ let off=rows[0].length+1;rows.slice(1).forEach((r,k)=>{const o0=off;off+=r.length+1;const K={syms:[],ans:[],ink:[],x0,base:baseOf(k+1),F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r,null,o0,alts),x0,K.base,F)});boardChanged(L)}
 async function doRecognizeSeq(){
  for(const L of lines.slice()){if(L.kidOf||!L.ink.length||!lines.includes(L))continue;
   const snap=L.ink.slice(),key=snap.length+':'+snap.map(s=>s.length).join(',');if(L.sk===key)continue;
@@ -367,7 +370,7 @@ async function doRecognize(){moveBarsToHosts();for(const L of lines.slice())if(L
   updateAns(L)}
  kick()}
 function learnLater(g){clearTimeout(g.lt);g.lt=setTimeout(()=>{if(g.fv&&g.c[g.i])remember(g.fv,g.c[g.i].c)},2500)}
-function tapCycle(p){for(const L of lines)for(const g of L.syms){const b=gbox(g);if(g.c.length>1&&p[0]>b.x0-8&&p[0]<b.x1+8&&p[1]>b.y0-8&&p[1]<b.y1+8){g.old=ch(g);g.ot=1;g.i=(g.i+1)%g.c.length;g.locked=true;layout(L);updateAns(L);if(g.fv)learnLater(g);kick();return true}}return false}
+function tapCycle(p){for(const L of lines)for(const g of L.syms){const b=gbox(g);if(g.c.length>1&&p[0]>b.x0-8&&p[0]<b.x1+8&&p[1]>b.y0-8&&p[1]<b.y1+8){if(g.ti!==undefined){const R=L.kidOf||L,cur=R.toks[g.ti],list=[cur].concat(g.c.map(c=>c.tok).filter(t=>t!==cur)),next=list[1];if(next===undefined)return false;const nt=R.toks.slice();nt[g.ti]=next;const alts=R.alts&&R.alts.map(a=>a.slice());if(alts&&alts[g.ti])alts[g.ti]=[{t:cur,p:.5}].concat(alts[g.ti].filter(a=>a.t!==next));applyReading(R,nt,alts);kick();return true}g.old=ch(g);g.ot=1;g.i=(g.i+1)%g.c.length;g.locked=true;layout(L);updateAns(L);if(g.fv)learnLater(g);kick();return true}}return false}
 const pt=e=>toW(e.clientX,e.clientY),spt=e=>[e.clientX,e.clientY];
 function gestureStart(){const [a,b]=[...ptrs.values()];clearTimeout(lp);clearTimeout(rt);
  if(cur){cur=null;down=null}                                            /* a second finger means pan/zoom: drop the half-drawn stroke */
