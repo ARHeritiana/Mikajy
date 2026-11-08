@@ -1,6 +1,7 @@
 """Expression trees, their LaTeX, and a 2-D handwriting layout (fractions, exponents, roots, matrices, ...)."""
 import numpy as np
 from .glyphs import Glyph
+from . import proc
 
 XH = 1.0
 AXIS = .55          # height of the fraction bar / minus sign above the baseline (x-heights)
@@ -20,8 +21,8 @@ def func(name, a): return ('func', name, a)
 def mat(rows, l='[', r=']'): return ('mat', rows, l, r)
 def over(a): return ('over', a)
 
-GREEK = {'π': r'\pi'}
-OPS = {'+': '+', '-': '-', '=': '=', '×': r'\times', '÷': r'\div', '≡': r'\equiv', '/': '/', ',': ',', '.': '.', '!': '!'}
+GREEK = {'π': r'\pi', "'": r'\prime'}
+OPS = {'+': '+', '-': '-', '=': '=', '×': r'\times', '÷': r'\div', '≡': r'\equiv', '/': '/', ',': ',', '.': '.', '!': '!', '~': r'\sim', '≤': r'\le', '≥': r'\ge', '<': '<', '>': '>'}
 FUNCS = ('sin', 'cos', 'tan', 'ln', 'log', 'exp', 'det', 'gcd', 'mod', 'lcm')
 
 
@@ -67,7 +68,7 @@ class Layout:
     def jit(self, a=.06): return float(self.rng.normal(0, a))
 
     # ---- leaves ----
-    def text(self, s, scale, role=None, cursive_ok=False):
+    def text(self, s, scale, role=None, cursive_ok=False, var_x=False):
         """Characters of s as glyph atoms (or one whole-word atom for cursive writers)."""
         wr, b = self.wr, Box()
         font = wr.font_for(s)
@@ -81,8 +82,10 @@ class Layout:
                 return b
         x = 0.0
         for i, ch in enumerate(s):
-            f = wr.font_for(ch)
-            g = wr.bank.render(f, ch) if f else None
+            g = self.proc_glyph(ch, var_x)           # habits the font tracer lacks: a 9 written from the top, an x written as two arcs
+            if g is None:
+                f = wr.font_for(ch)
+                g = wr.bank.render(f, ch) if f else None
             if g is None:
                 return None
             sc = scale * (1 + self.jit(wr.size_jitter))
@@ -91,6 +94,11 @@ class Layout:
             b.asc = max(b.asc, -g.y0 * sc); b.desc = max(b.desc, g.y1 * sc)
         b.w = x
         return b
+
+    def proc_glyph(self, ch, var_x):
+        if ch == '9' and self.rng.random() < .6: return proc.nine(self.rng)
+        if ch == 'x' and var_x and self.rng.random() < .4: return proc.x_arcs(self.rng)
+        return None
 
     def line(self, x0, y0, x1, y1, kind='line'):
         return dict(kind=kind, x=x0, y=y0, x1=x1, y1=y1, path='', ch='')
@@ -102,7 +110,7 @@ class Layout:
         return fn(n, s, depth)
 
     def l_num(self, n, s, d): return self.text(n[1], s)
-    def l_var(self, n, s, d): return self.text(n[1], s)
+    def l_var(self, n, s, d): return self.text(n[1], s, var_x=True)
 
     def l_op(self, n, s, d):
         ch = n[1]
@@ -112,6 +120,15 @@ class Layout:
                 b.atoms.append(self.line(0, y * s + self.jit(.03), w, y * s + self.jit(.03) + self.jit(.03), 'bar'))
             b.w, b.asc, b.desc = w, .9 * s, 0
             return self.pad(b, .25 * s)
+        if ch in '≤≥':                                  # drawn, like ≡: a chevron with a bar under it (few handwriting fonts have these glyphs)
+            b = Box(); w = .75 * s; j = lambda: self.jit(.04)
+            ch_ = self.line(0, 0, 0, 0, 'poly'); xs = (w, 0, w) if ch == '≤' else (0, w, 0)
+            ch_['pts'] = [(xs[0] + j() * s, -.85 * s + j() * s), (xs[1] + j() * s, -.55 * s + j() * s), (xs[2] + j() * s, -.25 * s + j() * s)]
+            ch_['role'] = 'term'; ch_['path'] = 'cmp'; ch_['ch'] = ch
+            b.atoms.append(ch_)
+            b.atoms.append(self.line(0, .02 * s + j() * s, w, .02 * s + j() * s, 'bar'))
+            b.w, b.asc, b.desc = w, .9 * s, .05 * s
+            return self.pad(b, .22 * s)
         b = self.text(ch, s) or self.text({'×': 'x', '÷': '/'}.get(ch, ch), s)
         return self.pad(b, .22 * s) if b else None
 
