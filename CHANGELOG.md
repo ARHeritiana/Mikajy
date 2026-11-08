@@ -5,7 +5,13 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+## [5.2] - 2026-11-09
+
 ### Added
+- **Answers are typeset like paper:** fractions stacked, roots with the bar over the whole radicand, raised exponents, constants first (`1 − √6`); `arg` answers too.
+- **Your handwriting is replaced by the reading, in place** (as in 5.0); the ink fades and the view follows the answer.
+- **Scribble to erase** works over finished readings. **Tap a symbol to correct it**: the model's runner-up readings are offered one tap at a time.
+- **Retrained recogniser** (synthetic strokes from 57 OFL fonts, plus habits: a 1 with a long flag, crossed 7, open 4, a 9 from the top, x as `)(`; stroke-order augmentation). On 29 finger-written samples: **17.2 % read exactly right** (token error 22.6 %), up from 3.4 % (29.1 %) in 5.1. Unseen-font synthetic sets: 57–94 % per domain.
 - **Functions:** `f(x) = x² + 1`, then `f(3)`, `f(1/2)`, `f(g(2))`; a line sees the definitions above it. **Probability:** `X ~ B(n, p)` / `N` / `P` / `G` / `U` / `E`, then `P(X = k)`, `P(X ≤ k)`, `P(a ≤ X ≤ b)`, `E(X)`, `V(X)`, `C(n, k)` — exact (binomial, geometric, uniform, and Poisson / exponential as `q + c·e^(−λ)`), the normal distribution marked `≈`.
 - **Differential equations:** first-order linear and separable, second-order with constant coefficients and forcing, initial conditions, `y'`, `y''`, `dy/dx`; every solution is substituted back before it is shown.
 - **Complex numbers:** conjugate (`\overline z`), argument (a multiple of π when it is one), exact `e^(iπk/2)`; `e^(iπ)` is now exactly `−1`.

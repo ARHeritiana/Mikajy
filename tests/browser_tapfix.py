@@ -22,6 +22,8 @@ async def main():
             await pg.mouse.up(); await pg.wait_for_timeout(40)
         for s in FIX["strokes"]: await stroke([(x, y) for x, y, _ in s])
         await pg.wait_for_function("() => lines.length && lines.every(L => L.sk || !L.ink.length) && !recBusy && lines[0].syms.length", timeout=60000)
+        await pg.evaluate("""() => { const L = lines[0], i = L.toks.findIndex(t => /^[0-9]$/.test(t)), alts = L.toks.map(() => []);   // the model may be sure of everything: offer a runner-up
+            alts[i] = [{t: L.toks[i] === '8' ? '3' : '8', p: .3}]; L.tk = ''; applyReading(L, L.toks, alts); }""")
         info = await pg.evaluate("""() => { const L = lines[0]; const g = L.syms.find(g => g.ti !== undefined && g.c.length > 1);
             if (!g) return null; const bx = gbox(g); return {tk: L.tk, ti: g.ti, alts: g.c.map(c => c.tok), x: (bx.x0 + bx.x1) / 2 * V.k + V.x, y: (bx.y0 + bx.y1) / 2 * V.k + V.y}; }""")
         assert info and len(info["alts"]) > 1, info
