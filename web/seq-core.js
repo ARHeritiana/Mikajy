@@ -294,11 +294,21 @@ const SeqCore = (() => {
       else if (t === '\\div') glyph('/', ctx);
       else if (t === '\\pi') glyph('π', ctx);
       else if (t === '\\equiv') glyph('≡', ctx);
-      else if (t === '\\begin' || t === '\\end') {                  // \begin{bmatrix} ... \end{bmatrix}: brackets only, never the environment's name
+      else if (t === '\\begin') {                                    // a matrix: a head glyph (brackets) and one part per entry, r<row>c<col>
         let name = ''; if (peek() === '{') { next(); while (i < tokens.length && peek() !== '}') name += next(); if (peek() === '}') next(); }
-        const pair = {bmatrix: '[]', matrix: '[]', pmatrix: '()', vmatrix: '||'}[name] || '[]';
-        glyph(pair[t === '\\begin' ? 0 : 1], ctx);
+        const id = ++fids, head = glyph('▦', ctx);
+        head.fp = 'head'; head.fid = id; head.br = {bmatrix: '[', matrix: '[', pmatrix: '(', vmatrix: '|'}[name] || '[';
+        if (ctx.fid) { head.pfid = ctx.fid; head.pfp = ctx.fp; }
+        let r = 0, c = 0;
+        const cell = () => ({sup: false, fid: id, fp: 'r' + r + 'c' + c, cnt: {n: 0}, depth: (ctx.depth || 1) + 1});
+        let cx = cell();
+        while (i < tokens.length && peek() !== '\\end') {
+          const u = next();
+          if (u === '&') { c++; cx = cell(); } else if (u === '\\\\') { r++; c = 0; cx = cell(); } else one(cx, u);
+        }
+        if (peek() === '\\end') { next(); if (peek() === '{') { next(); while (i < tokens.length && peek() !== '}') next(); if (peek() === '}') next(); } }
       }
+      else if (t === '\\end') { if (peek() === '{') { next(); while (i < tokens.length && peek() !== '}') next(); if (peek() === '}') next(); } }
       else if (t === '&') glyph(',', ctx);
       else if (t === '\\\\') glyph(';', ctx);
       else if (t === '\\overline') { item(ctx); }

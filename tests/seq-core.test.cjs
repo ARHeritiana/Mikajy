@@ -65,8 +65,13 @@ test('a fraction inside a fraction stays stacked (own bar with a parent link); o
   assert.equal(inl.some(x => x.fp === 'bar'), false);
 });
 
-test('a matrix environment becomes brackets on the board, never its own name', () => {
-  const g = SeqCore.toGlyphs('\\begin { b m a t r i x } 1 & 2 \\\\ 3 & 4 \\end { b m a t r i x }'.split(' ')).map(x => x.c).join('');
-  assert.equal(g, '[1,2;3,4]');
-  assert.equal(SeqCore.toGlyphs('\\begin { p m a t r i x } 1 \\end { p m a t r i x }'.split(' ')).map(x => x.c).join(''), '(1)');
+test('a matrix becomes a head glyph plus one part per entry (a grid on the board, never code-like text)', () => {
+  const g = SeqCore.toGlyphs('\\begin { b m a t r i x } 1 & 2 \\\\ 3 & \\frac { 1 } { 2 } \\end { b m a t r i x }'.split(' '));
+  assert.equal(g[0].c, '▦'); assert.equal(g[0].fp, 'head'); assert.equal(g[0].br, '[');
+  const part = (r, c) => g.filter(x => x.fid === g[0].fid && x.fp === 'r' + r + 'c' + c).map(x => x.c).join('');
+  assert.deepEqual([part(0, 0), part(0, 1), part(1, 0)], ['1', '2', '3']);
+  const bar = g.find(x => x.fp === 'bar');                       // the fraction in the last entry is a nested stacked fraction
+  assert.equal(bar.pfid, g[0].fid); assert.equal(bar.pfp, 'r1c1');
+  assert.equal(SeqCore.toGlyphs('\\begin { p m a t r i x } 1 \\end { p m a t r i x }'.split(' '))[0].br, '(');
+  assert.equal(SeqCore.toGlyphs('\\begin { v m a t r i x } 1 \\end { v m a t r i x }'.split(' '))[0].br, '|');
 });

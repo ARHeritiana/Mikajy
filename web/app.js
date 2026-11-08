@@ -41,10 +41,16 @@ function drawInk(s,a){if(a<=.01)return;ctx.globalAlpha=a;ctx.strokeStyle=ctx.fil
 function drawRad(g,a){const s=g.sz,x=g.x,y=g.y,top=y-.8*s;ctx.globalAlpha=a;ctx.strokeStyle=g.ans?palette.accent:palette.ink;ctx.lineWidth=Math.max(2,s*.055);ctx.lineCap=ctx.lineJoin='round';
  ctx.beginPath();ctx.moveTo(x+.02*s,y-.36*s);ctx.lineTo(x+.1*s,y-.43*s);ctx.lineTo(x+.26*s,y-.02*s);ctx.lineTo(x+.5*s,top);ctx.lineTo(Math.max(g.vx,x+.56*s),top);ctx.stroke();ctx.globalAlpha=1}
 function drawBar(g,a){ctx.globalAlpha=a;ctx.strokeStyle=g.ans?palette.accent:palette.ink;ctx.lineWidth=Math.max(2.5,g.sz*.05);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(g.x+g.bw,g.y);ctx.stroke();ctx.globalAlpha=1}
+function drawMat(g,a){const s=g.sz,x=g.x,y=g.y,h=Math.max(g.mh||0,.5*s),w=Math.max(g.bw,.6*s),t=y-h/2,b=y+h/2,k=.22*s;ctx.globalAlpha=a;ctx.strokeStyle=g.ans?palette.accent:palette.ink;ctx.lineWidth=Math.max(2.5,s*.05);ctx.lineCap=ctx.lineJoin='round';ctx.beginPath();
+ if(g.br=='('){ctx.moveTo(x+k,t);ctx.quadraticCurveTo(x-.08*s,y,x+k,b);ctx.moveTo(x+w-k,t);ctx.quadraticCurveTo(x+w+.08*s,y,x+w-k,b)}
+ else if(g.br=='|'){ctx.moveTo(x+k*.6,t);ctx.lineTo(x+k*.6,b);ctx.moveTo(x+w-k*.6,t);ctx.lineTo(x+w-k*.6,b)}
+ else{ctx.moveTo(x+k,t);ctx.lineTo(x+.04*s,t);ctx.lineTo(x+.04*s,b);ctx.lineTo(x+k,b);ctx.moveTo(x+w-k,t);ctx.lineTo(x+w-.04*s,t);ctx.lineTo(x+w-.04*s,b);ctx.lineTo(x+w-k,b)}
+ ctx.stroke();ctx.globalAlpha=1}
 function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;ctx.font=Math.round(g.sz)+'px '+FONT;ctx.textBaseline='alphabetic';
  const a=Math.max(0,Math.min(1,g.a)),c=ch(g);
  if(c=='√')drawRad(g,a);
  else if(c=='§')drawBar(g,a);
+ else if(c=='▦')drawMat(g,a);
  else{if(g.ot>0&&g.old){ctx.globalAlpha=a*g.ot;ctx.fillText(disp(g.old),g.x,g.y);ctx.globalAlpha=a*(1-g.ot)}else ctx.globalAlpha=a;
   ctx.fillText(disp(c),g.x,g.y);ctx.globalAlpha=1}
  if(g.ink&&g.a<.99){const k=Math.max(0,1-g.a*1.1);g.ink.forEach(s=>drawInk(s,k))}else g.ink=null}
@@ -58,7 +64,8 @@ function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv
 function stepG(g,dt,now){if(now<g.delay)return true;const k=1-Math.exp(-dt*7),k2=1-Math.exp(-dt*8);g.x+=(g.tx-g.x)*k;g.y+=(g.ty-g.y)*k;g.sz+=(g.tsz-g.sz)*k;g.a+=(g.ta-g.a)*k2;if(g.ot>0)g.ot=Math.max(0,g.ot-dt*4);
  let r=Math.abs(g.tx-g.x)>.3||Math.abs(g.ty-g.y)>.3||Math.abs(g.tsz-g.sz)>.3||Math.abs(g.ta-g.a)>.01||g.ot>0;
  if(g.vtx!==undefined){g.vx+=(g.vtx-g.vx)*k;if(Math.abs(g.vtx-g.vx)>.3)r=true}
- if(g.bwt!==undefined){g.bw+=(g.bwt-g.bw)*k;if(Math.abs(g.bwt-g.bw)>.3)r=true}return r}
+ if(g.bwt!==undefined){g.bw+=(g.bwt-g.bw)*k;if(Math.abs(g.bwt-g.bw)>.3)r=true}
+ if(g.mht!==undefined){g.mh+=(g.mht-g.mh)*k;if(Math.abs(g.mht-g.mh)>.3)r=true}return r}
 function step(dt,now){let act=false;const tick=g=>{if(stepG(g,dt,now))act=true};
  for(const L of lines){L.syms.forEach(tick);L.ans.forEach(tick)}
  fx.forEach(tick);if(fx.length)fx=fx.filter(g=>g.a>.02);if(ghosts.length)ghosts=ghosts.filter(g=>now-g.t0<420);return act||ghosts.length>0}
@@ -68,29 +75,43 @@ const adv=(c,F)=>{if(c=='√')return F*.62;ctx.font=F+'px '+FONT;return ctx.meas
 function coverN(A,k){const g=A[k];if(g.cover>0)return Math.min(g.cover,A.length-k-1);let j=k+1,n=0;if(j>=A.length)return 0;
  if(ch(A[j])=='('){let d=0;for(;j<A.length;j++){const q=ch(A[j]);if(q=='(')d++;if(q==')'){d--;if(d==0){j++;break}}}return j-k-1}
  while(j<A.length){const q=ch(A[j]),ok=A[j].sup?n>0:/[0-9.πe]/.test(q);if(!ok)break;n++;j++}return n}
-const isPart=g=>g.fp=='n'||g.fp=='d';
-const partsOf=(L,bar,p)=>L.syms.concat(L.ans).filter(s=>s.fid===bar.fid&&s.fp==p||s.fp=='bar'&&s.pfid===bar.fid&&s.pfp==p);   // a part's glyphs, nested bars included
+const isPart=g=>typeof g.fp=='string'&&/^(n|d|r\d+c\d+)$/.test(g.fp);
+const isHeadG=g=>g.fp=='bar'||g.fp=='head';
+const partsOf=(L,bar,p)=>L.syms.concat(L.ans).filter(s=>s.fid===bar.fid&&s.fp==p||isHeadG(s)&&s.pfid===bar.fid&&s.pfp==p);   // a part's glyphs, nested containers included
 function seqs(L){const top=[],m=new Map();for(const g of L.syms){if(isPart(g)||g.pfid){const k=g.pfid?g.pfid+g.pfp:g.fid+g.fp;if(!m.has(k))m.set(k,[]);m.get(k).push(g)}else top.push(g)}return[top,...m.values()]}
-/* Stacked fractions, nested to any shown depth. A sequence is laid out at font size s on a baseline; a '§' glyph is a fraction whose
-   numerator / denominator sequences (partsOf) are laid out recursively at .8 s. ext() measures how far a sequence reaches above and
-   below its baseline so that a fraction inside a numerator lifts it clear of the bar (and one in a denominator pushes it down). */
-const isFB=g=>ch(g)=='§'&&g.fp=='bar';
-const extOf=(L,A,s)=>{let up=0,dn=0;for(const g of A){let u,d;if(isFB(g)){const e=fracExt(L,g,s*(g.sup?.62:1));u=e.up;d=e.dn}else{const z=g.sup?.62:1;u=.72*s*z+(g.sup?.42*s:0);d=.22*s*z}up=Math.max(up,u);dn=Math.max(dn,d)}return{up,dn}};
+/* Boxes: stacked fractions and matrices, nested to any shown depth. A sequence is laid out at font size s on a baseline; a box glyph is a
+   '§' bar (numerator / denominator parts, at .8 s) or a '▦' matrix head (one part per entry, named r<row>c<col>, at s). ext() measures how
+   far a sequence reaches above and below its baseline, so a fraction inside a numerator lifts it clear of the bar, and matrix rows get
+   exactly the height their entries need. */
+const isFB=g=>(ch(g)=='§'&&g.fp=='bar')||g.fp=='head';
+const extOf=(L,A,s)=>{let up=0,dn=0;for(const g of A){let u,d;if(isFB(g)){const e=boxExt(L,g,s*(g.sup?.62:1));u=e.up;d=e.dn}else{const z=g.sup?.62:1;u=.72*s*z+(g.sup?.42*s:0);d=.22*s*z}up=Math.max(up,u);dn=Math.max(dn,d)}return{up,dn}};
 function partOffs(L,g,s){const sn=.8*s,N=extOf(L,partsOf(L,g,'n'),sn),D=extOf(L,partsOf(L,g,'d'),sn);return{sn,N,D,nOff:Math.max(.14*s,N.dn+.06*s),dOff:Math.max(.14*s+.55*sn,D.up+.1*s)}}
 function fracExt(L,g,s){const o=partOffs(L,g,s);return{up:.28*s+o.nOff+o.N.up,dn:Math.max(.22*s,o.dOff-.28*s+o.D.dn)}}
-const seqW=(L,A,s)=>A.reduce((w,g)=>w+(isFB(g)?fracW(L,g,s*(g.sup?.62:1)):adv(ch(g),s*(g.sup?.62:1)))+.06*s*(g.sup?.62:1),0);
+const seqW=(L,A,s)=>A.reduce((w,g)=>w+(isFB(g)?boxW(L,g,s*(g.sup?.62:1)):adv(ch(g),s*(g.sup?.62:1)))+.06*s*(g.sup?.62:1),0);
 function fracW(L,g,s){const sn=.8*s;g.nW=seqW(L,partsOf(L,g,'n'),sn);g.dW=seqW(L,partsOf(L,g,'d'),sn);return g.w0=Math.max(g.nW,g.dW)+.4*s}
+/* matrix: column widths, row extents; entries centred in their column */
+function matInfo(L,g,s){const cells=L.syms.concat(L.ans).filter(q=>q.fid===g.fid&&isPart(q)&&/^r\d+c\d+$/.test(q.fp)),R=Math.max(0,...cells.map(q=>+/^r(\d+)/.exec(q.fp)[1]))+1,C=Math.max(0,...cells.map(q=>+/c(\d+)$/.exec(q.fp)[1]))+1;
+ const cw=Array(C).fill(0),up=Array(R).fill(.72*s),dn=Array(R).fill(.22*s);
+ for(let r=0;r<R;r++)for(let c=0;c<C;c++){const A=partsOf(L,g,'r'+r+'c'+c);cw[c]=Math.max(cw[c],seqW(L,A,s));const e=extOf(L,A,s);up[r]=Math.max(up[r],e.up);dn[r]=Math.max(dn[r],e.dn)}
+ const gx=.7*s,gy=.2*s,pad=.38*s,H=up.reduce((a,v,i)=>a+v+dn[i],0)+gy*(R-1)+.3*s;
+ return g.mi={R,C,cw,up,dn,gx,gy,pad,H,W:cw.reduce((a,v)=>a+v,0)+gx*(C-1)+2*pad}}
+const matW=(L,g,s)=>g.w0=matInfo(L,g,s).W;
+const boxW=(L,g,s)=>g.fp=='head'?matW(L,g,s):fracW(L,g,s);
+function boxExt(L,g,s){if(g.fp!='head')return fracExt(L,g,s);const m=matInfo(L,g,s);return{up:.28*s+m.H/2,dn:Math.max(.22*s,m.H/2-.28*s)}}
 function placeFrac(L,g,x,base,s){const o=partOffs(L,g,s),ay=base-.28*s;g.tx=x;g.ty=ay;g.tsz=s;g.w=g.w0;g.bwt=g.w;if(!g.bw)g.bw=g.w;
  placeSeq(L,partsOf(L,g,'n'),x+(g.w-g.nW)/2,ay-o.nOff,o.sn);placeSeq(L,partsOf(L,g,'d'),x+(g.w-g.dW)/2,ay+o.dOff,o.sn)}
-function placeSeq(L,A,x,base,s){for(const g of A){const z=g.sup?.62:1;if(isFB(g)){fracW(L,g,s*z);placeFrac(L,g,x,base,s*z);x+=g.w+.06*s*z}
+function placeMat(L,g,x,base,s){const m=g.mi||matInfo(L,g,s),ay=base-.28*s;g.tx=x;g.ty=ay;g.tsz=s;g.w=g.w0=m.W;g.bwt=m.W;if(!g.bw)g.bw=m.W;g.mht=m.H;if(!g.mh)g.mh=m.H;
+ let y=ay-m.H/2+.15*s;for(let r=0;r<m.R;r++){y+=m.up[r];let cx=x+m.pad;for(let c=0;c<m.C;c++){const A=partsOf(L,g,'r'+r+'c'+c);placeSeq(L,A,cx+(m.cw[c]-seqW(L,A,s))/2,y,s);cx+=m.cw[c]+m.gx}y+=m.dn[r]+m.gy}}
+function placeBox(L,g,x,base,s){g.fp=='head'?placeMat(L,g,x,base,s):placeFrac(L,g,x,base,s)}
+function placeSeq(L,A,x,base,s){for(const g of A){const z=g.sup?.62:1;if(isFB(g)){boxW(L,g,s*z);placeBox(L,g,x,base,s*z);x+=g.w+.06*s*z}
  else{const a=adv(ch(g),s*z);g.tx=x;g.tsz=s*z;g.ty=base-(g.sup?.42*s:0);g.w=a;x+=a+.06*s*z}}}
 function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)&&!g.pfid),items=top.concat(L.ans.filter(g=>!isPart(g)&&!g.pfid));if(!items.length)return;let tot=0;
- const sf=g=>g.sup?.62:1,first=(g,k)=>g.ans&&(k==0||!items[k-1].ans),extra=(g,k)=>(first(g,k)?.28*F:0)+(ch(g)=='§'&&k>0?.1*F:0),trail=g=>.06*F*sf(g)+(g.ans&&ch(g)=='='?.14*F:0);
- items.forEach((g,k)=>{if(ch(g)=='§')fracW(L,g,F);else g.w0=adv(ch(g),F*sf(g));tot+=g.w0+trail(g)+extra(g,k)});
+ const sf=g=>g.sup?.62:1,first=(g,k)=>g.ans&&(k==0||!items[k-1].ans),extra=(g,k)=>(first(g,k)?.28*F:0)+(isFB(g)&&k>0?.1*F:0),trail=g=>.06*F*sf(g)+(g.ans&&ch(g)=='='?.14*F:0);
+ items.forEach((g,k)=>{if(isFB(g))boxW(L,g,F);else g.w0=adv(ch(g),F*sf(g));tot+=g.w0+trail(g)+extra(g,k)});
  let x0=L.x0,f=1;
  const base=L.base;let x=x0;
  items.forEach((g,k)=>{x+=extra(g,k)*f;
-  if(ch(g)=='§')placeFrac(L,g,x,base,F*f);
+  if(isFB(g))placeBox(L,g,x,base,F*f);
   else{g.tx=x;g.tsz=F*f*sf(g);g.w=g.w0*f;g.ty=base-(g.sup?.42*F*f:0)}
   x+=(g.w0+trail(g))*f});
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
@@ -117,11 +138,14 @@ function computeAns(L) {
 }
 function buildAns(pieces){const now=performance.now();let k=0;const out=[];const d=()=>now+260+(k++)*75;
  for(const p of pieces){if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,delay:d()}))});
+  else if(p.m){const fid='a'+(++FID);out.push(newG([{c:'▦',p:1}],{ans:true,fp:'head',fid,br:p.m.br,delay:d()}));
+   p.m.rows.forEach((row,r)=>row.forEach((cell,c)=>{const part='r'+r+'c'+c;for(const q of cell){if(q.s!==undefined)[...q.s].forEach(ch2=>{if(ch2!=' ')out.push(newG([{c:ch2,p:1}],{ans:true,fp:part,fid,delay:d()}))});
+    else{const f2='a'+(++FID);out.push(newG([{c:'§',p:1}],{ans:true,fp:'bar',fid:f2,pfid:fid,pfp:part,delay:d()}));[...q.f[0]].forEach(ch2=>out.push(newG([{c:ch2,p:1}],{ans:true,fp:'n',fid:f2,delay:d()})));[...q.f[1]].forEach(ch2=>out.push(newG([{c:ch2,p:1}],{ans:true,fp:'d',fid:f2,delay:d()})))}}}))}
   else{const fid='a'+(++FID);out.push(newG([{c:'§',p:1}],{ans:true,fp:'bar',fid,delay:d()}));[...p.f[0]].forEach(c=>out.push(newG([{c,p:1}],{ans:true,fp:'n',fid,delay:d()})));[...p.f[1]].forEach(c=>out.push(newG([{c,p:1}],{ans:true,fp:'d',fid,delay:d()})))}}
  return out}
 function newG(c,o){return Object.assign({c,i:0,x:0,y:0,sz:60,tx:0,ty:0,tsz:60,a:0,ta:1,ot:0,old:null,delay:0,ink:null,w:0,w0:0,sup:false,bw:0},o)}
 function updateAns(L){const r=computeAns(L),key=r?r.text:null;if(key===L.at)return;L.at=key;L.val=r?r.val:undefined;lastL=L;L.ans.forEach(kill);L.ans=[];if(!r)return;
- L.ans=buildAns(r.pieces);layout(L);L.ans.forEach(g=>{g.x=g.tx+4;g.y=g.ty+L.F*.35;g.sz=g.tsz;if(g.fp=='bar')g.bw=0});if(window.histSave)histSave(L)}
+ L.ans=buildAns(r.pieces);layout(L);L.ans.forEach(g=>{g.x=g.tx+4;g.y=g.ty+L.F*.35;g.sz=g.tsz;if(g.fp=='bar'||g.fp=='head'){g.bw=0;g.mh=0}});if(window.histSave)histSave(L)}
 function kill(g){g.ta=0;g.tsz*=.75;g.ty+=16;g.ink=null;g.delay=0;fx.push(g)}
 function inkBand(L){let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const m=Math.max(.4*(y1-y0)+10,35);return[y0-m,y1+m]}
 function lineBox(L){if(L.seq&&L.ink.length)return inkBand(L);if(L.syms.length||L.ans.length)return[L.base-1.05*L.F,L.base+.4*L.F];let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const h=y1-y0,m=Math.max(.4*h+10,35);return[y0-m,y1+m]}
@@ -136,7 +160,7 @@ function attach(s){const b=bb(s),cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;
  lines.push({syms:[],ans:[],ink:[s],x0:0,base:0,F:80,at:null})}
 const ovl=(a,e)=>{const w=Math.min(a.x1,e.x1)-Math.max(a.x0,e.x0),h=Math.min(a.y1,e.y1)-Math.max(a.y0,e.y0);return w>0&&h>0?w*h/Math.max(1,(a.x1-a.x0)*(a.y1-a.y0)):0};
 const GB={'(':.9,')':.9,'√':.85,l:.7,t:.62};
-const gbox=g=>{const c=ch(g);if(c=='§')return{x0:g.x,x1:g.x+Math.max(g.bw,g.w),y0:g.y-.12*g.sz,y1:g.y+.12*g.sz};return{x0:g.x,x1:g.x+Math.max(g.w,g.sz*.3),y0:g.y-(GB[c]||.62)*g.sz,y1:g.y+(c=='g'?.25:.12)*g.sz}};
+const gbox=g=>{const c=ch(g);if(c=='▦')return{x0:g.x,x1:g.x+Math.max(g.bw,g.w),y0:g.y-(g.mh||g.sz)/2,y1:g.y+(g.mh||g.sz)/2};if(c=='§')return{x0:g.x,x1:g.x+Math.max(g.bw,g.w),y0:g.y-.12*g.sz,y1:g.y+.12*g.sz};return{x0:g.x,x1:g.x+Math.max(g.w,g.sz*.3),y0:g.y-(GB[c]||.62)*g.sz,y1:g.y+(c=='g'?.25:.12)*g.sz}};
 const resamp=Recognizer.resample;
 function cusps(s){const p=resamp(s,8);let n=0;for(let i=0;i+6<p.length;){const a=[p[i+3][0]-p[i][0],p[i+3][1]-p[i][1]],b=[p[i+6][0]-p[i+3][0],p[i+6][1]-p[i+3][1]];
  const c=(a[0]*b[0]+a[1]*b[1])/(Math.hypot(...a)*Math.hypot(...b)||1);if(c<-.5){n++;i+=4}else i++}return n}
@@ -221,7 +245,7 @@ function dropReading(L){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans
  (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=L.rt=null}
 const clearReading=dropReading;
 function mkGlyphs(row){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
- return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
+ return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,br:o.br,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
 function placeRow(L,gs,x0,base,F){L.syms=gs;L.x0=x0;L.base=base;L.F=F;layout(L);
  for(const g of gs){g.x=g.tx;g.y=g.ty+10;g.sz=g.tsz;g.a=0;g.ta=1;if(ch(g)=='√')g.vx=g.tx+.56*g.tsz}updateAns(L)}
 function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)return;
@@ -377,12 +401,12 @@ function strSeq(L,A){let o='',run='',inSup=false;const flush=()=>{if(!run)return
  A.forEach(g=>{const c=ch(g);if(g.sup){inSup=true;run+=c;return}if(inSup){flush();inSup=false}
   if(c=='§')o+='('+strSeq(L,partsOf(L,g,'n'))+')/('+strSeq(L,partsOf(L,g,'d'))+')';else o+=c=='*'?'×':c=='/'?'÷':c});flush();return o}
 const textOf=L=>strSeq(L,seqs(L)[0]).replace(/=+$/,'').trim();
-const serial=L=>L.syms.map(g=>({c:ch(g),sup:g.sup?1:0,fp:g.fp||'',fid:g.fid||'',cover:g.cover||0,pfid:g.pfid||'',pfp:g.pfp||''}));
+const serial=L=>L.syms.map(g=>({c:ch(g),sup:g.sup?1:0,fp:g.fp||'',fid:g.fid||'',cover:g.cover||0,pfid:g.pfid||'',pfp:g.pfp||'',br:g.br||''}));
 window.histSave=function(L){if(!L.syms.length)return;L.hid=L.hid||Date.now()+'-'+Math.random().toString(36).slice(2,6);clearTimeout(L.ht);
  L.ht=setTimeout(()=>{const r=computeAns(L);if(!r||!lines.includes(L))return;const e={id:L.hid,ts:Date.now(),syms:serial(L),F:L.F,ans:r.text,text:textOf(L)},i=HIST.findIndex(h=>h.id==L.hid);
   if(i>=0)HIST[i]=e;else HIST.unshift(e);HIST=HIST.slice(0,100);histPersist()},1500)};
 function openHist(e){closeSheet();const L={syms:[],ans:[],ink:[],x0:toW(30,0)[0],base:toW(0,SH*.35)[1],F:e.F||70,at:null,hid:e.id};for(const q of lines)L.base=Math.max(L.base,q.base+q.F*1.5);
- e.syms.forEach(s=>L.syms.push(newG([{c:s.c,p:1}],{sup:!!s.sup,fp:s.fp||undefined,fid:s.fid||undefined,pfid:s.pfid||undefined,pfp:s.pfp||undefined,cover:s.cover,fresh:false})));
+ e.syms.forEach(s=>L.syms.push(newG([{c:s.c,p:1}],{sup:!!s.sup,fp:s.fp||undefined,fid:s.fid||undefined,pfid:s.pfid||undefined,pfp:s.pfp||undefined,br:s.br||undefined,cover:s.cover,fresh:false})));
  lines.push(L);layout(L);L.syms.forEach(g=>{g.x=g.tx;g.y=g.ty+12;g.sz=g.tsz*.9;g.a=0;g.ta=1});updateAns(L);kick()}
 /* ---------- export ---------- */
 function copyText(t){if(window.Android&&Android.copy){Android.copy(t);toast(T('copied'))}else{try{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();toast(T('copied'))}catch(e){}}}

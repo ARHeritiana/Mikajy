@@ -81,9 +81,9 @@ const Store = (() => {
         if (!isObject(s) || !str(s.c, 2) || !s.c) { syms.length = 0; break; }
         const fid = typeof s.fid === 'string' && s.fid.length <= 16 ? s.fid : isNum(s.fid) ? String(s.fid) : '';
         syms.push({
-          c: s.c, sup: s.sup ? 1 : 0, fp: ['n', 'd', 'bar'].includes(s.fp) ? s.fp : '', fid,
+          c: s.c, sup: s.sup ? 1 : 0, fp: typeof s.fp === 'string' && /^(n|d|bar|head|r\d{1,2}c\d{1,2})$/.test(s.fp) ? s.fp : '', fid,
           cover: Number.isInteger(s.cover) && s.cover >= 0 && s.cover <= 200 ? s.cover : 0,
-          pfid: typeof s.pfid === 'string' && s.pfid.length <= 16 ? s.pfid : isNum(s.pfid) ? String(s.pfid) : '', pfp: ['n', 'd'].includes(s.pfp) ? s.pfp : ''
+          pfid: typeof s.pfid === 'string' && s.pfid.length <= 16 ? s.pfid : isNum(s.pfid) ? String(s.pfid) : '', pfp: typeof s.pfp === 'string' && /^(n|d|r\d{1,2}c\d{1,2})$/.test(s.pfp) ? s.pfp : '', br: ['[', '(', '|'].includes(s.br) ? s.br : ''
         });
       }
       if (!syms.length) continue;

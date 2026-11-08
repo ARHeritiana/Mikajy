@@ -47,7 +47,7 @@ test('history entries are rebuilt field by field', () => {
   const ok = {id: 'a-1', ts: 1, F: 70, ans: '=5', text: '2+3', syms: [{c: '2', fid: 7, fp: 'n', evil: 1}, {c: '+'}]};
   const [h] = Store.cleanHistory([ok, {id: 5}, null, {...ok, syms: []}, {...ok, id: 'b', syms: [{c: 'toolong'}]}, {...ok, id: 'c', ans: 'x'.repeat(500)}]);
   assert.equal(Store.cleanHistory([ok]).length, 1);
-  assert.deepEqual(h.syms[0], {c: '2', sup: 0, fp: 'n', fid: '7', cover: 0, pfid: '', pfp: ''});
+  assert.deepEqual(h.syms[0], {c: '2', sup: 0, fp: 'n', fid: '7', cover: 0, pfid: '', pfp: '', br: ''});
   assert.equal('evil' in h.syms[0], false);
   assert.equal(Store.cleanHistory([{...ok, F: 99999}])[0].F, 400);
   assert.equal(Store.cleanHistory(Array.from({length: 300}, (_, i) => ({...ok, id: 'i' + i}))).length, 100);

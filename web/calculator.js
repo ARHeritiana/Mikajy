@@ -7,7 +7,7 @@ const Calculator = (() => {
   const Linalg = typeof module !== 'undefined' && module.exports ? require('./linalg-core.js') : LinalgCore;
   const I18 = typeof module !== 'undefined' && module.exports ? require('./i18n.js') : I18n;
   const textPiece = s => ({s: String(s)});
-  const textOf = pieces => pieces.map(p => p.s === undefined ? p.f.join('/') : p.s).join('');
+  const textOf = pieces => pieces.map(p => p.m ? '[' + p.m.rows.map(row => row.map(cell => textOf(cell)).join(' ')).join('; ') + ']' : p.s === undefined ? p.f.join('/') : p.s).join('');
   const niceNumber = v => {
     if (!Number.isFinite(v)) return '?';
     if (Object.is(v, -0)) v = 0;
@@ -126,7 +126,7 @@ const Calculator = (() => {
       const r = Latex.evaluate(tokens), eq = !(explicit && trailingEquals) && !tokens.includes('\\equiv') ? [textPiece('=')] : [];
       switch (r.kind) {
         case 'scalar': return asResponse([...eq, ...numberPieces({value: Number(r.q.n) / Number(r.q.d), rational: r.q}, settings.fmt || 'dec')], Number(r.q.n) / Number(r.q.d));
-        case 'matrix': return asResponse([...eq, textPiece('[' + Linalg.toTextM(r.rows) + ']')], undefined);
+        case 'matrix': return asResponse([...eq, {m: {br: '[', rows: r.rows.map(row => row.map(q => numberPieces({value: Number(q.n) / Number(q.d), rational: q}, settings.fmt || 'frac')))}}], undefined);
         case 'bool': return asResponse([textPiece(W(r.value ? 'true' : 'false'))], undefined);
         case 'congruence': return asResponse([textPiece(`x≡${r.r} (mod ${r.m})`)], undefined);
         case 'all': return asResponse([textPiece('x∈ℤ')], undefined);
