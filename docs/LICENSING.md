@@ -3,7 +3,7 @@
 *Engineering notes, not legal advice. Have a lawyer confirm before you sell the app.*
 
 ## 1. Is commercial use possible?
-Yes. The shipped app contains only code written for this project plus one OFL font, so there is no third-party
+Yes. The shipped app contains code written for this project, the Apache-2.0 Nerdamer bundle (with MIT decimal.js) and one OFL font, none of which forbids sale, so there is no third-party
 licence that forbids selling it. Every tool added to the maths engine in 5.1 is **our own code** (`web/poly-core.js`);
 nothing was pulled in from a library.
 
@@ -16,7 +16,7 @@ agreement (a CLA or a DCO sign-off) so the MIT grant stays valid.
 
 ## 3. Third-party material and why it is safe
 * **Caveat font** — SIL OFL 1.1 allows commercial use and embedding; the licence text is in `licenses/`. Keep it with any redistribution.
-* **Libraries** — none shipped (see `THIRD_PARTY_NOTICES.md`).
+* **Libraries** — Nerdamer 2.0.1 (Apache-2.0) with decimal.js (MIT), vendored unmodified in `web/vendor/`; keep `licenses/Apache-2.0-nerdamer.txt` and `licenses/MIT-decimal.js.txt` with any redistribution (see `THIRD_PARTY_NOTICES.md`).
 * **Maths engine** — in-house exact arithmetic (BigInt rationals, Sturm sequences). Deliberately *not* used, because their
   licences would force your whole app open or restrict sale: Maxima and Giac (GPL), anything AGPL, and SDKs with proprietary terms.
   Permissive options if you ever want a bigger CAS: mathjs (Apache-2.0), Nerdamer (MIT), Algebrite (MIT) — note each

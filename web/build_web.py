@@ -2,6 +2,7 @@
 """Assemble android/assets/index.html (single self-contained page) from the web/ sources.
    The float16 CNN weights (web/model/model4.f16.json, made by training/pack_model.py) are embedded once,
    inside <script id="cnn" type="text/plain"> (run in a Web Worker); the class list is inlined into the main script.
+   The Nerdamer CAS (web/vendor/nerdamer.js, Apache-2.0) is embedded in its own <script> so its UMD wrapper sets window.nerdamer.
    The stroke-sequence model (web/model/seq1.json, made by training/pack_seq.py), when present, goes into <script id="seq" type="text/plain">
    together with web/seq-core.js and runs in its own Worker; without it the page falls back to the classic recogniser."""
 import base64, json, os
@@ -67,7 +68,7 @@ CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline
        "img-src data: blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'")
 html = ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + CSP + '"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
         + css + '</head><body><canvas id="pad" role="img" aria-label="Handwriting canvas: write a calculation with your finger"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><button id="zr" aria-label="Reset view">100%</button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
-        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script>' + (('<script id="seq" type="text/plain">\n' + rd('seq-core.js') + '\nconst SEQ_MODEL=' + seq_model + ';\n</script>') if seq_model else '') + '<script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('recognizer.js') + '\n' + rd('seq-core.js') + '\n' + rd('poly-core.js') + '\n' + rd('math-core.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + rd('updates.js') + '\n' + app + '\n</script></body></html>')
+        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script>' + (('<script id="seq" type="text/plain">\n' + rd('seq-core.js') + '\nconst SEQ_MODEL=' + seq_model + ';\n</script>') if seq_model else '') + '<script>\n' + rd('vendor/nerdamer.js') + '\n</script><script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('recognizer.js') + '\n' + rd('seq-core.js') + '\n' + rd('poly-core.js') + '\n' + rd('math-core.js') + '\n' + rd('calculus.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + rd('updates.js') + '\n' + app + '\n</script></body></html>')
 out = os.path.join(here, '..', 'android', 'assets', 'index.html')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, 'w', encoding='utf-8').write(html)

@@ -2,6 +2,7 @@
 const Calculator = (() => {
   'use strict';
   const Core = typeof module !== 'undefined' && module.exports ? require('./math-core.js') : MathCore;
+  const Calc = typeof module !== 'undefined' && module.exports ? require('./calculus.js') : Calculus;
   const textPiece = s => ({s: String(s)});
   const textOf = pieces => pieces.map(p => p.s === undefined ? p.f.join('/') : p.s).join('');
   const niceNumber = v => {
@@ -56,7 +57,22 @@ const Calculator = (() => {
       if (eqIndex >= 0) {
         if (tokens.indexOf('=', eqIndex + 1) >= 0) return null;
         const left = tokens.slice(0, eqIndex), right = tokens.slice(eqIndex + 1);
-        const result = Core.solve(left, right, settings);
+        // A statement about constants is True or False (4 = 2 -> False), decided exactly where possible.
+        if (left.length && right.length && !tokens.includes('x')) {
+          const verdict = Calc.compare(left, right, settings);
+          if (verdict !== null) return asResponse([textPiece(verdict ? 'True' : 'False')], undefined);
+        }
+        let result;
+        try { result = Core.solve(left, right, settings); } catch (error) {
+          // Trigonometric / periodic equations (sin x = 0 -> x = nπ, n ∈ ℤ): only answers that substitute back are shown.
+          if (!(error instanceof Core.MathError) || error.code !== 'unsupported' || !tokens.includes('x') || settings.domain === 'complex') throw error;
+          let periodic;
+          try { periodic = Calc.solveEquation(left, right, settings); } catch (_) { throw error; }
+          const pieces = [textPiece('x=')];
+          periodic.solutions.forEach((t, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(textPiece(t)); });
+          if (periodic.periodic) pieces.push(textPiece(',  n∈ℤ'));
+          return asResponse(pieces, undefined);
+        }
         if (result.kind === 'croots') {
           const pieces = [textPiece('x=')];
           result.roots.forEach((r, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(...complexPieces(asComplex(r), settings.fmt || 'dec')); });
@@ -65,9 +81,13 @@ const Calculator = (() => {
         if (result.kind === 'identity') return asResponse([textPiece('x∈ℝ')], undefined);
         if (result.kind === 'none') return asResponse([textPiece('S=∅')], undefined);
         const pieces = [textPiece('x=')];
+        // Symbolic first: radicals / closed forms for the irrational roots, when they match the certified numeric roots.
+        const closed = (settings.fmt || 'dec') !== 'dec' && result.roots.some(r => !r.rational)
+          ? Calc.exactRoots(left, right, result.roots.map(r => r.value), settings) : [];
         result.roots.forEach((r, i) => {
           if (i) pieces.push(textPiece(', '));
-          pieces.push(...numberPieces(r, settings.fmt || 'dec'));
+          if (!r.rational && closed[i]) pieces.push(textPiece(closed[i] + ' ≈' + niceNumber(r.value)));
+          else pieces.push(...numberPieces(r, settings.fmt || 'dec'));
         });
         return asResponse(pieces, result.roots[0]?.value);
       }
@@ -78,6 +98,11 @@ const Calculator = (() => {
         return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...pieces], Math.abs(z.im) < 1e-12 ? z.re : undefined);
       }
       const result = Core.evaluate(tokens, settings);
+      // Symbolic first: an irrational value gets its closed form (√8 -> 2√2) with the decimal as a secondary reading.
+      if (!result.rational && (settings.fmt || 'dec') !== 'dec') {
+        const closedForm = Calc.exactValue(tokens, result.value, settings);
+        if (closedForm) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), textPiece(/^-?\d+(\/\d+)?$/.test(closedForm) ? closedForm : closedForm + ' ≈' + niceNumber(result.value))], result.value);
+      }
       return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...numberPieces(result, settings.fmt || 'dec')], result.value);
     } catch (error) {
       if (!(error instanceof Core.MathError)) throw error;

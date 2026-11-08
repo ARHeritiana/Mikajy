@@ -6,6 +6,11 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 ## [Unreleased]
 
 ### Added
+- **Symbolic first:** irrational results show their closed form with the decimal second (`√8` → `2√2 ≈2.828…`, `sin(π/4)` → `√2/2`), and irrational equation roots show radicals (`x²=2` → `±√2`) when the CAS form matches the certified numeric roots. The default number format is now exact (`frac`); `dec` still gives decimals.
+- **`4 = 2` is `False`** (and `4 = 4`, `1/3+1/6 = 1/2`, `√2·√2 = 2` are `True`): statements about constants are decided exactly, or symbolically, never by rounding.
+- **Periodic equations:** `sin x = 0` → `x = nπ, n ∈ ℤ`; every family is verified by substituting several integers `n`.
+- **Calculus engine** (`web/calculus.js`, bundled Nerdamer, Apache-2.0): derivatives, antiderivatives, definite integrals and limits, each audited against an independent numeric check of the original expression (finite differences, differentiating the answer back, Gauss–Legendre quadrature with a divergence guard, one-sided limits). The recogniser does not emit `∫`/`lim` yet, so this is an API (`Calculus.*`, `Calculator`) without handwriting input.
+- `tests/calculus.test.cjs`.
 - **Stroke-sequence recogniser** (default; Settings → Recogniser, Classic still available): a transformer reads all the strokes of a line and emits LaTeX tokens — late additions, extended lines, multiple lines, exponents, denominators, matrices, complex numbers and `mod` are read without grouping rules. Ink stays on the board with the typeset reading and answer below it. `web/seq-core.js`, `web/model/seq1.json`, `training/{strokefeat,seqmodel,gen_corpus,train_seq,eval_seq,pack_seq,parity_seq}.py`, `tests/seq-core.test.cjs`, `tests/browser_seq.py`. Trained on synthetic strokes only.
 - `training/eval_app.py --rec`, a recorded-clock replay and a viewport that contains all the ink.
 - **ℝ / ℂ number domain** (Settings → Numbers): complex arithmetic with exact Gaussian rationals, all complex roots of polynomial and rational-function equations (`complexRoots` in `poly-core.js`), `tests/complex.test.cjs`.

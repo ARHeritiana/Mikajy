@@ -643,6 +643,6 @@ const MathCore = (() => {
       (() => { const a = literal(displayed.replace(/^\+/, '')); return a.n === r.n && a.d === r.d; })(); }
     catch (_) { return false; }
   }
-  return Object.freeze({parse, evaluate, evaluateComplex, solve, MathError, exactDecimal});
+  return Object.freeze({parse, evaluate, evaluateComplex, solve, MathError, exactDecimal, evaluateAst});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = MathCore;

@@ -71,9 +71,13 @@ solutions, are refused. An equation that is true everywhere *except* at excluded
 calculations use a finite real-number domain. Division by zero, invalid roots/logarithms,
 `0^0` and undefined trigonometric values are rejected.
 
-**Removed:** derivative/antiderivative calculation, definite and improper integration,
-limits, infinite series, symbolic factorisation, unconstrained root scanning and
-non-polynomial equation-solving. Their former numerical heuristics were not sound.
+**Calculus (engine only):** derivatives, antiderivatives, definite integrals and limits run through the bundled Nerdamer CAS in `web/calculus.js`,
+but an answer is shown only when an independent numeric check of your original expression agrees; the recogniser cannot read `∫`/`lim` yet.
+**Symbolic first:** exact closed forms (`2√2`, `√2/2`, `±√2`) lead and the decimal follows; `True`/`False` for statements about constants;
+periodic equations as `x = nπ, n ∈ ℤ`.
+
+**Removed:** infinite series, symbolic factorisation, unconstrained root scanning and
+unverified non-polynomial equation-solving. Their former numerical heuristics were not sound.
 Legacy recogniser glyph classes for these operations are filtered out; their syntax is
 not supported. We prefer **unsupported** to a convincing but invalid answer.
 
@@ -235,7 +239,7 @@ See [docs/AUDIT.md](docs/AUDIT.md) for the full review and the remaining known d
 * No physical-device benchmark or Android APK build is claimed by the Node test suite. The CNN fallback may run on the main thread when workers are unavailable; performance and battery use require device testing.
 
 ## Licences / data
-The app ships no third-party code; the only third-party asset is the Caveat font (SIL OFL 1.1, text in `licenses/`).
+The app ships one third-party library, the **Nerdamer** computer-algebra bundle used by `web/calculus.js` (Apache-2.0, with decimal.js, MIT; texts in `licenses/`), and one third-party asset, the Caveat font (SIL OFL 1.1, text in `licenses/`).
 Mikajy is released under the MIT licence (LICENSE). **Read [docs/LICENSING.md](docs/LICENSING.md) before commercial use**: it
 explains commercial use, the licence history, and which training data (MNIST) needs a decision.
 See also [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
