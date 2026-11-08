@@ -15,6 +15,9 @@ const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
 const ch=g=>g.c[g.i].c;
 const FUNCS=new Set(['sin','cos','tan','cot','sec','csc','asin','acos','atan','sinh','cosh','tanh','ln','log','exp','sqrt','abs']);
 let SET=SettingsStore.load(localStorage);
+let LANG=I18n.resolve(SET.lang,navigator.language),TAB='actions';
+const T=(k,p)=>I18n.t(LANG,k,p);
+function applyLang(){document.documentElement.lang=LANG;$('pad').setAttribute('aria-label',T('canvasAria'));$('mb').setAttribute('aria-label',T('menuAria'));$('zr').setAttribute('aria-label',T('resetView'))}
 function saveSet(){SettingsStore.save(localStorage,SET)}
 const PALETTES={
  dark:{ink:'#f4f4f4',accent:'#ff2a36',canvas:'#000000',dragBackground:'#151515',dragShadow:'rgba(255,42,54,.35)'},
@@ -46,7 +49,7 @@ function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;c
   ctx.fillText(disp(c),g.x,g.y);ctx.globalAlpha=1}
  if(g.ink&&g.a<.99){const k=Math.max(0,1-g.a*1.1);g.ink.forEach(s=>drawInk(s,k))}else g.ink=null}
 function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
- if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle=palette.ink;ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText('write a sum',SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
+ if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle=palette.ink;ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText(T('writeHint'),SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
  ctx.setTransform(DPR*V.k,0,0,DPR*V.k,DPR*V.x,DPR*V.y);drawGrid();
  for(const L of lines){L.syms.forEach(drawG);L.ans.forEach(drawG);L.ink.forEach(s=>drawInk(s,1))}
  fx.forEach(drawG);ghosts.forEach(g=>drawInk(g.pts,1-(now-g.t0)/420));if(cur)drawInk(cur,1);
@@ -99,7 +102,7 @@ function computeAns(L) {
   const last=L.syms[L.syms.length-1],trailingEquals=!!(last&&ch(last)=='=');
   let tokens;
   try { tokens=tokenize(L); } catch (_) { return null; }
-  return Calculator.compute(tokens,SET,trailingEquals);
+  return Calculator.compute(tokens,{...SET,lang:LANG},trailingEquals);
 }
 function buildAns(pieces){const now=performance.now();let k=0;const out=[];const d=()=>now+260+(k++)*75;
  for(const p of pieces){if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,delay:d()}))});
@@ -371,7 +374,7 @@ function openHist(e){closeSheet();const L={syms:[],ans:[],ink:[],x0:toW(30,0)[0]
  e.syms.forEach(s=>L.syms.push(newG([{c:s.c,p:1}],{sup:!!s.sup,fp:s.fp||undefined,fid:s.fid||undefined,cover:s.cover,fresh:false})));
  lines.push(L);layout(L);L.syms.forEach(g=>{g.x=g.tx;g.y=g.ty+12;g.sz=g.tsz*.9;g.a=0;g.ta=1});updateAns(L);kick()}
 /* ---------- export ---------- */
-function copyText(t){if(window.Android&&Android.copy){Android.copy(t);toast('Copied')}else{try{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();toast('Copied')}catch(e){}}}
+function copyText(t){if(window.Android&&Android.copy){Android.copy(t);toast(T('copied'))}else{try{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();toast(T('copied'))}catch(e){}}}
 function shareText(t){if(window.Android&&Android.shareText)Android.shareText(t);else copyText(t)}
 function exportPNG(){const bs=[];for(const L of lines)L.syms.concat(L.ans).forEach(g=>{if(g.a>.3)bs.push(gbox(g))});if(!bs.length)return null;
  const x0=Math.min(...bs.map(b=>b.x0))-28,x1=Math.max(...bs.map(b=>b.x1))+28,y0=Math.min(...bs.map(b=>b.y0))-28,y1=Math.max(...bs.map(b=>b.y1))+28,k=2,c=document.createElement('canvas');
@@ -387,25 +390,30 @@ const IC={hist:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/>',c
  trash:'<path d="M5 7h14M10 7V5h4v2M7 7l.8 11.6A1.5 1.5 0 0 0 9.3 20h5.4a1.5 1.5 0 0 0 1.5-1.4L17 7"/>',eraser:'<path d="M4.5 15.5l8.2-8.7a2 2 0 0 1 2.8-.1l3 3a2 2 0 0 1 0 2.8L13 18.5H8z"/><path d="M8 18.5H4.5M10.2 10.8l5 5"/>',
  sync:'<path d="M19 8.5A7.5 7.5 0 0 0 5.6 7M5 4v3.5h3.5"/><path d="M5 15.5A7.5 7.5 0 0 0 18.4 17M19 20v-3.5h-3.5"/>',get:'<path d="M12 4v11M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/>',back:'<path d="M14.5 5.5L8 12l6.5 6.5"/>',close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'};
 const ico=n=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
-const row=(label,k,opts)=>`<div class="row"><span class="lab">${label}</span><div class="opts">${opts.map(o=>`<button class="opt${SET[k]==o[0]?' on':''}" data-k="${k}" data-v="${o[0]}">${o[1]}<svg class="ring" aria-hidden="true"><path pathLength="1"/></svg></button>`).join('')}</div></div>`;
+const row=(label,k,opts,cur=SET[k])=>`<div class="row"><span class="lab">${T(label)}</span><div class="opts">${opts.map(o=>`<button class="opt${cur==o[0]?' on':''}" data-k="${k}" data-v="${o[0]}">${T(o[1])}<svg class="ring" aria-hidden="true"><path pathLength="1"/></svg></button>`).join('')}</div></div>`;
 const tool=(a,i,t,c='')=>`<button class="tool ${c}" data-a="${a}">${ico(i)}<span>${t}</span></button>`;
 function fitRings(){document.querySelectorAll('#panel .opt').forEach((b,n)=>{const w=b.offsetWidth,h=b.offsetHeight,r=b.querySelector('.ring'),p=r.firstElementChild,j=(((n*37)%11)-5)/200;
  r.setAttribute('viewBox',`0 0 ${w} ${h}`);r.style.width=w+'px';r.style.height=h+'px';
  const X=v=>(v*w).toFixed(1),Y=v=>(v*h).toFixed(1);
  p.setAttribute('d',`M${X(.1)} ${Y(.66)}C${X(.01+j)} ${Y(.22)} ${X(.3)} ${Y(.02)} ${X(.55)} ${Y(.07)}C${X(.86)} ${Y(.11)} ${X(1.01)} ${Y(.34)} ${X(.94)} ${Y(.66)}C${X(.88)} ${Y(.95)} ${X(.5)} ${Y(1.01-j)} ${X(.3)} ${Y(.93)}C${X(.09)} ${Y(.85)} ${X(-.01)} ${Y(.58)} ${X(.1)} ${Y(.28)}`)})}
+function menuBody(){
+ if(TAB=='math')return row('results','fmt',[['frac','exact'],['dec','decimal'],...(SET.fmt=='mixed'?[['mixed','mixed']]:[])])+`<p class="hint">${T('resultsHint')}</p>`+row('angles','angle',[['rad','radians'],['deg','degrees']])+row('numbers','domain',[['real','real'],['complex','complex']])+row('calculate','mode',[['instant','instant'],['demand','onDemand']])+`<p class="hint">${T('calculateHint')}</p>`;
+ if(TAB=='app')return row('language','lang',[['en','English'],['fr','Français']],LANG)+row('theme','theme',[['dark','dark'],['light','light']])+(SET.recogniser=='classic'?row('recogniser','recogniser',[['seq','sequence'],['classic','classic']]):'')+(hasUpdater()?row('updates','updates',[['auto','auto'],['off','off']])+`<div class="tools">${updTools()}</div><p class="hint">${updHint()}</p>`:'');
+ return `<div class="tools">${tool('hist','hist',T('history'))}${tool('copy','copy',T('copyResult'))}${tool('img','share',T('shareImage'))}${tool('addmem','mem',T('toMemory'))}${tool('clrmem','trash',T('emptyMemory'))}${tool('clear','eraser',T('clearCanvas'),'danger')}</div><p class="hint">${T('dragHint')}</p>`}
 function openSheet(page){const p=$('panel'),s=$('sheet'),first=s.style.display!='block';s.style.display='block';
- if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="Back">${ico('back')}</button><h2>History</h2><button class="done" data-a="hexp">Export</button></div>`+
-  (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="Copy">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="Delete">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">Clear history</button>`:`<p class="empty">Nothing here yet.<br>Calculations are saved as you write them.</p>`)}
- else p.innerHTML=`<div class="head"><h2>Settings</h2><button class="done" data-a="done">Done</button></div>${row('Theme','theme',[['dark','Dark'],['light','Light']])}${row('Calculate','mode',[['instant','Instant'],['demand','On demand']])}${row('Angles','angle',[['rad','Radians'],['deg','Degrees']])}${row('Recogniser','recogniser',[['seq','Sequence'],['classic','Classic']])}${row('Numbers','domain',[['real','ℝ real'],['complex','ℂ complex']])}${row('Results','fmt',[['dec','Decimal'],['frac','Fraction'],['mixed','Mixed']])}${hasUpdater()?row('Updates','updates',[['auto','Auto'],['off','Off']]):''}<div class="tools">${tool('hist','hist','History')}${tool('copy','copy','Copy result')}${tool('img','share','Share image')}${tool('addmem','mem','To memory')}${tool('clrmem','trash','Empty memory')}${tool('clear','eraser','Clear canvas','danger')}${updTools()}</div><p class="hint">Hold a number or a result, then drag it into another expression or down to the memory bar.${updHint()}</p>`;
+ if(page=='hist'){p.innerHTML=`<div class="head"><button class="iconbtn" data-a="back" aria-label="${T('back')}">${ico('back')}</button><h2>${T('history')}</h2><button class="done" data-a="hexp">${T('export')}</button></div>`+
+  (HIST.length?HIST.map((h,i)=>`<div class="hrow"><button class="hmain" data-a="hopen" data-i="${i}"><span class="ex">${esc(h.text)}</span><span class="an">${esc(h.ans.replace(/^=/,'= '))}</span></button><button class="iconbtn" data-a="hcopy" data-i="${i}" aria-label="${T('copy')}">${ico('copy')}</button><button class="iconbtn" data-a="hdel" data-i="${i}" aria-label="${T('delete')}">${ico('close')}</button></div>`).join('')+`<button class="textbtn danger" data-a="hclr">${T('clearHistory')}</button>`:`<p class="empty">${T('historyEmpty')}</p>`)}
+ else p.innerHTML=`<div class="head"><h2>Mikajy</h2><button class="done" data-a="done">${T('done')}</button></div><div class="tabs" role="tablist">${[['actions','tabActions'],['math','tabMath'],['app','tabApp']].map(([id,k])=>`<button class="tab${TAB==id?' on':''}" role="tab" aria-selected="${TAB==id}" data-tab="${id}">${T(k)}</button>`).join('')}</div>${menuBody()}`;
  if(first){s.classList.remove('in');void s.offsetWidth}s.classList.add('in');fitRings()}
 const cleanAns=L=>L&&L.at?L.at.replace(/^=/,''):'';
 $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
- if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='theme')applyTheme();else if(d.k!=='updates'){if(d.k==='recogniser')seqBoot();refreshAll()}else if(SET.updates==='auto')checkUpdates(false);return}
+ if(d.tab){TAB=d.tab;openSheet('main');return}
+ if(d.k){SET[d.k]=d.v;saveSet();b.parentNode.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b));if(d.k==='lang'){LANG=I18n.resolve(d.v,navigator.language);applyLang();refreshAll();openSheet('main');return}if(d.k==='theme')applyTheme();else if(d.k!=='updates'){if(d.k==='recogniser')seqBoot();refreshAll()}else if(SET.updates==='auto')checkUpdates(false);return}
  const i=+d.i;switch(d.a){case'done':closeSheet();break;case'hist':openSheet('hist');break;case'back':openSheet('main');break;
-  case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast('No result yet');closeSheet();break}
-  case'img':{const u=exportPNG();if(!u)toast('Nothing to share');else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}
-  case'addmem':{const L=lastL&&lines.includes(lastL)?lastL:lines.find(L=>Number.isFinite(L.val));const t=L&&Store.plainNumber(L.val);if(t){memAdd(t);toast('Saved to memory')}else toast(L&&Number.isFinite(L.val)?'Too large for memory':'No result yet');closeSheet();break}
-  case'clrmem':MEMV=[];memSave();memRender();toast('Memory emptied');closeSheet();break;
+  case'copy':{const t=cleanAns(lastL&&lines.includes(lastL)?lastL:lines.find(L=>L.at));t?copyText(t):toast(T('noResult'));closeSheet();break}
+  case'img':{const u=exportPNG();if(!u)toast(T('nothingToShare'));else if(window.Android&&Android.shareImage)Android.shareImage(u.split(',')[1]);else window.open(u);closeSheet();break}
+  case'addmem':{const L=lastL&&lines.includes(lastL)?lastL:lines.find(L=>Number.isFinite(L.val));const t=L&&Store.plainNumber(L.val);if(t){memAdd(t);toast(T('savedToMemory'))}else toast(L&&Number.isFinite(L.val)?T('tooLarge'):T('noResult'));closeSheet();break}
+  case'clrmem':MEMV=[];memSave();memRender();toast(T('memoryEmptied'));closeSheet();break;
   case'clear':lines.forEach(L=>L.syms.concat(L.ans).forEach(kill));lines=[];kick();closeSheet();break;
   case'hopen':if(HIST[i])openHist(HIST[i]);break;case'hcopy':if(HIST[i])copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
   case'hdel':if(HIST[i]){HIST.splice(i,1);histPersist();openSheet('hist')}break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
@@ -419,18 +427,18 @@ let UPD=Updates.load(localStorage),updManual=false;
 const hasUpdater=()=>!!(window.Android&&typeof Android.checkForUpdates==='function'&&typeof Android.version==='function');
 const appVersion=()=>{try{return String(Android.version())}catch(e){return''}};
 const pendingUpdate=()=>hasUpdater()?Updates.pending(UPD,appVersion()):null;
-function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync','Check for updates')+(u?tool('getupd','get','Get Mikajy '+esc(u.version),'danger'):'')}
-function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return` Mikajy ${esc(appVersion())}${u?' · version '+esc(u.version)+' is available':''}. Updates are looked up on GitHub at most once a day; nothing about you is sent.`}
+function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync',T('checkUpdates'))+(u?tool('getupd','get',T('getUpdate',{v:esc(u.version)}),'danger'):'')}
+function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return T('updateHint',{v:esc(appVersion()),avail:u?T('availableSuffix',{n:esc(u.version)}):''})}
 function updBadge(){$('mb').classList.toggle('upd',!!pendingUpdate())}
 window.onUpdateResult=json=>{
  const manual=updManual;updManual=false;let r;
  try{r=Updates.interpret(JSON.parse(json),appVersion())}catch(e){r={status:'error'}}
- if(r.status==='offline'||r.status==='error'){if(manual)toast(r.status==='offline'?'You are offline':'Could not check');return}
+ if(r.status==='offline'||r.status==='error'){if(manual)toast(T(r.status==='offline'?'offline':'checkFailed'));return}
  UPD=Updates.record(UPD,r,Date.now());Updates.save(localStorage,UPD);updBadge();
- if(r.status==='available')toast('Mikajy '+r.version+' is available');else if(manual)toast('Mikajy is up to date');
+ if(r.status==='available')toast(T('updateAvailable',{v:r.version}));else if(manual)toast(T('upToDate'));
  if($('sheet').classList.contains('in'))openSheet('main')};
-function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual)toast('Checking…');try{Android.checkForUpdates()}catch(e){updManual=false}}
+function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual)toast(T('checking'));try{Android.checkForUpdates()}catch(e){updManual=false}}
 updBadge();
 if(hasUpdater()&&Updates.shouldCheck(UPD,Date.now(),SET.updates))setTimeout(()=>checkUpdates(false),5000);
 memRender();
-applyTheme();
+applyTheme();applyLang();

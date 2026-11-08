@@ -6,6 +6,9 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 ## [Unreleased]
 
 ### Added
+- **Menu in three tabs** — *Actions* (history, copy, share, memory, clear), *Math* (results exact/decimal, angles, ℝ/ℂ, instant/on demand) and *App* (language, theme, updates) — instead of one long sheet. The rarely useful *Mixed* result format and the *Classic* recogniser are hidden unless they were already selected.
+- **English / Français** (App → Language; follows the device language until chosen): the whole interface, toasts, the update texts and calculator words (`True/Vrai`, `unsupported/non géré`, `undefined/indéfini`). `web/i18n.js`, `tests/i18n.test.cjs`.
+- Font: the Caveat subset in `web/fonts/hand.woff2` was regenerated (OFL, same weight, no Reserved Font Name) to include French accents; `tests/build_check.py` now fails if an interface string uses a character the font lacks.
 - **Symbolic first:** irrational results show their closed form with the decimal second (`√8` → `2√2 ≈2.828…`, `sin(π/4)` → `√2/2`), and irrational equation roots show radicals (`x²=2` → `±√2`) when the CAS form matches the certified numeric roots. The default number format is now exact (`frac`); `dec` still gives decimals.
 - **`4 = 2` is `False`** (and `4 = 4`, `1/3+1/6 = 1/2`, `√2·√2 = 2` are `True`): statements about constants are decided exactly, or symbolically, never by rounding.
 - **Periodic equations:** `sin x = 0` → `x = nπ, n ∈ ℤ`; every family is verified by substituting several integers `n`.

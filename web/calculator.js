@@ -3,6 +3,7 @@ const Calculator = (() => {
   'use strict';
   const Core = typeof module !== 'undefined' && module.exports ? require('./math-core.js') : MathCore;
   const Calc = typeof module !== 'undefined' && module.exports ? require('./calculus.js') : Calculus;
+  const I18 = typeof module !== 'undefined' && module.exports ? require('./i18n.js') : I18n;
   const textPiece = s => ({s: String(s)});
   const textOf = pieces => pieces.map(p => p.s === undefined ? p.f.join('/') : p.s).join('');
   const niceNumber = v => {
@@ -50,6 +51,7 @@ const Calculator = (() => {
   }
   function compute(tokens, settings = {}, trailingEquals = false) {
     if (!tokens.length) return null;
+    const W = key => I18.t(settings.lang, key);   // result words follow the interface language
     const eqIndex = tokens.indexOf('=');
     const explicit = trailingEquals || eqIndex >= 0;
     if (settings.mode === 'demand' && !explicit) return null;
@@ -60,7 +62,7 @@ const Calculator = (() => {
         // A statement about constants is True or False (4 = 2 -> False), decided exactly where possible.
         if (left.length && right.length && !tokens.includes('x')) {
           const verdict = Calc.compare(left, right, settings);
-          if (verdict !== null) return asResponse([textPiece(verdict ? 'True' : 'False')], undefined);
+          if (verdict !== null) return asResponse([textPiece(W(verdict ? 'true' : 'false'))], undefined);
         }
         let result;
         try { result = Core.solve(left, right, settings); } catch (error) {
@@ -107,7 +109,7 @@ const Calculator = (() => {
     } catch (error) {
       if (!(error instanceof Core.MathError)) throw error;
       if (error.code === 'syntax' || !explicit) return null;
-      return asResponse([textPiece('= ' + (error.code === 'undefined' ? 'undefined' : 'unsupported'))], undefined);
+      return asResponse([textPiece('= ' + W(error.code === 'undefined' ? 'undefined' : 'unsupported'))], undefined);
     }
   }
   return Object.freeze({compute, numberPieces});

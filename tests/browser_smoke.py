@@ -68,8 +68,10 @@ async def main():
             hasCanvas: !!document.querySelector('#pad').getContext('2d')})""")
         assert value == {"result": "=1/3", "repeat": "x=1", "sin180": "=0", "hasCanvas": True}, value
         await page.locator("#mb").click()
+        await page.locator("button[data-tab='app']").click()
         await page.locator("button.opt[data-k='theme'][data-v='light']").click()
         assert await page.evaluate("document.documentElement.dataset.theme") == "light"
+        await page.locator("button[data-tab='math']").click()
         await page.locator("button.opt[data-k='angle'][data-v='deg']").click()
         assert await page.evaluate("SET.angle") == "deg"
         await page.locator("button[data-a='done']").click()

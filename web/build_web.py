@@ -38,6 +38,11 @@ button{font-family:inherit;cursor:pointer}
 .head{display:flex;align-items:center;justify-content:space-between;padding:12px 0 6px}
 h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 .done{font:25px/1 H,cursive;color:var(--blue);background:none;border:0;padding:8px 0 8px 14px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--rule);margin:2px 0 6px}
+.tab{position:relative;flex:1;font:26px/1 H,cursive;color:var(--graphite);background:none;border:0;padding:12px 6px}
+.tab.on{color:var(--ink)}.tab.on::after{content:'';position:absolute;left:14%;right:14%;bottom:-1px;height:2.5px;border-radius:2px;background:var(--blue)}
+.tab:active{background:var(--active-bg)}
+.tabs+.tools,.tabs+.row{border-top:0}
 .row{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 0;border-top:1px solid var(--rule);flex-wrap:wrap}
 .lab{font:24px/1 H,cursive;color:var(--graphite)}
 .opts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
@@ -68,7 +73,7 @@ CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline
        "img-src data: blob:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'")
 html = ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + CSP + '"><meta name="theme-color" content="#000000"><title>Mikajy</title><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">'
         + css + '</head><body><canvas id="pad" role="img" aria-label="Handwriting canvas: write a calculation with your finger"></canvas><button id="mb" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button><button id="zr" aria-label="Reset view">100%</button><div id="mem"></div><div id="sheet"><div id="back"></div><div id="panel"></div></div>'
-        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script>' + (('<script id="seq" type="text/plain">\n' + rd('seq-core.js') + '\nconst SEQ_MODEL=' + seq_model + ';\n</script>') if seq_model else '') + '<script>\n' + rd('vendor/nerdamer.js') + '\n</script><script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('recognizer.js') + '\n' + rd('seq-core.js') + '\n' + rd('poly-core.js') + '\n' + rd('math-core.js') + '\n' + rd('calculus.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + rd('updates.js') + '\n' + app + '\n</script></body></html>')
+        '<script id="cnn" type="text/plain">\n' + rd('core_cnn.js').replace('/*MODEL*/', model) + '\n</script>' + (('<script id="seq" type="text/plain">\n' + rd('seq-core.js') + '\nconst SEQ_MODEL=' + seq_model + ';\n</script>') if seq_model else '') + '<script>\n' + rd('vendor/nerdamer.js') + '\n</script><script>\n' + rd('storage.js') + '\n' + rd('core_main.js') + '\n' + rd('recognizer.js') + '\n' + rd('seq-core.js') + '\n' + rd('poly-core.js') + '\n' + rd('math-core.js') + '\n' + rd('i18n.js') + '\n' + rd('calculus.js') + '\n' + rd('calculator.js') + '\n' + rd('settings.js') + '\n' + rd('updates.js') + '\n' + app + '\n</script></body></html>')
 out = os.path.join(here, '..', 'android', 'assets', 'index.html')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, 'w', encoding='utf-8').write(html)

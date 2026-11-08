@@ -39,7 +39,7 @@ Updates install over the old version only if both are signed with the same key (
   **memory bar** (bottom; it appears when it has content or while dragging). Memory chips can be dragged out.
 * **History** (auto-saved, reopen / copy / delete / export), **result display** (decimal approximation clearly marked `≈` unless exact, or exact rational/mixed number when mathematically justified), **degrees / radians**.
 * **Export**: copy a result, share a PNG of the canvas, share history as text (through the Android share sheet).
-* Small sliders button (top-right, faint) opens the settings sheet: a paper-styled page in the app's own
+* Small sliders button (top-right, faint) opens the menu, in three tabs (**Actions**, **Math**, **App**; English or Français under App → Language): a paper-styled page in the app's own
   handwriting, the chosen option circled in red; History is a second page. Hardware Back closes sheets.
   In landscape the sheet docks to the right edge so it never covers the whole canvas.
 

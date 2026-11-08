@@ -34,7 +34,7 @@ async def main():
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(viewport={"width": 800, "height": 700})
         errors = []; page.on("pageerror", lambda e: errors.append(str(e)))
-        await page.add_init_script("(() => { const r = performance.now.bind(performance); window.__ck = null; performance.now = () => window.__ck === null ? r() : window.__ck; localStorage.setItem('inkset', JSON.stringify({recogniser: 'seq'})) })()")
+        await page.add_init_script("(() => { const r = performance.now.bind(performance); window.__ck = null; performance.now = () => window.__ck === null ? r() : window.__ck; localStorage.setItem('inkset', JSON.stringify({recogniser: 'seq', fmt: 'dec'})) })()")
         await page.goto(PAGE); await page.locator("#pad").wait_for()
         for latex, want in TOKENS:
             got = await page.evaluate("""t => { const s = [[100, 100, 0], [120, 100, 50]]; s.t0 = 0; s.t1 = 50; const L = {syms: [], ans: [], ink: [s], x0: 0, base: 0, F: 80, at: null};

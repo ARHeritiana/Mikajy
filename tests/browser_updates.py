@@ -37,6 +37,7 @@ async def main():
 
         page, errors = await scenario(browser, available)
         await page.click("#mb")
+        await page.click("button[data-tab=app]")
         text = await page.inner_text("#panel")
         assert "Updates" in text and "Check for updates" in text and "Mikajy 5.0" in text, text
         await page.click("button[data-a=upd]")
@@ -58,6 +59,7 @@ async def main():
         for answer, badge in (({"ok": True, "tag": "v5.0", "url": R + "latest", "apk": ""}, False), ({"ok": False, "reason": "offline"}, False)):
             page, errors = await scenario(browser, answer)
             await page.click("#mb")
+            await page.click("button[data-tab=app]")
             await page.click("button[data-a=upd]")
             await page.wait_for_timeout(300)
             assert await page.evaluate("document.getElementById('mb').classList.contains('upd')") == badge
@@ -80,6 +82,7 @@ async def main():
         page = await browser.new_page()
         await page.goto(PAGE)
         await page.click("#mb")
+        await page.click("button[data-tab=app]")
         assert "Updates" not in await page.inner_text("#panel")
         await browser.close()
     print("Update UI (badge, settings, manual/auto check, link hand-off, off switch): PASS")
