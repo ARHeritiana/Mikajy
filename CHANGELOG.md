@@ -5,6 +5,13 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+### Added
+- **Functions:** `f(x) = x² + 1`, then `f(3)`, `f(1/2)`, `f(g(2))`; a line sees the definitions above it. **Probability:** `X ~ B(n, p)` / `N` / `P` / `G` / `U` / `E`, then `P(X = k)`, `P(X ≤ k)`, `P(a ≤ X ≤ b)`, `E(X)`, `V(X)`, `C(n, k)` — exact (binomial, geometric, uniform, and Poisson / exponential as `q + c·e^(−λ)`), the normal distribution marked `≈`.
+- **Differential equations:** first-order linear and separable, second-order with constant coefficients and forcing, initial conditions, `y'`, `y''`, `dy/dx`; every solution is substituted back before it is shown.
+- **Complex numbers:** conjugate (`\overline z`), argument (a multiple of π when it is one), exact `e^(iπk/2)`; `e^(iπ)` is now exactly `−1`.
+- **Answers are typeset:** integer fractions stacked, exponents raised, and `√2/2` no longer shows a `÷`. The board draws `~ ≤ ≥ ≠`, the prime and a bar over a conjugate.
+- **Recogniser training data:** the new notation, a 9 written from the top and an x written as two back-to-back arcs.
+
 ## [5.1] - 2026-11-08
 
 ### Changed
