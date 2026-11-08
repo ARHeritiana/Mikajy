@@ -50,6 +50,20 @@ async def main():
         outer = [g for g in geo if not g["nested"]][0]; above = [g for g in geo if g["pfp"] == "n"][0]; below = [g for g in geo if g["pfp"] == "d"][0]
         assert above["ty"] < outer["ty"] < below["ty"] and above["w"] < outer["w"] and below["w"] < outer["w"], geo
         print("nested fractions stacked: PASS")
+        # the board remembers: f(x) = ... above, f(3) below; changing the definition updates the answer below; X ~ B(...) above P(X = 5) below
+        board = await page.evaluate("""() => {
+            const mk = (t, base) => { const s = [[40, base - 40, 0], [60, base - 40, 50]]; s.t0 = 0; s.t1 = 50; const L = {syms: [], ans: [], ink: [s], x0: 40, base, F: 60, at: null}; lines.push(L); applyReading(L, t.split(' ')); return L };
+            lines.length = 0;
+            const def = mk('f \\\\left ( x \\\\right ) = { x } ^ { 2 } + 1', 200), call = mk('f \\\\left ( 3 \\\\right )', 400);
+            const first = call.at;
+            applyReading(def, 'f \\\\left ( x \\\\right ) = 2 x'.split(' '));
+            const second = call.at;
+            const rv = mk('X \\\\sim B \\\\left ( 1 0 , \\\\frac { 1 } { 2 } \\\\right )', 600), q = mk('P \\\\left ( X = 5 \\\\right )', 800);
+            const ode = mk('{ y } ^ { \\\\prime } + 2 y = { e } ^ { x } , y \\\\left ( 0 \\\\right ) = 1', 1000);
+            return {first, second, defAns: def.at, prob: q.at, ode: ode.at}; }""")
+        assert board["first"] == "=10" and board["second"] == "=6" and board["defAns"] is None, board
+        assert board["prob"] == "=0.24609375" and board["ode"].startswith("y="), board
+        print("board memory (functions, random variables), probability and ODE on the page: PASS")
         if FIX is None or not (ROOT / "web/model/seq1.json").exists():
             print("model read-back: SKIPPED (no model in the build)")
         else:

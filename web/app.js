@@ -129,9 +129,17 @@ function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.lengt
  fN();fW();if(inSup)out.push(')');return out}
 function tokenize(L){return tokSeq(L,seqs(L)[0],true)}
 /* Mathematical parsing and evaluation live in math-core.js + calculator.js. */
+/* ---------- the board's memory: f(x) = ..., X ~ B(n, p) ---------- a line sees what is written above it (and, failing that, below it) */
+function storeFor(L){let st=BoardCore.empty();const order=lines.filter(M=>M.rt).sort((a,b)=>a.base-b.base||a.x0-b.x0),k=order.indexOf(L);
+ order.forEach((M,i)=>{if(k<0||i<k)st=BoardCore.scan(M.rt.split(' '),st)});
+ if(k>=0){let below=BoardCore.empty();order.forEach((M,i)=>{if(i>k)below=BoardCore.scan(M.rt.split(' '),below)});
+  for(const n in below.defs)if(!(n in st.defs))st.defs[n]=below.defs[n];for(const n in below.rvs)if(!(n in st.rvs))st.rvs[n]=below.rvs[n]}
+ return st}
+let boardBusy=false;
+function boardChanged(src){if(boardBusy)return;boardBusy=true;try{for(const M of lines)if(M!==src&&M.rt){M.at='\0';updateAns(M)}}finally{boardBusy=false}}
 function computeAns(L) {
   const last=L.syms[L.syms.length-1],trailingEquals=!!(last&&ch(last)=='=');
-  if(L.rt){const lx=Calculator.computeLatex(L.rt.split(' '),{...SET,lang:LANG},trailingEquals);if(lx!==undefined)return lx}   // matrices, mod, congruences: from the model's LaTeX
+  if(L.rt){const lx=Calculator.computeLatex(L.rt.split(' '),{...SET,lang:LANG},trailingEquals,storeFor(L));if(lx!==undefined)return lx}   // matrices, mod, congruences: from the model's LaTeX
   let tokens;
   try { tokens=tokenize(L); } catch (_) { return null; }
   return Calculator.compute(tokens,{...SET,lang:LANG},trailingEquals);
@@ -175,11 +183,11 @@ function isScribble(s){if(s.length<8)return false;const k=scribStats(s);if(k.m<1
  return k.over?((k.c>=3&&k.ratio>=2.2)||(k.c>=2&&k.ratio>=2.6)||k.ratio>=4.2):((k.c>=4&&k.ratio>=3.5)||k.ratio>=6)}
 function scribble(s){const now=performance.now();ghosts.push({pts:s,t0:now});const pts=resamp(s,6),cov=(b,r)=>coverage(pts,b,r),cg=g=>ch(g)=='§'?cov(gbox(g),6)*(.22/.45):cov(gbox(g),18);
  for(const L of lines.slice()){const nIn=L.ink.length;L.ink=L.ink.filter(t=>{const q=bb(t);if(cov({x0:q.x0-8,y0:q.y0-8,x1:q.x1+8,y1:q.y1+8})>=.22){ghosts.push({pts:t,t0:now});return false}return true});
-  if(L.seq){if(L.ink.length!==nIn){L.sk=null;if(!L.ink.length){clearReading(L);lines.splice(lines.indexOf(L),1)}}continue}
+  if(L.seq){if(L.ink.length!==nIn){L.sk=null;if(!L.ink.length){clearReading(L);lines.splice(lines.indexOf(L),1);boardChanged(null)}}continue}
   if(L.ans.some(g=>cg(g)>=.22)){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null}
   else{const rem=L.syms.filter(g=>cg(g)>=.22);for(let i=0;i<rem.length;i++){const bar=rem[i];if(bar.fp=='bar')L.syms.forEach(s=>{if((s.fid===bar.fid||s.pfid===bar.fid)&&!rem.includes(s))rem.push(s)})}   // erasing a bar takes its parts and any fraction nested in them
    if(rem.length){rem.forEach(kill);L.syms=L.syms.filter(g=>!rem.includes(g));if(L.syms.length){layout(L);updateAns(L)}else{L.ans.forEach(kill);L.ans=[];L.at=null}}}
-  if(!L.syms.length&&!L.ink.length)lines.splice(lines.indexOf(L),1)}}
+  if(!L.syms.length&&!L.ink.length){lines.splice(lines.indexOf(L),1);boardChanged(null)}}}
 function radical(s){const n=s.length;if(n<8)return null;let v=0;for(let i=0;i<n;i++)if(s[i][1]>s[v][1])v=i;if(v<2||v>n-3)return null;
  let m=v;for(let i=v;i<n;i++)if(s[i][1]<s[m][1])m=i;const H=s[v][1]-s[m][1];if(H<28)return null;let a=v;for(let i=v;i<n;i++)if(s[i][1]<=s[m][1]+.08*H){a=i;break}
  if(!(s[0][1]<s[v][1]-.15*H&&s[0][1]>s[a][1]&&s[v][0]>s[0][0]&&s[a][0]>s[v][0]+.15*H))return null;
@@ -254,7 +262,7 @@ function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)
  let x0=1e9,y1=-1e9;const hs=[];for(const s of L.ink){const b=bb(s);x0=Math.min(x0,b.x0);y1=Math.max(y1,b.y1);if(b.h>=12)hs.push(b.h)}
  hs.sort((a,b)=>a-b);const h=hs.length?hs[Math.floor(hs.length*.75)]:40,F=Math.max(48,Math.min(110,h/.55*.85));
  L.seq=true;L.rt=rows[0].join(' ');placeRow(L,mkGlyphs(rows[0]),x0,y1+1.1*F,F);
- let base=L.base;rows.slice(1).forEach(r=>{base+=1.5*F;const K={syms:[],ans:[],ink:[],x0,base,F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,base,F)})}
+ let base=L.base;rows.slice(1).forEach(r=>{base+=1.5*F;const K={syms:[],ans:[],ink:[],x0,base,F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,base,F)});boardChanged(L)}
 async function doRecognizeSeq(){
  for(const L of lines.slice()){if(L.kidOf||!L.ink.length||!lines.includes(L))continue;
   const snap=L.ink.slice(),key=snap.length+':'+snap.map(s=>s.length).join(',');if(L.sk===key)continue;

@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 subprocess.run([sys.executable, str(ROOT / "web/build_web.py")], cwd=ROOT, check=True)
 page = (ROOT / "android/assets/index.html").read_text(encoding="utf-8")
 assert "<canvas id=\"pad\"" in page
-for name in ("PolyCore", "MathCore", "Calculus", "LinalgCore", "ModularCore", "LatexEval", "Calculator", "I18n", "SettingsStore", "Store", "Recognizer", "Updates"):
+for name in ("PolyCore", "MathCore", "Calculus", "LinalgCore", "ModularCore", "LatexEval", "BoardCore", "ProbCore", "OdeCore", "Calculator", "I18n", "SettingsStore", "Store", "Recognizer", "Updates"):
     assert f"const {name}" in page, name
 assert "CAS.special(" not in page
 assert "--canvas:#000000" in page and "--canvas:#ffffff" in page

@@ -4,6 +4,10 @@ const Calculator = (() => {
   const Core = typeof module !== 'undefined' && module.exports ? require('./math-core.js') : MathCore;
   const Calc = typeof module !== 'undefined' && module.exports ? require('./calculus.js') : Calculus;
   const Latex = typeof module !== 'undefined' && module.exports ? require('./latex-eval.js') : LatexEval;
+  const Board = typeof module !== 'undefined' && module.exports ? require('./board-core.js') : BoardCore;
+  const Prob = typeof module !== 'undefined' && module.exports ? require('./prob-core.js') : ProbCore;
+  const Ode = typeof module !== 'undefined' && module.exports ? require('./ode-core.js') : OdeCore;
+  const SeqC = typeof module !== 'undefined' && module.exports ? require('./seq-core.js') : SeqCore;
   const Linalg = typeof module !== 'undefined' && module.exports ? require('./linalg-core.js') : LinalgCore;
   const I18 = typeof module !== 'undefined' && module.exports ? require('./i18n.js') : I18n;
   const textPiece = s => ({s: String(s)});
@@ -115,29 +119,56 @@ const Calculator = (() => {
     }
   }
 
-  /** Matrices, modular arithmetic and congruences, evaluated from the recogniser's LaTeX tokens (see latex-eval.js).
-   *  Returns undefined when the reading is not for this module, null when there is nothing to show yet, else a response. */
-  function computeLatex(tokens, settings = {}, trailingEquals = false) {
-    if (!Latex.applies(tokens)) return undefined;
+  /** What the recogniser's LaTeX means beyond plain arithmetic: user functions (f(x) = ..., f(3)), probability (X ~ B(n, p), P(X = 2)), differential
+   *  equations (y' + 2y = e^x, y(0) = 1), matrices, modular arithmetic and congruences. `store` is the board's memory (board-core.js).
+   *  Returns undefined when the reading is not for these engines (the token engine handles it), null when there is nothing to show, else a response. */
+  function computeLatex(tokens, settings = {}, trailingEquals = false, store) {
+    const st = store || Board.empty();
     const W = key => I18.t(settings.lang, key);
     const explicit = trailingEquals || tokens[tokens.length - 1] === '=';
-    if (settings.mode === 'demand' && !explicit) return null;
+    const fail = error => {
+      const code = error && error.code;
+      if (!code || code === 'syntax' || !explicit) return null;
+      return asResponse([textPiece('= ' + W(code === 'undefined' ? 'undefined' : 'unsupported'))], undefined);
+    };
+    const eq = [...(!trailingEquals && tokens[tokens.length - 1] !== '=' ? [textPiece('=')] : [])];
     try {
-      const r = Latex.evaluate(tokens), eq = !(explicit && trailingEquals) && !tokens.includes('\\equiv') ? [textPiece('=')] : [];
+      if (Board.parseStatement(tokens)) return null;                                   // f(x) = ... and X ~ B(...) only declare
+      if (Ode.applies(tokens)) {
+        if (settings.mode === 'demand' && !explicit) return null;
+        return asResponse([textPiece(Ode.solve(tokens).text)], undefined);
+      }
+      if (Prob.applies(tokens)) {
+        if (settings.mode === 'demand' && !explicit) return null;
+        const r = Prob.evaluate(tokens, st), fmt = settings.fmt || 'dec';
+        if (r.kind === 'int') return asResponse([...eq, textPiece(String(r.n))], Number(r.n));
+        const asQ = q => numberPieces({value: Number(q.n) / Number(q.d), rational: {n: q.n, d: q.d}}, fmt);
+        if (r.kind === 'q') return asResponse([...eq, ...asQ(r.q)], Number(r.q.n) / Number(r.q.d));
+        const v = Prob.value(r.v);
+        if (Prob.isApprox(r.v)) return asResponse([...eq, textPiece('≈' + niceNumber(v))], v);
+        if (r.v.c.n === 0n) return asResponse([...eq, ...asQ(r.v.q)], v);
+        return asResponse([...eq, textPiece(Prob.valText(r.v) + ' ≈' + niceNumber(v))], v);
+      }
+      if (Board.usesDefs(tokens, st)) {                                                // f(3), f(g(2)): expand, then the ordinary engines
+        if (settings.mode === 'demand' && !explicit) return null;
+        let math;
+        try { math = SeqC.toMathTokens(Board.expand(tokens, st), {complex: settings.domain === 'complex'}); } catch (e) { return fail(e.unsupported ? {code: 'unsupported'} : e); }
+        return compute(math, settings, trailingEquals);
+      }
+      if (!Latex.applies(tokens)) return undefined;
+      if (settings.mode === 'demand' && !explicit) return null;
+      const r = Latex.evaluate(tokens);
+      const eq2 = !(explicit && trailingEquals) && !tokens.includes('\\equiv') ? [textPiece('=')] : [];
       switch (r.kind) {
-        case 'scalar': return asResponse([...eq, ...numberPieces({value: Number(r.q.n) / Number(r.q.d), rational: r.q}, settings.fmt || 'dec')], Number(r.q.n) / Number(r.q.d));
-        case 'matrix': return asResponse([...eq, {m: {br: '[', rows: r.rows.map(row => row.map(q => numberPieces({value: Number(q.n) / Number(q.d), rational: q}, settings.fmt || 'frac')))}}], undefined);
+        case 'scalar': return asResponse([...eq2, ...numberPieces({value: Number(r.q.n) / Number(r.q.d), rational: r.q}, settings.fmt || 'dec')], Number(r.q.n) / Number(r.q.d));
+        case 'matrix': return asResponse([...eq2, {m: {br: '[', rows: r.rows.map(row => row.map(q => numberPieces({value: Number(q.n) / Number(q.d), rational: q}, settings.fmt || 'frac')))}}], undefined);
         case 'bool': return asResponse([textPiece(W(r.value ? 'true' : 'false'))], undefined);
         case 'congruence': return asResponse([textPiece(`x≡${r.r} (mod ${r.m})`)], undefined);
         case 'all': return asResponse([textPiece('x∈ℤ')], undefined);
         case 'none': return asResponse([textPiece('S=∅')], undefined);
         default: return null;
       }
-    } catch (error) {
-      const code = error && error.code;
-      if (!code || code === 'syntax' || !explicit) return null;
-      return asResponse([textPiece('= ' + W(code === 'undefined' ? 'undefined' : 'unsupported'))], undefined);
-    }
+    } catch (error) { return fail(error); }
   }
   return Object.freeze({compute, computeLatex, numberPieces});
 })();

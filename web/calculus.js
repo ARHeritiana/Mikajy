@@ -228,6 +228,6 @@ const Calculus = (() => {
     } catch (_) { return none; }
   }
 
-  return Object.freeze({derivative, antiderivative, definite, limit, solveEquation, exactValue, compare, exactRoots});
+  return Object.freeze({derivative, antiderivative, definite, limit, solveEquation, exactValue, compare, exactRoots, casValue, splitTopList: splitTop, prettyExact});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Calculus;
