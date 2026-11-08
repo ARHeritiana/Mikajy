@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mikajy.app"
-    android:versionCode="15"
-    android:versionName="5.0">
+    android:versionCode="16"
+    android:versionName="5.1">
 
     <!-- Everything runs on the device. INTERNET is used only by UpdateChecker (one GET to GitHub's
          releases API, optional, switchable off in Settings); the WebView itself has network loads blocked. -->

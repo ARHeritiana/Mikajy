@@ -18,13 +18,15 @@ BRIDGE = """
   };
 """
 
-async def scenario(browser, answer, stored=None):
+async def scenario(browser, answer, stored=None, settings=None):
     page = await browser.new_page(viewport={"width": 412, "height": 840})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     init = BRIDGE % json.dumps(answer)
     if stored is not None:
         init += f"localStorage.setItem('inkupd', {json.dumps(json.dumps(stored))});"
+    if settings is not None:   # set before the first load, so no automatic check is ever scheduled by a page that is about to be replaced
+        init += f"localStorage.setItem('inkset', {json.dumps(json.dumps(settings))});"
     await page.add_init_script(init)
     await page.goto(PAGE)
     await page.locator("#pad").wait_for()
@@ -71,9 +73,7 @@ async def main():
         assert not await page.evaluate("document.getElementById('mb').classList.contains('upd')")
         await page.close()
         # Updates switched off: no automatic check is scheduled.
-        page, errors = await scenario(browser, available, {"checked": 0, "version": "", "url": "", "apk": ""})
-        await page.evaluate("localStorage.setItem('inkset', JSON.stringify({updates: 'off'}))")
-        await page.reload()
+        page, errors = await scenario(browser, available, {"checked": 0, "version": "", "url": "", "apk": ""}, {"updates": "off"})
         await page.wait_for_timeout(5600)
         assert await page.evaluate("window.__calls") == [], "auto check ran although switched off"
         await page.close()
