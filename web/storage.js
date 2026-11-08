@@ -82,7 +82,8 @@ const Store = (() => {
         const fid = typeof s.fid === 'string' && s.fid.length <= 16 ? s.fid : isNum(s.fid) ? String(s.fid) : '';
         syms.push({
           c: s.c, sup: s.sup ? 1 : 0, fp: ['n', 'd', 'bar'].includes(s.fp) ? s.fp : '', fid,
-          cover: Number.isInteger(s.cover) && s.cover >= 0 && s.cover <= 200 ? s.cover : 0
+          cover: Number.isInteger(s.cover) && s.cover >= 0 && s.cover <= 200 ? s.cover : 0,
+          pfid: typeof s.pfid === 'string' && s.pfid.length <= 16 ? s.pfid : isNum(s.pfid) ? String(s.pfid) : '', pfp: ['n', 'd'].includes(s.pfp) ? s.pfp : ''
         });
       }
       if (!syms.length) continue;

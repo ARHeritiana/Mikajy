@@ -18,6 +18,8 @@ TOKENS = [
     (r"{ 2 } ^ { 3 \times 2 }", "=64"),                                       # a product inside an exponent
     (r"\sin \left ( 0 \right ) + 1", "=1"),
     (r"{ 3 } ^ { - 1 } \times 3", "=1"),
+    (r"\frac { \frac { 2 } { 3 } } { \frac { 5 } { 9 } }", "=1.2"),          # a fraction over a fraction
+    (r"1 + \frac { 3 } { 2 + \frac { 1 } { 2 } }", "=2.2"),
 ]
 
 
@@ -41,6 +43,13 @@ async def main():
                 lines.push(L); applyReading(L, t.split(' ')); const a = L.at; lines.splice(lines.indexOf(L), 1); return a }""", latex)
             assert got == want, (latex, got, want)
         print("token lines -> glyphs -> engine: PASS")
+        # nested fractions are laid out stacked: the inner bars sit above / below the outer bar, narrower than it
+        geo = await page.evaluate("""t => { const s = [[100, 100, 0], [120, 100, 50]]; s.t0 = 0; s.t1 = 50; const L = {syms: [], ans: [], ink: [s], x0: 0, base: 300, F: 80, at: null};
+            lines.push(L); applyReading(L, t.split(' ')); layout(L); const bars = L.syms.filter(g => g.fp == 'bar'); const out = bars.map(g => ({ty: g.ty, w: g.w, nested: !!g.pfid, pfp: g.pfp})); lines.splice(lines.indexOf(L), 1); return out }""",
+            r"\frac { \frac { 2 } { 3 } } { \frac { 5 } { 9 } }")
+        outer = [g for g in geo if not g["nested"]][0]; above = [g for g in geo if g["pfp"] == "n"][0]; below = [g for g in geo if g["pfp"] == "d"][0]
+        assert above["ty"] < outer["ty"] < below["ty"] and above["w"] < outer["w"] and below["w"] < outer["w"], geo
+        print("nested fractions stacked: PASS")
         if FIX is None or not (ROOT / "web/model/seq1.json").exists():
             print("model read-back: SKIPPED (no model in the build)")
         else:

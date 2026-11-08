@@ -69,19 +69,29 @@ function coverN(A,k){const g=A[k];if(g.cover>0)return Math.min(g.cover,A.length-
  if(ch(A[j])=='('){let d=0;for(;j<A.length;j++){const q=ch(A[j]);if(q=='(')d++;if(q==')'){d--;if(d==0){j++;break}}}return j-k-1}
  while(j<A.length){const q=ch(A[j]),ok=A[j].sup?n>0:/[0-9.πe]/.test(q);if(!ok)break;n++;j++}return n}
 const isPart=g=>g.fp=='n'||g.fp=='d';
-const partsOf=(L,bar,p)=>L.syms.concat(L.ans).filter(s=>s.fid===bar.fid&&s.fp==p);
-function seqs(L){const top=[],m=new Map();for(const g of L.syms){if(isPart(g)){const k=g.fid+g.fp;if(!m.has(k))m.set(k,[]);m.get(k).push(g)}else top.push(g)}return[top,...m.values()]}
-function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)),items=top.concat(L.ans.filter(g=>!isPart(g)));if(!items.length)return;let tot=0;
+const partsOf=(L,bar,p)=>L.syms.concat(L.ans).filter(s=>s.fid===bar.fid&&s.fp==p||s.fp=='bar'&&s.pfid===bar.fid&&s.pfp==p);   // a part's glyphs, nested bars included
+function seqs(L){const top=[],m=new Map();for(const g of L.syms){if(isPart(g)||g.pfid){const k=g.pfid?g.pfid+g.pfp:g.fid+g.fp;if(!m.has(k))m.set(k,[]);m.get(k).push(g)}else top.push(g)}return[top,...m.values()]}
+/* Stacked fractions, nested to any shown depth. A sequence is laid out at font size s on a baseline; a '§' glyph is a fraction whose
+   numerator / denominator sequences (partsOf) are laid out recursively at .8 s. ext() measures how far a sequence reaches above and
+   below its baseline so that a fraction inside a numerator lifts it clear of the bar (and one in a denominator pushes it down). */
+const isFB=g=>ch(g)=='§'&&g.fp=='bar';
+const extOf=(L,A,s)=>{let up=0,dn=0;for(const g of A){let u,d;if(isFB(g)){const e=fracExt(L,g,s*(g.sup?.62:1));u=e.up;d=e.dn}else{const z=g.sup?.62:1;u=.72*s*z+(g.sup?.42*s:0);d=.22*s*z}up=Math.max(up,u);dn=Math.max(dn,d)}return{up,dn}};
+function partOffs(L,g,s){const sn=.8*s,N=extOf(L,partsOf(L,g,'n'),sn),D=extOf(L,partsOf(L,g,'d'),sn);return{sn,N,D,nOff:Math.max(.14*s,N.dn+.06*s),dOff:Math.max(.14*s+.55*sn,D.up+.1*s)}}
+function fracExt(L,g,s){const o=partOffs(L,g,s);return{up:.28*s+o.nOff+o.N.up,dn:Math.max(.22*s,o.dOff-.28*s+o.D.dn)}}
+const seqW=(L,A,s)=>A.reduce((w,g)=>w+(isFB(g)?fracW(L,g,s*(g.sup?.62:1)):adv(ch(g),s*(g.sup?.62:1)))+.06*s*(g.sup?.62:1),0);
+function fracW(L,g,s){const sn=.8*s;g.nW=seqW(L,partsOf(L,g,'n'),sn);g.dW=seqW(L,partsOf(L,g,'d'),sn);return g.w0=Math.max(g.nW,g.dW)+.4*s}
+function placeFrac(L,g,x,base,s){const o=partOffs(L,g,s),ay=base-.28*s;g.tx=x;g.ty=ay;g.tsz=s;g.w=g.w0;g.bwt=g.w;if(!g.bw)g.bw=g.w;
+ placeSeq(L,partsOf(L,g,'n'),x+(g.w-g.nW)/2,ay-o.nOff,o.sn);placeSeq(L,partsOf(L,g,'d'),x+(g.w-g.dW)/2,ay+o.dOff,o.sn)}
+function placeSeq(L,A,x,base,s){for(const g of A){const z=g.sup?.62:1;if(isFB(g)){fracW(L,g,s*z);placeFrac(L,g,x,base,s*z);x+=g.w+.06*s*z}
+ else{const a=adv(ch(g),s*z);g.tx=x;g.tsz=s*z;g.ty=base-(g.sup?.42*s:0);g.w=a;x+=a+.06*s*z}}}
+function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)&&!g.pfid),items=top.concat(L.ans.filter(g=>!isPart(g)&&!g.pfid));if(!items.length)return;let tot=0;
  const sf=g=>g.sup?.62:1,first=(g,k)=>g.ans&&(k==0||!items[k-1].ans),extra=(g,k)=>(first(g,k)?.28*F:0)+(ch(g)=='§'&&k>0?.1*F:0),trail=g=>.06*F*sf(g)+(g.ans&&ch(g)=='='?.14*F:0);
- const seqW=(A,s)=>A.reduce((w,g)=>w+adv(ch(g),s*sf(g))+.06*s*sf(g),0);
- items.forEach((g,k)=>{if(ch(g)=='§'){g.nW=seqW(partsOf(L,g,'n'),.8*F);g.dW=seqW(partsOf(L,g,'d'),.8*F);g.w0=Math.max(g.nW,g.dW)+.4*F}else g.w0=adv(ch(g),F*sf(g));tot+=g.w0+trail(g)+extra(g,k)});
+ items.forEach((g,k)=>{if(ch(g)=='§')fracW(L,g,F);else g.w0=adv(ch(g),F*sf(g));tot+=g.w0+trail(g)+extra(g,k)});
  let x0=L.x0,f=1;
  const base=L.base;let x=x0;
- items.forEach((g,k)=>{x+=extra(g,k)*f;g.tx=x;g.tsz=F*f*sf(g);g.w=g.w0*f;
-  if(ch(g)=='§'){const ay=base-.28*F*f;g.ty=ay;g.bwt=g.w;if(!g.bw)g.bw=g.w;const sn=.8*F*f;let nx=x+(g.w-g.nW*f)/2,dx=x+(g.w-g.dW*f)/2;
-   for(const s of partsOf(L,g,'n')){const a=adv(ch(s),.8*F*sf(s));s.tx=nx;s.tsz=sn*sf(s);s.ty=ay-.14*F*f-(s.sup?.42*sn:0);s.w=a*f;nx+=(a+.06*.8*F*sf(s))*f}
-   for(const s of partsOf(L,g,'d')){const a=adv(ch(s),.8*F*sf(s));s.tx=dx;s.tsz=sn*sf(s);s.ty=ay+.14*F*f+.55*sn-(s.sup?.42*sn:0);s.w=a*f;dx+=(a+.06*.8*F*sf(s))*f}}
-  else g.ty=base-(g.sup?.42*F*f:0);
+ items.forEach((g,k)=>{x+=extra(g,k)*f;
+  if(ch(g)=='§')placeFrac(L,g,x,base,F*f);
+  else{g.tx=x;g.tsz=F*f*sf(g);g.w=g.w0*f;g.ty=base-(g.sup?.42*F*f:0)}
   x+=(g.w0+trail(g))*f});
  seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
@@ -142,7 +152,7 @@ function scribble(s){const now=performance.now();ghosts.push({pts:s,t0:now});con
  for(const L of lines.slice()){const nIn=L.ink.length;L.ink=L.ink.filter(t=>{const q=bb(t);if(cov({x0:q.x0-8,y0:q.y0-8,x1:q.x1+8,y1:q.y1+8})>=.22){ghosts.push({pts:t,t0:now});return false}return true});
   if(L.seq){if(L.ink.length!==nIn){L.sk=null;if(!L.ink.length){clearReading(L);lines.splice(lines.indexOf(L),1)}}continue}
   if(L.ans.some(g=>cg(g)>=.22)){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null}
-  else{const rem=L.syms.filter(g=>cg(g)>=.22);rem.filter(g=>g.fp=='bar').forEach(bar=>L.syms.forEach(s=>{if(s.fid===bar.fid&&!rem.includes(s))rem.push(s)}));
+  else{const rem=L.syms.filter(g=>cg(g)>=.22);for(let i=0;i<rem.length;i++){const bar=rem[i];if(bar.fp=='bar')L.syms.forEach(s=>{if((s.fid===bar.fid||s.pfid===bar.fid)&&!rem.includes(s))rem.push(s)})}   // erasing a bar takes its parts and any fraction nested in them
    if(rem.length){rem.forEach(kill);L.syms=L.syms.filter(g=>!rem.includes(g));if(L.syms.length){layout(L);updateAns(L)}else{L.ans.forEach(kill);L.ans=[];L.at=null}}}
   if(!L.syms.length&&!L.ink.length)lines.splice(lines.indexOf(L),1)}}
 function radical(s){const n=s.length;if(n<8)return null;let v=0;for(let i=0;i<n;i++)if(s[i][1]>s[v][1])v=i;if(v<2||v>n-3)return null;
@@ -210,7 +220,7 @@ function dropReading(L){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans
  (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=null}
 const clearReading=dropReading;
 function mkGlyphs(row){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
- return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
+ return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
 function placeRow(L,gs,x0,base,F){L.syms=gs;L.x0=x0;L.base=base;L.F=F;layout(L);
  for(const g of gs){g.x=g.tx;g.y=g.ty+10;g.sz=g.tsz;g.a=0;g.ta=1;if(ch(g)=='√')g.vx=g.tx+.56*g.tsz}updateAns(L)}
 function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)return;
@@ -366,12 +376,12 @@ function strSeq(L,A){let o='',run='',inSup=false;const flush=()=>{if(!run)return
  A.forEach(g=>{const c=ch(g);if(g.sup){inSup=true;run+=c;return}if(inSup){flush();inSup=false}
   if(c=='§')o+='('+strSeq(L,partsOf(L,g,'n'))+')/('+strSeq(L,partsOf(L,g,'d'))+')';else o+=c=='*'?'×':c=='/'?'÷':c});flush();return o}
 const textOf=L=>strSeq(L,seqs(L)[0]).replace(/=+$/,'').trim();
-const serial=L=>L.syms.map(g=>({c:ch(g),sup:g.sup?1:0,fp:g.fp||'',fid:g.fid||'',cover:g.cover||0}));
+const serial=L=>L.syms.map(g=>({c:ch(g),sup:g.sup?1:0,fp:g.fp||'',fid:g.fid||'',cover:g.cover||0,pfid:g.pfid||'',pfp:g.pfp||''}));
 window.histSave=function(L){if(!L.syms.length)return;L.hid=L.hid||Date.now()+'-'+Math.random().toString(36).slice(2,6);clearTimeout(L.ht);
  L.ht=setTimeout(()=>{const r=computeAns(L);if(!r||!lines.includes(L))return;const e={id:L.hid,ts:Date.now(),syms:serial(L),F:L.F,ans:r.text,text:textOf(L)},i=HIST.findIndex(h=>h.id==L.hid);
   if(i>=0)HIST[i]=e;else HIST.unshift(e);HIST=HIST.slice(0,100);histPersist()},1500)};
 function openHist(e){closeSheet();const L={syms:[],ans:[],ink:[],x0:toW(30,0)[0],base:toW(0,SH*.35)[1],F:e.F||70,at:null,hid:e.id};for(const q of lines)L.base=Math.max(L.base,q.base+q.F*1.5);
- e.syms.forEach(s=>L.syms.push(newG([{c:s.c,p:1}],{sup:!!s.sup,fp:s.fp||undefined,fid:s.fid||undefined,cover:s.cover,fresh:false})));
+ e.syms.forEach(s=>L.syms.push(newG([{c:s.c,p:1}],{sup:!!s.sup,fp:s.fp||undefined,fid:s.fid||undefined,pfid:s.pfid||undefined,pfp:s.pfp||undefined,cover:s.cover,fresh:false})));
  lines.push(L);layout(L);L.syms.forEach(g=>{g.x=g.tx;g.y=g.ty+12;g.sz=g.tsz*.9;g.a=0;g.ta=1});updateAns(L);kick()}
 /* ---------- export ---------- */
 function copyText(t){if(window.Android&&Android.copy){Android.copy(t);toast(T('copied'))}else{try{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();toast(T('copied'))}catch(e){}}}

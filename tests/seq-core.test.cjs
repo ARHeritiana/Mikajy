@@ -48,9 +48,19 @@ test('toGlyphs: fractions, roots, exponents and words become the board glyph str
   assert.strictEqual(show('{ 5 } ^ { - 4 }'), '5 ^- ^4');
   assert.strictEqual(show('\\sqrt { 7 + x } - 1'), '√/3 7 + x - 1');
   assert.strictEqual(show('\\sin \\left ( x \\right )'), 's i n ( x )');
-  assert.strictEqual(show('\\frac { \\frac { 1 } { 2 } } { 3 }'), 'b1:§ n1:( n1:1 n1:) n1:/ n1:( n1:2 n1:) d1:3');
+  assert.strictEqual(show('\\frac { \\frac { 1 } { 2 } } { 3 }'), 'b1:§ b2:§ n2:1 d2:2 d1:3');   // a nested fraction keeps its own bar and parts
   assert.strictEqual(show('\\sqrt { \\frac { 1 } { 2 } }'), '√/1 b1:§ n1:1 d1:2');
   assert.strictEqual(show('\\sqrt { x ^ { 2 } } + 1'), '√/2 x ^2 + 1');
   assert.strictEqual(show('7 \\bmod 3'), '7 m o d 3');
   assert.strictEqual(g('\\sin x').map(x => !!x.wb).join(), 'true,false,false,true');
+});
+
+test('a fraction inside a fraction stays stacked (own bar with a parent link); one inside an exponent stays inline', () => {
+  const g = SeqCore.toGlyphs('\\frac { \\frac { 2 } { 3 } } { 5 }'.split(' '));
+  const bars = g.filter(x => x.fp === 'bar');
+  assert.equal(bars.length, 2);
+  assert.equal(bars[1].pfid, bars[0].fid); assert.equal(bars[1].pfp, 'n');
+  assert.deepEqual(g.filter(x => x.fid === bars[1].fid && x.fp === 'd').map(x => x.c), ['3']);
+  const inl = SeqCore.toGlyphs('{ x } ^ { \\frac { 1 } { 2 } }'.split(' '));
+  assert.equal(inl.some(x => x.fp === 'bar'), false);
 });

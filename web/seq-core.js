@@ -262,7 +262,8 @@ const SeqCore = (() => {
    * The board stores a line as a flat list of glyphs: {c, sup?, fp?, fid?, wb?, mul?, cover?}.
    * A top-level fraction is [bar(fp 'bar'), numerator glyphs(fp 'n'), denominator glyphs(fp 'd')] sharing one fid; a root carries
    * `cover` = how many following glyphs of the same sequence it spans; `wb` marks the first letter of a word (sin, x, a) so that
-   * "sin x" is not read as the word "sinx".  Fractions nested in fractions or exponents are written inline as (a)/(b). */
+   * "sin x" is not read as the word "sinx".  A fraction nested in a numerator / denominator is a bar glyph with pfid/pfp (the part it sits in) and stays stacked up to 3 levels;
+   fractions inside exponents are written inline as (a)/(b). */
   const WORD_OF = {bmod: 'mod', mod: 'mod', pmod: 'mod'};
   function toGlyphs(tokens) {
     let i = 0, fids = 0;
@@ -278,11 +279,15 @@ const SeqCore = (() => {
       else if (t === '}' || t === '<nl>' || t === '\\left' || t === '\\right' || t === '\\quad') { /* structure only */ }
       else if (t === '^') item(Object.assign({}, ctx, {sup: true}));
       else if (t === '\\frac') {
-        if (ctx.fid || ctx.sup) {                                     // nested: inline (a)/(b)
+        if (ctx.sup || (ctx.fid && ctx.depth >= 3)) {                  // inside an exponent, or nested too deep: inline (a)/(b)
           glyph('(', ctx); item(ctx); glyph(')', ctx); glyph('/', ctx); glyph('(', ctx); item(ctx); glyph(')', ctx);
+        } else if (ctx.fid) {                                          // a fraction inside a numerator / denominator stays stacked
+          const id = ++fids, bar = glyph('§', ctx);
+          bar.pfid = ctx.fid; bar.pfp = ctx.fp; bar.fp = 'bar'; bar.fid = id;   // its own bar; the parent link says which part it sits in
+          item({sup: false, fid: id, fp: 'n', cnt: {n: 0}, depth: (ctx.depth || 1) + 1}); item({sup: false, fid: id, fp: 'd', cnt: {n: 0}, depth: (ctx.depth || 1) + 1});
         } else {
           const id = ++fids; glyph('§', ctx, {fp: 'bar', fid: id});
-          item({sup: false, fid: id, fp: 'n', cnt: {n: 0}}); item({sup: false, fid: id, fp: 'd', cnt: {n: 0}});
+          item({sup: false, fid: id, fp: 'n', cnt: {n: 0}, depth: 1}); item({sup: false, fid: id, fp: 'd', cnt: {n: 0}, depth: 1});
         }
       } else if (t === '\\sqrt') { const g = glyph('√', ctx), before = ctx.cnt.n; item(ctx); g.cover = ctx.cnt.n - before; }
       else if (t === '\\times') glyph('*', ctx, {mul: true});
