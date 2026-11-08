@@ -11,7 +11,7 @@ const Calculator = (() => {
   const Linalg = typeof module !== 'undefined' && module.exports ? require('./linalg-core.js') : LinalgCore;
   const I18 = typeof module !== 'undefined' && module.exports ? require('./i18n.js') : I18n;
   const textPiece = s => ({s: String(s)});
-  const textOf = pieces => pieces.map(p => p.m ? '[' + p.m.rows.map(row => row.map(cell => textOf(cell)).join(' ')).join('; ') + ']' : p.s === undefined ? p.f.join('/') : p.s).join('');
+  const textOf = pieces => pieces.map(p => p.m ? '[' + p.m.rows.map(row => row.map(cell => textOf(cell)).join(' ')).join('; ') + ']' : p.s === undefined ? p.f.join('/') : p.sup ? '^' + (p.s.length > 1 ? '(' + p.s + ')' : p.s) : p.s).join('').replace(/⁄/g, '/');
   const niceNumber = v => {
     if (!Number.isFinite(v)) return '?';
     if (Object.is(v, -0)) v = 0;
@@ -55,6 +55,37 @@ const Calculator = (() => {
   function asResponse(pieces, value) {
     return {pieces, text: textOf(pieces), val: value};
   }
+  /** CAS-style text ("(1/3)·e^x+(2/3)·e^(-2·x)", "√2/2") -> pieces: integer fractions stacked, exponents raised, and a slash that stays a slash. */
+  function rich(str) {
+    const out = []; let buf = '';
+    const flush = () => { if (buf) { out.push(textPiece(buf.replace(/\//g, '⁄'))); buf = ''; } };
+    for (let i = 0; i < str.length;) {
+      const m = /^\((-?)(\d+)\/(\d+)\)/.exec(str.slice(i)) || (/[A-Za-z0-9)√π]$/.test(buf) || (!buf && out.length && /[A-Za-z0-9]$/.test(out[out.length - 1].s || '')) ? null : /^(-?)(\d+)\/(\d+)(?![\d\/])/.exec(str.slice(i)));
+      if (m) { flush(); if (m[1]) out.push(textPiece('-')); out.push({f: [m[2], m[3]]}); i += m[0].length; continue; }
+      if (str[i] === '^') {
+        let j = i + 1, inner;
+        if (str[j] === '(') { let d = 0, k = j; for (; k < str.length; k++) { if (str[k] === '(') d++; else if (str[k] === ')' && --d === 0) break; } inner = str.slice(j + 1, k); j = k + 1; }
+        else { const t = /^-?[A-Za-z0-9.π]+/.exec(str.slice(j)); inner = t ? t[0] : ''; j += inner.length; }
+        if (inner) { flush(); out.push({s: inner.replace(/·/g, '').replace(/\//g, '⁄'), sup: true}); i = j; continue; }
+      }
+      buf += str[i++];
+    }
+    flush();
+    return out;
+  }
+  /** v as a rational multiple of π ("π/4", "-3π/4", "π", "0") when it is one to double precision (denominators up to 12), else null. Used for arg(z). */
+  function piText(v) {
+    if (!Number.isFinite(v)) return null;
+    if (Math.abs(v) < 1e-14) return '0';
+    for (let q = 1; q <= 12; q++) {
+      const p = Math.round(v / Math.PI * q);
+      if (p !== 0 && Math.abs(v - p * Math.PI / q) < 1e-12) {
+        const g = ((a, b) => { while (b) [a, b] = [b, a % b]; return Math.abs(a); })(p, q), n = p / g, d = q / g;
+        return (n < 0 ? '-' : '') + (Math.abs(n) === 1 ? '' : Math.abs(n)) + 'π' + (d === 1 ? '' : '/' + d);
+      }
+    }
+    return null;
+  }
   function compute(tokens, settings = {}, trailingEquals = false) {
     if (!tokens.length) return null;
     const W = key => I18.t(settings.lang, key);   // result words follow the interface language
@@ -77,7 +108,7 @@ const Calculator = (() => {
           let periodic;
           try { periodic = Calc.solveEquation(left, right, settings); } catch (_) { throw error; }
           const pieces = [textPiece('x=')];
-          periodic.solutions.forEach((t, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(textPiece(t)); });
+          periodic.solutions.forEach((t, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(...rich(t)); });
           if (periodic.periodic) pieces.push(textPiece(',  n∈ℤ'));
           return asResponse(pieces, undefined);
         }
@@ -94,7 +125,7 @@ const Calculator = (() => {
           ? Calc.exactRoots(left, right, result.roots.map(r => r.value), settings) : [];
         result.roots.forEach((r, i) => {
           if (i) pieces.push(textPiece(', '));
-          if (!r.rational && closed[i]) pieces.push(textPiece(closed[i] + ' ≈' + niceNumber(r.value)));
+          if (!r.rational && closed[i]) pieces.push(...rich(closed[i]), textPiece(' ≈' + niceNumber(r.value)));
           else pieces.push(...numberPieces(r, settings.fmt || 'dec'));
         });
         return asResponse(pieces, result.roots[0]?.value);
@@ -102,14 +133,17 @@ const Calculator = (() => {
       if (tokens.includes('x') && !tokens.some(t => ['Σ', '∫', 'lim', '∞', '→'].includes(t))) return null;
       if (tokens.length === 1 && !trailingEquals) return null;
       if (settings.domain === 'complex') {
-        const z = Core.evaluateComplex(tokens, settings), pieces = complexPieces(asComplex(z), settings.fmt || 'dec');
+        const z = Core.evaluateComplex(tokens, settings);
+        if (tokens.includes('arg') && !z.exact && Math.abs(z.im) < 1e-12 && piText(z.re)) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), textPiece(piText(z.re) + (piText(z.re) === '0' ? '' : ' ≈' + niceNumber(z.re)))], z.re);
+        const pieces = complexPieces(asComplex(z), settings.fmt || 'dec');
         return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...pieces], Math.abs(z.im) < 1e-12 ? z.re : undefined);
       }
       const result = Core.evaluate(tokens, settings);
+      if (tokens.includes('arg') && !result.rational && piText(result.value)) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), textPiece(piText(result.value) + (piText(result.value) === '0' ? '' : ' ≈' + niceNumber(result.value)))], result.value);
       // Symbolic first: an irrational value gets its closed form (√8 -> 2√2) with the decimal as a secondary reading.
       if (!result.rational && (settings.fmt || 'dec') !== 'dec') {
         const closedForm = Calc.exactValue(tokens, result.value, settings);
-        if (closedForm) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), textPiece(/^-?\d+(\/\d+)?$/.test(closedForm) ? closedForm : closedForm + ' ≈' + niceNumber(result.value))], result.value);
+        if (closedForm) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...rich(closedForm), ...(/^-?\d+(\/\d+)?$/.test(closedForm) ? [] : [textPiece(' ≈' + niceNumber(result.value))])], result.value);
       }
       return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...numberPieces(result, settings.fmt || 'dec')], result.value);
     } catch (error) {
@@ -136,7 +170,7 @@ const Calculator = (() => {
       if (Board.parseStatement(tokens)) return null;                                   // f(x) = ... and X ~ B(...) only declare
       if (Ode.applies(tokens)) {
         if (settings.mode === 'demand' && !explicit) return null;
-        return asResponse([textPiece(Ode.solve(tokens).text)], undefined);
+        return asResponse(rich(Ode.solve(tokens).text), undefined);
       }
       if (Prob.applies(tokens)) {
         if (settings.mode === 'demand' && !explicit) return null;
@@ -147,7 +181,7 @@ const Calculator = (() => {
         const v = Prob.value(r.v);
         if (Prob.isApprox(r.v)) return asResponse([...eq, textPiece('≈' + niceNumber(v))], v);
         if (r.v.c.n === 0n) return asResponse([...eq, ...asQ(r.v.q)], v);
-        return asResponse([...eq, textPiece(Prob.valText(r.v) + ' ≈' + niceNumber(v))], v);
+        return asResponse([...eq, ...rich(Prob.valText(r.v)), textPiece(' ≈' + niceNumber(v))], v);
       }
       if (Board.usesDefs(tokens, st)) {                                                // f(3), f(g(2)): expand, then the ordinary engines
         if (settings.mode === 'demand' && !explicit) return null;

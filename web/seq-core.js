@@ -223,7 +223,7 @@ const SeqCore = (() => {
   /* ---- LaTeX tokens -> the token list math-core.js parses ------------------------------------
    * Handles what the engine can evaluate (numbers, x, i, e, π, + - × ÷, powers, fractions, roots, functions, brackets, factorial, %);
    * anything else (matrices, mod, determinants, ...) is reported through `unsupported` so the caller can show it without an answer. */
-  const FUNCTION_WORDS = new Set(['sin', 'cos', 'tan', 'ln', 'log', 'exp', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'arcsin', 'arccos', 'arctan']);
+  const FUNCTION_WORDS = new Set(['sin', 'cos', 'tan', 'ln', 'log', 'exp', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'arcsin', 'arccos', 'arctan', 'arg']);
   const ARC = {arcsin: 'asin', arccos: 'acos', arctan: 'atan'};
   function toMathTokens(tokens, {complex = false} = {}) {
     let i = 0;
@@ -242,6 +242,7 @@ const SeqCore = (() => {
         else if (t === '^') { out.push('^'); wrapped(() => { if (peek() === '{') group(); else out.push(next()); }); }
         else if (t === '\\frac') { wrapped(() => { out.push('('); group(); out.push(')'); out.push('/'); out.push('('); group(); out.push(')'); }); }
         else if (t === '\\sqrt') { out.push('√'); wrapped(() => group()); }
+        else if (t === '\\overline') { out.push('conj'); wrapped(() => group()); }
         else if (t === '\\times') out.push('*');
         else if (t === '\\div') out.push('/');
         else if (t === '\\pi') out.push('π');
@@ -294,6 +295,11 @@ const SeqCore = (() => {
       else if (t === '\\div') glyph('/', ctx);
       else if (t === '\\pi') glyph('π', ctx);
       else if (t === '\\equiv') glyph('≡', ctx);
+      else if (t === '\\sim') glyph('~', ctx);
+      else if (t === '\\le' || t === '\\leq') glyph('≤', ctx);
+      else if (t === '\\ge' || t === '\\geq') glyph('≥', ctx);
+      else if (t === '\\ne' || t === '\\neq') glyph('≠', ctx);
+      else if (t === '\\prime') glyph("'", ctx);
       else if (t === '\\begin') {                                    // a matrix: a head glyph (brackets) and one part per entry, r<row>c<col>
         let name = ''; if (peek() === '{') { next(); while (i < tokens.length && peek() !== '}') name += next(); if (peek() === '}') next(); }
         const id = ++fids, head = glyph('▦', ctx);
@@ -311,7 +317,7 @@ const SeqCore = (() => {
       else if (t === '\\end') { if (peek() === '{') { next(); while (i < tokens.length && peek() !== '}') next(); if (peek() === '}') next(); } }
       else if (t === '&') glyph(',', ctx);
       else if (t === '\\\\') glyph(';', ctx);
-      else if (t === '\\overline') { item(ctx); }
+      else if (t === '\\overline') { const g = glyph('‾', ctx), before = ctx.cnt.n; item(ctx); g.cover = ctx.cnt.n - before; }   // a bar over what follows, like the root sign's reach
       else if (t.startsWith('\\')) word(WORD_OF[t.slice(1)] || t.slice(1), ctx);
       else if (/^[a-zA-Z]$/.test(t)) glyph(t, ctx, {wb: true});
       else glyph(t, ctx);

@@ -46,11 +46,13 @@ function drawMat(g,a){const s=g.sz,x=g.x,y=g.y,h=Math.max(g.mh||0,.5*s),w=Math.m
  else if(g.br=='|'){ctx.moveTo(x+k*.6,t);ctx.lineTo(x+k*.6,b);ctx.moveTo(x+w-k*.6,t);ctx.lineTo(x+w-k*.6,b)}
  else{ctx.moveTo(x+k,t);ctx.lineTo(x+.04*s,t);ctx.lineTo(x+.04*s,b);ctx.lineTo(x+k,b);ctx.moveTo(x+w-k,t);ctx.lineTo(x+w-.04*s,t);ctx.lineTo(x+w-.04*s,b);ctx.lineTo(x+w-k,b)}
  ctx.stroke();ctx.globalAlpha=1}
+function drawOver(g,a){const s=g.sz,y=g.y-.86*s;ctx.globalAlpha=a;ctx.strokeStyle=g.ans?palette.accent:palette.ink;ctx.lineWidth=Math.max(2,s*.05);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(g.x,y);ctx.lineTo(Math.max(g.vx,g.x),y);ctx.stroke();ctx.globalAlpha=1}
 function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;ctx.font=Math.round(g.sz)+'px '+FONT;ctx.textBaseline='alphabetic';
  const a=Math.max(0,Math.min(1,g.a)),c=ch(g);
  if(c=='√')drawRad(g,a);
  else if(c=='§')drawBar(g,a);
  else if(c=='▦')drawMat(g,a);
+ else if(c=='‾')drawOver(g,a);
  else{if(g.ot>0&&g.old){ctx.globalAlpha=a*g.ot;ctx.fillText(disp(g.old),g.x,g.y);ctx.globalAlpha=a*(1-g.ot)}else ctx.globalAlpha=a;
   ctx.fillText(disp(c),g.x,g.y);ctx.globalAlpha=1}
  if(g.ink&&g.a<.99){const k=Math.max(0,1-g.a*1.1);g.ink.forEach(s=>drawInk(s,k))}else g.ink=null}
@@ -71,7 +73,7 @@ function step(dt,now){let act=false;const tick=g=>{if(stepG(g,dt,now))act=true};
  fx.forEach(tick);if(fx.length)fx=fx.filter(g=>g.a>.02);if(ghosts.length)ghosts=ghosts.filter(g=>now-g.t0<420);return act||ghosts.length>0}
 function kick(){if(!raf){tPrev=performance.now();raf=requestAnimationFrame(frame)}}
 function frame(now){raf=0;const dt=Math.min(.05,(now-tPrev)/1000);tPrev=now;const act=step(dt,now);render(now);if(act||cur)kick()}
-const adv=(c,F)=>{if(c=='√')return F*.62;ctx.font=F+'px '+FONT;return ctx.measureText(disp(c)).width};
+const adv=(c,F)=>{if(c=='√')return F*.62;if(c=='‾')return 0;ctx.font=F+'px '+FONT;return ctx.measureText(disp(c)).width};
 function coverN(A,k){const g=A[k];if(g.cover>0)return Math.min(g.cover,A.length-k-1);let j=k+1,n=0;if(j>=A.length)return 0;
  if(ch(A[j])=='('){let d=0;for(;j<A.length;j++){const q=ch(A[j]);if(q=='(')d++;if(q==')'){d--;if(d==0){j++;break}}}return j-k-1}
  while(j<A.length){const q=ch(A[j]),ok=A[j].sup?n>0:/[0-9.πe]/.test(q);if(!ok)break;n++;j++}return n}
@@ -114,7 +116,7 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)&&!g.pfid),items=t
   if(isFB(g))placeBox(L,g,x,base,F*f);
   else{g.tx=x;g.tsz=F*f*sf(g);g.w=g.w0*f;g.ty=base-(g.sup?.42*F*f:0)}
   x+=(g.w0+trail(g))*f});
- seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=g.tx+.56*g.tsz}}))}
+ seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'||ch(g)=='‾'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=ch(g)=='‾'?g.tx:g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Map();let inSup=false,num='',word='';
  const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='x'||(word=='i'&&SET.domain=='complex')||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
@@ -145,7 +147,7 @@ function computeAns(L) {
   return Calculator.compute(tokens,{...SET,lang:LANG},trailingEquals);
 }
 function buildAns(pieces){const now=performance.now();let k=0;const out=[];const d=()=>now+260+(k++)*75;
- for(const p of pieces){if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,delay:d()}))});
+ for(const p of pieces){if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,sup:!!p.sup,delay:d()}))});
   else if(p.m){const fid='a'+(++FID);out.push(newG([{c:'▦',p:1}],{ans:true,fp:'head',fid,br:p.m.br,delay:d()}));
    p.m.rows.forEach((row,r)=>row.forEach((cell,c)=>{const part='r'+r+'c'+c;for(const q of cell){if(q.s!==undefined)[...q.s].forEach(ch2=>{if(ch2!=' ')out.push(newG([{c:ch2,p:1}],{ans:true,fp:part,fid,delay:d()}))});
     else{const f2='a'+(++FID);out.push(newG([{c:'§',p:1}],{ans:true,fp:'bar',fid:f2,pfid:fid,pfp:part,delay:d()}));[...q.f[0]].forEach(ch2=>out.push(newG([{c:ch2,p:1}],{ans:true,fp:'n',fid:f2,delay:d()})));[...q.f[1]].forEach(ch2=>out.push(newG([{c:ch2,p:1}],{ans:true,fp:'d',fid:f2,delay:d()})))}}}))}

@@ -36,7 +36,7 @@ test('probability through the calculator: exact, symbolic and approximate answer
   assert.equal(run([b], b), null);
 });
 test('differential equations through the calculator', () => {
-  assert.equal(run([], '{ y } ^ { \\prime } = x y , y \\left( 0 \\right) = 2'), 'y=2·e^((1/2)·x^2)');
+  assert.equal(run([], '{ y } ^ { \\prime } = x y , y \\left( 0 \\right) = 2'), 'y=2·e^((1/2)x^2)');
   assert.equal(run([], '{ y } ^ { \\prime \\prime } + y = 0 , y \\left( 0 \\right) = 1 , { y } ^ { \\prime } \\left( 0 \\right) = 0'), 'y=cos(x)');
   assert.equal(run([], '{ y } ^ { \\prime } + y = \\sin x , y \\left( 0 \\right) = 1', {}, true), '= unsupported');
 });

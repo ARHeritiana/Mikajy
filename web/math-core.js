@@ -7,7 +7,7 @@ const MathCore = (() => {
   'use strict';
   const Poly = typeof module !== 'undefined' && module.exports ? require('./poly-core.js') : PolyCore;
   const FUNCTIONS = new Set(['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
-    'ln', 'log', 'exp', 'sqrt', 'abs']);
+    'ln', 'log', 'exp', 'sqrt', 'abs', 'conj', 'arg']);
   const INVERSE = {sin: 'asin', cos: 'acos', tan: 'atan'};
   const MAX_TOKENS = 160;
   const MAX_DEPTH = 48;
@@ -168,6 +168,8 @@ const MathCore = (() => {
         return null;
       }
       case 'function': {
+        if (n.name === 'conj') return exact(n.arg, angle);
+        if (n.name === 'arg') { const a = exact(n.arg, angle); return a && a.n > 0n ? R0() : null; }
         if (n.name === 'abs') { const a = exact(n.arg, angle); return a && rational(abs(a.n), a.d); }
         if (n.name === 'sqrt') { const a = exact(n.arg, angle); return a && a.n >= 0n ? exactRoot(a) : null; }
         return exactSpecial(n, angle);
@@ -296,7 +298,8 @@ const MathCore = (() => {
         if ((n.name === 'asin' || n.name === 'acos') && Math.abs(v) > 1) fail('undefined');
         if (n.name === 'sqrt' && v < 0) fail('undefined');
         const fn = {asin: Math.asin, acos: Math.acos, atan: Math.atan, sinh: Math.sinh, cosh: Math.cosh,
-          tanh: Math.tanh, ln: Math.log, log: Math.log10, exp: Math.exp, abs: Math.abs, sqrt: Math.sqrt}[n.name];
+          tanh: Math.tanh, ln: Math.log, log: Math.log10, exp: Math.exp, abs: Math.abs, sqrt: Math.sqrt,
+          conj: u => u, arg: u => { if (u === 0) fail('undefined'); return u > 0 ? 0 : Math.PI; }}[n.name];
         if (!fn) fail('unsupported');
         const v2 = fn(v);
         return finite(['asin', 'acos', 'atan'].includes(n.name) ? v2 / k : v2);
@@ -523,6 +526,8 @@ const MathCore = (() => {
           case 'ln': return cFinite(cLn(a));
           case 'log': { const l = cLn(a); return cx(l.re / Math.LN10, l.im / Math.LN10); }
           case 'abs': return cx(cAbs(a));
+          case 'conj': return cx(a.re, -a.im);
+          case 'arg': if (a.re === 0 && a.im === 0) fail('undefined'); return cx(Math.atan2(a.im, a.re));
           case 'sin': case 'cos': case 'tan': case 'cot': case 'sec': case 'csc': {
             const z = cx(a.re * k, a.im * k), s = cSin(z), c = cCos(z);
             return cFinite(n.name === 'sin' ? s : n.name === 'cos' ? c : n.name === 'tan' ? cDiv(s, c) : n.name === 'cot' ? cDiv(c, s) : n.name === 'sec' ? cDiv(cx(1), c) : cDiv(cx(1), s));
@@ -546,6 +551,25 @@ const MathCore = (() => {
     if (isZero(d)) fail('undefined');
     return {re: div(add(mul(a.re, b.re), mul(a.im, b.im)), d), im: div(sub(mul(a.im, b.re), mul(a.re, b.im)), d)};
   }
+  /** n written as k + p·π with Gaussian-rational k, p (or null): used to recognise e^(i q π). */
+  function affinePi(n) {
+    const G = (re, im = R0()) => ({re, im}), Z = G(R0());
+    switch (n.type) {
+      case 'number': return {k: G(literal(n.raw)), p: Z};
+      case 'symbol': return n.name === 'i' ? {k: G(R0(), R1()), p: Z} : n.name === 'π' ? {k: Z, p: G(R1())} : null;
+      case 'negate': { const a = affinePi(n.arg); return a && {k: G(neg(a.k.re), neg(a.k.im)), p: G(neg(a.p.re), neg(a.p.im))}; }
+      case 'binary': {
+        const a = affinePi(n.left), b = affinePi(n.right); if (!a || !b) return null;
+        if (n.op === '+') return {k: gAdd(a.k, b.k), p: gAdd(a.p, b.p)};
+        if (n.op === '-') return {k: gSub(a.k, b.k), p: gSub(a.p, b.p)};
+        const constOf = x => isZero(x.p.re) && isZero(x.p.im);
+        if (n.op === '*') { if (constOf(a)) return {k: gMul(a.k, b.k), p: gMul(a.k, b.p)}; if (constOf(b)) return {k: gMul(a.k, b.k), p: gMul(a.p, b.k)}; return null; }
+        if (n.op === '/' && constOf(b)) return {k: gDiv(a.k, b.k), p: gDiv(a.p, b.k)};
+        return null;
+      }
+      default: return null;
+    }
+  }
   function exactComplex(n) {
     const G = (re, im = R0()) => ({re, im});
     switch (n.type) {
@@ -555,6 +579,13 @@ const MathCore = (() => {
       case 'percent': { const a = exactComplex(n.arg); return a && gDiv(a, G(rational(100n))); }
       case 'binary': {
         const a = exactComplex(n.left);
+        if (n.op === '^' && n.left.type === 'symbol' && n.left.name === 'e') {          // e^(i q π) = i^(2q) when 2q is an integer
+          const A = affinePi(n.right);
+          if (A && isZero(A.k.re) && isZero(A.k.im) && isZero(A.p.re) && !isZero(A.p.im)) {
+            const t2 = mul(A.p.im, rational(2n));
+            if (t2.d === 1n) { const m = Number(((t2.n % 4n) + 4n) % 4n); return [G(R1()), G(R0(), R1()), G(neg(R1())), G(R0(), neg(R1()))][m]; }
+          }
+        }
         if (n.op === '^') {
           const e = exact(n.right);
           if (!a || !e || e.d !== 1n || abs(e.n) > 100n) return null;
@@ -575,6 +606,7 @@ const MathCore = (() => {
       case 'function': {
         const a = exactComplex(n.arg);
         if (!a) return null;
+        if (n.name === 'conj') return G(a.re, neg(a.im));
         if (n.name === 'abs') { const r = exactRoot(add(mul(a.re, a.re), mul(a.im, a.im))); return r && G(r); }
         if (n.name === 'sqrt' && isZero(a.im)) {
           if (a.re.n >= 0n) { const r = exactRoot(a.re); return r && G(r); }
