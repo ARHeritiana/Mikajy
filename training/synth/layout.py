@@ -97,6 +97,7 @@ class Layout:
 
     def proc_glyph(self, ch, var_x):
         if ch == '9' and self.rng.random() < .6: return proc.nine(self.rng)
+        if ch in proc.HABITS and self.rng.random() < proc.HABITS[ch][1]: return proc.HABITS[ch][0](self.rng)
         if ch == 'x' and var_x and self.rng.random() < .4: return proc.x_arcs(self.rng)
         return None
 

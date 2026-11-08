@@ -59,7 +59,7 @@ function drawG(g){const col=g.ans?palette.accent:palette.ink;ctx.fillStyle=col;c
 function render(now){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
  if(!started&&!lines.length&&!cur){ctx.globalAlpha=.25;ctx.fillStyle=palette.ink;ctx.font='54px '+FONT;ctx.textAlign='center';ctx.fillText(T('writeHint'),SW/2,SH/2);ctx.textAlign='left';ctx.globalAlpha=1}
  ctx.setTransform(DPR*V.k,0,0,DPR*V.k,DPR*V.x,DPR*V.y);drawGrid();
- for(const L of lines){L.syms.forEach(drawG);L.ans.forEach(drawG);L.ink.forEach(s=>drawInk(s,1))}
+ for(const L of lines){L.syms.forEach(drawG);L.ans.forEach(drawG);L.ink.forEach(s=>drawInk(s,s.fa===undefined?1:s.fa))}
  fx.forEach(drawG);ghosts.forEach(g=>drawInk(g.pts,1-(now-g.t0)/420));if(cur)drawInk(cur,1);
  ctx.setTransform(DPR,0,0,DPR,0,0);
  if(drag){ctx.font='44px '+FONT;const w=ctx.measureText(drag.text).width+30,x=drag.x-w/2,y=drag.y-86;ctx.save();ctx.shadowColor=palette.dragShadow;ctx.shadowBlur=16;ctx.shadowOffsetY=4;ctx.fillStyle=palette.dragBackground;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.fill();ctx.restore();ctx.strokeStyle=palette.accent;ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,60,16):ctx.rect(x,y,w,60);ctx.stroke();ctx.fillStyle=palette.accent;ctx.textBaseline='middle';ctx.fillText(drag.text,x+15,y+32);ctx.textBaseline='alphabetic'}}
@@ -69,7 +69,8 @@ function stepG(g,dt,now){if(now<g.delay)return true;const k=1-Math.exp(-dt*7),k2
  if(g.bwt!==undefined){g.bw+=(g.bwt-g.bw)*k;if(Math.abs(g.bwt-g.bw)>.3)r=true}
  if(g.mht!==undefined){g.mh+=(g.mht-g.mh)*k;if(Math.abs(g.mht-g.mh)>.3)r=true}return r}
 function step(dt,now){let act=false;const tick=g=>{if(stepG(g,dt,now))act=true};
- for(const L of lines){L.syms.forEach(tick);L.ans.forEach(tick)}
+ for(const L of lines){L.syms.forEach(tick);L.ans.forEach(tick);L.ink.forEach(t=>{const to=t.read?0:1,f=t.fa===undefined?1:t.fa;if(Math.abs(to-f)>.01){t.fa=f+(to-f)*(1-Math.exp(-dt*7));act=true}else t.fa=to})}   // read strokes dissolve into the typeset reading
+ if(viewTo){if(ptrs.size||gest)viewTo=null;else{const f=1-Math.exp(-dt*7);setView(V.x+(viewTo.x-V.x)*f,V.y+(viewTo.y-V.y)*f,V.k+(viewTo.k-V.k)*f);if(Math.abs(viewTo.x-V.x)<.5&&Math.abs(viewTo.k-V.k)<.002){setView(viewTo.x,viewTo.y,viewTo.k);viewTo=null}else act=true}}
  fx.forEach(tick);if(fx.length)fx=fx.filter(g=>g.a>.02);if(ghosts.length)ghosts=ghosts.filter(g=>now-g.t0<420);return act||ghosts.length>0}
 function kick(){if(!raf){tPrev=performance.now();raf=requestAnimationFrame(frame)}}
 function frame(now){raf=0;const dt=Math.min(.05,(now-tPrev)/1000);tPrev=now;const act=step(dt,now);render(now);if(act||cur)kick()}
@@ -80,7 +81,7 @@ function coverN(A,k){const g=A[k];if(g.cover>0)return Math.min(g.cover,A.length-
 const isPart=g=>typeof g.fp=='string'&&/^(n|d|r\d+c\d+)$/.test(g.fp);
 const isHeadG=g=>g.fp=='bar'||g.fp=='head';
 const partsOf=(L,bar,p)=>L.syms.concat(L.ans).filter(s=>s.fid===bar.fid&&s.fp==p||isHeadG(s)&&s.pfid===bar.fid&&s.pfp==p);   // a part's glyphs, nested containers included
-function seqs(L){const top=[],m=new Map();for(const g of L.syms){if(isPart(g)||g.pfid){const k=g.pfid?g.pfid+g.pfp:g.fid+g.fp;if(!m.has(k))m.set(k,[]);m.get(k).push(g)}else top.push(g)}return[top,...m.values()]}
+function seqs(L,list=L.syms){const top=[],m=new Map();for(const g of list){if(isPart(g)||g.pfid){const k=g.pfid?g.pfid+g.pfp:g.fid+g.fp;if(!m.has(k))m.set(k,[]);m.get(k).push(g)}else top.push(g)}return[top,...m.values()]}
 /* Boxes: stacked fractions and matrices, nested to any shown depth. A sequence is laid out at font size s on a baseline; a box glyph is a
    '§' bar (numerator / denominator parts, at .8 s) or a '▦' matrix head (one part per entry, named r<row>c<col>, at s). ext() measures how
    far a sequence reaches above and below its baseline, so a fraction inside a numerator lifts it clear of the bar, and matrix rows get
@@ -116,7 +117,7 @@ function layout(L){const F=L.F,top=L.syms.filter(g=>!isPart(g)&&!g.pfid),items=t
   if(isFB(g))placeBox(L,g,x,base,F*f);
   else{g.tx=x;g.tsz=F*f*sf(g);g.w=g.w0*f;g.ty=base-(g.sup?.42*F*f:0)}
   x+=(g.w0+trail(g))*f});
- seqs(L).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'||ch(g)=='‾'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=ch(g)=='‾'?g.tx:g.tx+.56*g.tsz}}))}
+ seqs(L).concat(seqs(L,L.ans)).forEach(A=>A.forEach((g,k)=>{if(ch(g)=='√'||ch(g)=='‾'){const n=coverN(A,k),e=A[Math.min(k+n,A.length-1)];g.vtx=n>0?e.tx+e.w:g.tx+g.w;if(g.vx===undefined)g.vx=ch(g)=='‾'?g.tx:g.tx+.56*g.tsz}}))}
 function tokSeq(L,A0,top){const A=A0.slice();if(top)while(A.length&&ch(A[A.length-1])=='=')A.pop();
  const out=[],close=new Map();let inSup=false,num='',word='';
  const fN=()=>{if(num){out.push(num);num=''}},fW=()=>{if(word){if(word=='e'||word=='o'||word=='x'||(word=='i'&&SET.domain=='complex')||FUNCS.has(word))out.push(word);else throw new Error('unknown word');word=''}};
@@ -139,6 +140,16 @@ function storeFor(L){let st=BoardCore.empty();const order=lines.filter(M=>M.rt).
  return st}
 let boardBusy=false;
 function boardChanged(src){if(boardBusy)return;boardBusy=true;try{for(const M of lines)if(M!==src&&M.rt){M.at='\0';updateAns(M)}}finally{boardBusy=false}}
+/* Keep what a line shows (reading + answer) on screen: pan left when the answer runs off the right edge, zoom out only when the whole line cannot fit. */
+let viewTo=null;
+function reveal(L){if(ptrs.size||gest)return;const gs=L.syms.concat(L.ans).filter(g=>!isPart(g)&&!g.pfid);if(!gs.length)return;
+ const x0=Math.min(...gs.map(g=>g.tx)),x1=Math.max(...gs.map(g=>g.tx+Math.max(g.w||0,g.bwt||0))),m=22;
+ const k0=viewTo?viewTo.k:V.k,vx0=viewTo?viewTo.x:V.x,vy=viewTo?viewTo.y:V.y;
+ let k=k0,vx=vx0;const sx0=vx+k*x0,sx1=vx+k*x1;
+ if(sx1<=SW-m&&sx0>=m)return;                                   // already in view
+ if((x1-x0)*k>SW-2*m){k=Math.max(ZMIN,(SW-2*m)/(x1-x0));vx=m-k*x0}   // wider than the screen: zoom out to fit
+ else vx=sx1>SW-m?vx-(sx1-(SW-m)):vx+(m-sx0);                  // otherwise just slide
+ viewTo={x:vx,y:vy,k};kick()}
 function computeAns(L) {
   const last=L.syms[L.syms.length-1],trailingEquals=!!(last&&ch(last)=='=');
   if(L.rt){const lx=Calculator.computeLatex(L.rt.split(' '),{...SET,lang:LANG},trailingEquals,storeFor(L));if(lx!==undefined)return lx}   // matrices, mod, congruences: from the model's LaTeX
@@ -147,7 +158,8 @@ function computeAns(L) {
   return Calculator.compute(tokens,{...SET,lang:LANG},trailingEquals);
 }
 function buildAns(pieces){const now=performance.now();let k=0;const out=[];const d=()=>now+260+(k++)*75;
- for(const p of pieces){if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,sup:!!p.sup,delay:d()}))});
+ for(const p of pieces){if(p.tex){out.push(...mkGlyphs(p.tex,()=>({ans:true,delay:d()})));continue}
+  if(p.s!==undefined)[...p.s].forEach(c=>{if(c!=' ')out.push(newG([{c,p:1}],{ans:true,sup:!!p.sup,delay:d()}))});
   else if(p.m){const fid='a'+(++FID);out.push(newG([{c:'▦',p:1}],{ans:true,fp:'head',fid,br:p.m.br,delay:d()}));
    p.m.rows.forEach((row,r)=>row.forEach((cell,c)=>{const part='r'+r+'c'+c;for(const q of cell){if(q.s!==undefined)[...q.s].forEach(ch2=>{if(ch2!=' ')out.push(newG([{c:ch2,p:1}],{ans:true,fp:part,fid,delay:d()}))});
     else{const f2='a'+(++FID);out.push(newG([{c:'§',p:1}],{ans:true,fp:'bar',fid:f2,pfid:fid,pfp:part,delay:d()}));[...q.f[0]].forEach(ch2=>out.push(newG([{c:ch2,p:1}],{ans:true,fp:'n',fid:f2,delay:d()})));[...q.f[1]].forEach(ch2=>out.push(newG([{c:ch2,p:1}],{ans:true,fp:'d',fid:f2,delay:d()})))}}}))}
@@ -155,7 +167,7 @@ function buildAns(pieces){const now=performance.now();let k=0;const out=[];const
  return out}
 function newG(c,o){return Object.assign({c,i:0,x:0,y:0,sz:60,tx:0,ty:0,tsz:60,a:0,ta:1,ot:0,old:null,delay:0,ink:null,w:0,w0:0,sup:false,bw:0},o)}
 function updateAns(L){const r=computeAns(L),key=r?r.text:null;if(key===L.at)return;L.at=key;L.val=r?r.val:undefined;lastL=L;L.ans.forEach(kill);L.ans=[];if(!r)return;
- L.ans=buildAns(r.pieces);layout(L);L.ans.forEach(g=>{g.x=g.tx+4;g.y=g.ty+L.F*.35;g.sz=g.tsz;if(g.fp=='bar'||g.fp=='head'){g.bw=0;g.mh=0}});if(window.histSave)histSave(L)}
+ L.ans=buildAns(r.pieces);layout(L);L.ans.forEach(g=>{g.x=g.tx+4;g.y=g.ty+L.F*.35;g.sz=g.tsz;if(g.fp=='bar'||g.fp=='head'){g.bw=0;g.mh=0}});reveal(L);if(window.histSave)histSave(L)}
 function kill(g){g.ta=0;g.tsz*=.75;g.ty+=16;g.ink=null;g.delay=0;fx.push(g)}
 function inkBand(L){let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const m=Math.max(.4*(y1-y0)+10,35);return[y0-m,y1+m]}
 function lineBox(L){if(L.seq&&L.ink.length)return inkBand(L);if(L.syms.length||L.ans.length)return[L.base-1.05*L.F,L.base+.4*L.F];let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const h=y1-y0,m=Math.max(.4*h+10,35);return[y0-m,y1+m]}
@@ -181,7 +193,7 @@ function revs(v,amp){let d=0,ext=v[0],n=0;for(const x of v){if(d==0){if(Math.abs
 function scribStats(s){const b=bb(s),m=Math.max(b.w,b.h);let len=0;for(let i=1;i<s.length;i++)len+=Math.hypot(s[i][0]-s[i-1][0],s[i][1]-s[i-1][1]);
  const pts=resamp(s,6);return{m,ratio:len/Math.max(m,1),c:cusps(s),over:allBoxes().some(q=>coverage(pts,q)>=.15)}}
 function isScribble(s){if(s.length<8)return false;const k=scribStats(s);if(k.m<18)return false;
- if(seqOn()){if(!((k.c>=5&&k.ratio>=3.5)||(k.c>=4&&k.ratio>=7)))return false;const pts=resamp(s,6);return allBoxes().some(q=>coverage(pts,q)>=.4)}   // ink stays on the board: only a real wiggle over existing ink erases (a looped 2 or a cursive x overlaps a neighbour)
+ if(seqOn()){const strict=(k.c>=8&&k.ratio>=1.8)||(k.c>=5&&k.ratio>=3.5)||(k.c>=4&&k.ratio>=7),loose=k.c>=3&&k.ratio>=7;if(!strict&&!loose)return false;const pts=resamp(s,6);return allBoxes().some(q=>coverage(pts,q)>=(strict?.4:.7))}   // a looser wiggle must cover a whole reading to erase it   // ink stays on the board: only a real wiggle over existing ink erases (a looped 2 or a cursive x overlaps a neighbour)
  return k.over?((k.c>=3&&k.ratio>=2.2)||(k.c>=2&&k.ratio>=2.6)||k.ratio>=4.2):((k.c>=4&&k.ratio>=3.5)||k.ratio>=6)}
 function scribble(s){const now=performance.now();ghosts.push({pts:s,t0:now});const pts=resamp(s,6),cov=(b,r)=>coverage(pts,b,r),cg=g=>ch(g)=='§'?cov(gbox(g),6)*(.22/.45):cov(gbox(g),18);
  for(const L of lines.slice()){const nIn=L.ink.length;L.ink=L.ink.filter(t=>{const q=bb(t);if(cov({x0:q.x0-8,y0:q.y0-8,x1:q.x1+8,y1:q.y1+8})>=.22){ghosts.push({pts:t,t0:now});return false}return true});
@@ -254,23 +266,26 @@ function seqRun(S){return new Promise((res,rej)=>{seqBoot();if(!sw){rej(new Erro
 function dropReading(L){L.syms.forEach(kill);L.syms=[];L.ans.forEach(kill);L.ans=[];L.at=null;
  (L.kids||[]).forEach(K=>{K.syms.concat(K.ans).forEach(kill);const i=lines.indexOf(K);if(i>=0)lines.splice(i,1)});L.kids=[];L.seq=false;L.sk=L.tk=L.rt=null}
 const clearReading=dropReading;
-function mkGlyphs(row){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
- return newG([{c:o.c,p:1}],{sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,br:o.br,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false})})}
+function mkGlyphs(row,extra){const ids=new Map();return SeqCore.toGlyphs(row).map(o=>{let fid;if(o.fid){if(!ids.has(o.fid))ids.set(o.fid,++FID);fid=ids.get(o.fid)}
+ return newG([{c:o.c,p:1}],Object.assign({sup:!!o.sup,fp:o.fp,fid,pfid:o.pfid?ids.get(o.pfid):undefined,pfp:o.pfp,br:o.br,cover:o.cover||0,wb:!!o.wb,mul:!!o.mul,fresh:false},extra&&extra()))})}
 function placeRow(L,gs,x0,base,F){L.syms=gs;L.x0=x0;L.base=base;L.F=F;layout(L);
  for(const g of gs){g.x=g.tx;g.y=g.ty+10;g.sz=g.tsz;g.a=0;g.ta=1;if(ch(g)=='√')g.vx=g.tx+.56*g.tsz}updateAns(L)}
 function applyReading(L,tokens){const key=tokens.join(' ');if(L.seq&&L.tk===key)return;
  const rows=[[]];for(const t of tokens)t==='<nl>'?rows.push([]):rows[rows.length-1].push(t);
  dropReading(L);L.tk=key;
- let x0=1e9,y1=-1e9;const hs=[];for(const s of L.ink){const b=bb(s);x0=Math.min(x0,b.x0);y1=Math.max(y1,b.y1);if(b.h>=12)hs.push(b.h)}
- hs.sort((a,b)=>a-b);const h=hs.length?hs[Math.floor(hs.length*.75)]:40,F=Math.max(48,Math.min(110,h/.55*.85));
- L.seq=true;L.rt=rows[0].join(' ');placeRow(L,mkGlyphs(rows[0]),x0,y1+1.1*F,F);
- let base=L.base;rows.slice(1).forEach(r=>{base+=1.5*F;const K={syms:[],ans:[],ink:[],x0,base,F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,base,F)});boardChanged(L)}
+ let x0=1e9,y0=1e9,y1=-1e9;const hs=[];for(const s of L.ink){const b=bb(s);x0=Math.min(x0,b.x0);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1);if(b.h>=12)hs.push(b.h)}
+ hs.sort((a,b)=>a-b);const h=hs.length?hs[Math.floor(hs.length*.75)]:40,R=rows.length;let F=Math.max(48,Math.min(240,h/.55*.85));
+ if(R>1)F=Math.max(40,Math.min(F,(y1-y0)/R/1.45));                                  // every row must fit in its share of the ink's height
+ // The reading takes the place of the handwriting: its rows are centred on the ink's rows (the baseline sits .32 F below the centre line).
+ const baseOf=k=>y0+(k+.5)*(y1-y0)/R+.32*F;
+ L.seq=true;L.rt=rows[0].join(' ');placeRow(L,mkGlyphs(rows[0]),x0,baseOf(0),F);
+ rows.slice(1).forEach((r,k)=>{const K={syms:[],ans:[],ink:[],x0,base:baseOf(k+1),F,at:null,kidOf:L,rt:r.join(' ')};lines.push(K);L.kids.push(K);placeRow(K,mkGlyphs(r),x0,K.base,F)});boardChanged(L)}
 async function doRecognizeSeq(){
  for(const L of lines.slice()){if(L.kidOf||!L.ink.length||!lines.includes(L))continue;
   const snap=L.ink.slice(),key=snap.length+':'+snap.map(s=>s.length).join(',');if(L.sk===key)continue;
   const toks=await seqRun(snap);
   if(!lines.includes(L)||L.ink.length!==snap.length||L.ink.some((s,k)=>s!==snap[k]))continue;
-  if(toks.length)applyReading(L,toks);L.sk=key}
+  if(toks.length){applyReading(L,toks);snap.forEach(t=>{t.read=true})}L.sk=key}
  kick()}
 initCNN();
 seqBoot();

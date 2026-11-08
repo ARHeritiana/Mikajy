@@ -224,7 +224,8 @@ const Calculus = (() => {
       const sols = CAS.solve(`${toCas(L)}-${toCas(R)}`, 'x').toString();
       if (unevaluated(sols) || /_n/.test(sols) || !/^\{.*\}$/.test(sols)) return none;
       const cands = splitTop(sols.slice(1, -1)).map(t => ({t, v: casValue(t)})).filter(c => Number.isFinite(c.v) && !looksNumeric(c.t) && c.t.length <= 48);
-      return roots.map(r => { const m = cands.find(c => close(c.v, r, 1e-9)); return m ? prettyExact(m.t) : null; });
+      const simplified = t => { try { const e = CAS(`expand(${t})`).toString(); return unevaluated(e) || !close(casValue(e), casValue(t), 1e-12) ? t : e; } catch (_) { return t; } };
+      return roots.map(r => { const m = cands.find(c => close(c.v, r, 1e-9)); return m ? prettyExact(simplified(m.t)) : null; });
     } catch (_) { return none; }
   }
 

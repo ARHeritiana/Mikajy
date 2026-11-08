@@ -4,6 +4,7 @@ const Calculator = (() => {
   const Core = typeof module !== 'undefined' && module.exports ? require('./math-core.js') : MathCore;
   const Calc = typeof module !== 'undefined' && module.exports ? require('./calculus.js') : Calculus;
   const Latex = typeof module !== 'undefined' && module.exports ? require('./latex-eval.js') : LatexEval;
+  const TS = typeof module !== 'undefined' && module.exports ? require('./typeset.js') : Typeset;
   const Board = typeof module !== 'undefined' && module.exports ? require('./board-core.js') : BoardCore;
   const Prob = typeof module !== 'undefined' && module.exports ? require('./prob-core.js') : ProbCore;
   const Ode = typeof module !== 'undefined' && module.exports ? require('./ode-core.js') : OdeCore;
@@ -11,7 +12,7 @@ const Calculator = (() => {
   const Linalg = typeof module !== 'undefined' && module.exports ? require('./linalg-core.js') : LinalgCore;
   const I18 = typeof module !== 'undefined' && module.exports ? require('./i18n.js') : I18n;
   const textPiece = s => ({s: String(s)});
-  const textOf = pieces => pieces.map(p => p.m ? '[' + p.m.rows.map(row => row.map(cell => textOf(cell)).join(' ')).join('; ') + ']' : p.s === undefined ? p.f.join('/') : p.sup ? '^' + (p.s.length > 1 ? '(' + p.s + ')' : p.s) : p.s).join('').replace(/⁄/g, '/');
+  const textOf = pieces => pieces.map(p => p.tex ? p.text : p.m ? '[' + p.m.rows.map(row => row.map(cell => textOf(cell)).join(' ')).join('; ') + ']' : p.s === undefined ? p.f.join('/') : p.sup ? '^' + (p.s.length > 1 ? '(' + p.s + ')' : p.s) : p.s).join('').replace(/⁄/g, '/');
   const niceNumber = v => {
     if (!Number.isFinite(v)) return '?';
     if (Object.is(v, -0)) v = 0;
@@ -73,6 +74,11 @@ const Calculator = (() => {
     flush();
     return out;
   }
+  /** CAS-style text -> pieces drawn like paper: stacked fractions, roots with the bar over the whole radicand, raised powers (typeset.js); plain text when it cannot be parsed. */
+  function typeset(str) { const t = TS.tokens(str); return t ? [{tex: t, text: str}] : rich(str); }
+  /** "x=…" / "y=…": the name stays text, the right-hand side is typeset */
+  function argPieces(v) { const t = piText(v); return t === '0' ? [textPiece('0')] : [...typeset(t), textPiece(' ≈' + niceNumber(v))]; }
+  function typesetEq(str) { const m = /^([a-zA-Z]\w*=)(.*)$/.exec(str); return m ? [textPiece(m[1]), ...typeset(m[2])] : typeset(str); }
   /** v as a rational multiple of π ("π/4", "-3π/4", "π", "0") when it is one to double precision (denominators up to 12), else null. Used for arg(z). */
   function piText(v) {
     if (!Number.isFinite(v)) return null;
@@ -108,7 +114,7 @@ const Calculator = (() => {
           let periodic;
           try { periodic = Calc.solveEquation(left, right, settings); } catch (_) { throw error; }
           const pieces = [textPiece('x=')];
-          periodic.solutions.forEach((t, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(...rich(t)); });
+          periodic.solutions.forEach((t, i) => { if (i) pieces.push(textPiece(', ')); pieces.push(...typeset(t)); });
           if (periodic.periodic) pieces.push(textPiece(',  n∈ℤ'));
           return asResponse(pieces, undefined);
         }
@@ -125,7 +131,7 @@ const Calculator = (() => {
           ? Calc.exactRoots(left, right, result.roots.map(r => r.value), settings) : [];
         result.roots.forEach((r, i) => {
           if (i) pieces.push(textPiece(', '));
-          if (!r.rational && closed[i]) pieces.push(...rich(closed[i]), textPiece(' ≈' + niceNumber(r.value)));
+          if (!r.rational && closed[i]) pieces.push(...typeset(closed[i]), textPiece(' ≈' + niceNumber(r.value)));
           else pieces.push(...numberPieces(r, settings.fmt || 'dec'));
         });
         return asResponse(pieces, result.roots[0]?.value);
@@ -134,16 +140,16 @@ const Calculator = (() => {
       if (tokens.length === 1 && !trailingEquals) return null;
       if (settings.domain === 'complex') {
         const z = Core.evaluateComplex(tokens, settings);
-        if (tokens.includes('arg') && !z.exact && Math.abs(z.im) < 1e-12 && piText(z.re)) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), textPiece(piText(z.re) + (piText(z.re) === '0' ? '' : ' ≈' + niceNumber(z.re)))], z.re);
+        if (tokens.includes('arg') && !z.exact && Math.abs(z.im) < 1e-12 && piText(z.re)) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...argPieces(z.re)], z.re);
         const pieces = complexPieces(asComplex(z), settings.fmt || 'dec');
         return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...pieces], Math.abs(z.im) < 1e-12 ? z.re : undefined);
       }
       const result = Core.evaluate(tokens, settings);
-      if (tokens.includes('arg') && !result.rational && piText(result.value)) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), textPiece(piText(result.value) + (piText(result.value) === '0' ? '' : ' ≈' + niceNumber(result.value)))], result.value);
+      if (tokens.includes('arg') && !result.rational && piText(result.value)) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...argPieces(result.value)], result.value);
       // Symbolic first: an irrational value gets its closed form (√8 -> 2√2) with the decimal as a secondary reading.
       if (!result.rational && (settings.fmt || 'dec') !== 'dec') {
         const closedForm = Calc.exactValue(tokens, result.value, settings);
-        if (closedForm) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...rich(closedForm), ...(/^-?\d+(\/\d+)?$/.test(closedForm) ? [] : [textPiece(' ≈' + niceNumber(result.value))])], result.value);
+        if (closedForm) return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...typeset(closedForm), ...(/^-?\d+(\/\d+)?$/.test(closedForm) ? [] : [textPiece(' ≈' + niceNumber(result.value))])], result.value);
       }
       return asResponse([...(!trailingEquals ? [textPiece('=')] : []), ...numberPieces(result, settings.fmt || 'dec')], result.value);
     } catch (error) {
@@ -168,9 +174,14 @@ const Calculator = (() => {
     const eq = [...(!trailingEquals && tokens[tokens.length - 1] !== '=' ? [textPiece('=')] : [])];
     try {
       if (Board.parseStatement(tokens)) return null;                                   // f(x) = ... and X ~ B(...) only declare
+      if (tokens.includes('\\arg') || tokens.includes('\\overline')) {                  // conjugate and argument go through the token engine (ℂ mode gives the full answer)
+        if (settings.mode === 'demand' && !explicit) return null;
+        let math; try { math = SeqC.toMathTokens(Board.expand(tokens, st), {complex: settings.domain === 'complex'}); } catch (e) { return fail(e.unsupported ? {code: 'unsupported'} : e); }
+        return compute(math, settings, trailingEquals);
+      }
       if (Ode.applies(tokens)) {
         if (settings.mode === 'demand' && !explicit) return null;
-        return asResponse(rich(Ode.solve(tokens).text), undefined);
+        return asResponse(typesetEq(Ode.solve(tokens).text), undefined);
       }
       if (Prob.applies(tokens)) {
         if (settings.mode === 'demand' && !explicit) return null;
@@ -181,7 +192,7 @@ const Calculator = (() => {
         const v = Prob.value(r.v);
         if (Prob.isApprox(r.v)) return asResponse([...eq, textPiece('≈' + niceNumber(v))], v);
         if (r.v.c.n === 0n) return asResponse([...eq, ...asQ(r.v.q)], v);
-        return asResponse([...eq, ...rich(Prob.valText(r.v)), textPiece(' ≈' + niceNumber(v))], v);
+        return asResponse([...eq, ...typeset(Prob.valText(r.v)), textPiece(' ≈' + niceNumber(v))], v);
       }
       if (Board.usesDefs(tokens, st)) {                                                // f(3), f(g(2)): expand, then the ordinary engines
         if (settings.mode === 'demand' && !explicit) return null;

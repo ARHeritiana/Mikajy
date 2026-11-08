@@ -25,9 +25,12 @@ def _resample(a, k=24):
     return np.stack([np.interp(u, d, a[:, 0]), np.interp(u, d, a[:, 1])], 1).astype(np.float32)
 
 
-def stroke_aug(P, T, rng, pm=.12, ps=.08):
+def stroke_aug(P, T, rng, pm=.12, ps=.08, pr=.12):
     """Real hands join strokes (a 7 with its bar, a cursive x) or break them (a 5 and its hat): randomly merge consecutive quick strokes and split long ones."""
     n = len(P); outP, outT = [], []; i = 0
+    P = np.array(P, copy=True)
+    for k in range(n):                      # people draw bars right to left and circles either way round: reverse some strokes
+        if rng.random() < pr: P[k] = P[k][::-1]
     while i < n:
         p, t = P[i].astype(np.float32), T[i].astype(np.float32).copy()
         if i + 1 < n and T[i + 1][0] < 1.2 and rng.random() < pm:
