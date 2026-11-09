@@ -7,8 +7,8 @@ const Calculator = require('../web/calculator.js');
 test('French has every English key and no leftover placeholders', () => {
   assert.deepEqual(Object.keys(I18n.FR).sort(), Object.keys(I18n.EN).sort());
   for (const [k, v] of Object.entries(I18n.FR)) assert.equal(typeof v, 'string', k);
-  assert.equal(I18n.t('fr', 'getUpdate', {v: '6.0'}), 'Obtenir Mikajy 6.0');
-  assert.equal(I18n.t('en', 'getUpdate', {v: '6.0'}), 'Get Mikajy 6.0');
+  assert.equal(I18n.t('fr', 'getUpdate', {v: '6.0'}), 'Obtenir Mikajy Spark 6.0');
+  assert.equal(I18n.t('en', 'getUpdate', {v: '6.0'}), 'Get Mikajy Spark 6.0');
 });
 test('language follows the device unless the user chose one; unknown keys never blank', () => {
   assert.equal(I18n.resolve('auto', 'fr-MG'), 'fr');

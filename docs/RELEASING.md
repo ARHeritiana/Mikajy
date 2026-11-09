@@ -1,4 +1,6 @@
-# Releasing Mikajy
+# Releasing Mikajy Spark
+
+The displayed product name is **Mikajy Spark** (formerly Mikajy); the Android package ID (`com.mikajy.app`), GitHub repository URL, signing key and update endpoint remain unchanged. The already-published `v5.0` release retains its original APK filename and app name. Only future tagged builds will use the new branding.
 
 Releases are built, tested, **signed and published by GitHub Actions** from a version tag.
 The app's built-in update check (Settings → *Check for updates*, and once a day when online)
@@ -11,7 +13,7 @@ reads the newest GitHub Release, so publishing a release is what delivers an upd
 2. Move the `Unreleased` notes in `CHANGELOG.md` under the new version.
 3. Merge to `main` once CI is green, then tag and push: `git tag v5.1 && git push origin v5.1`.
 4. `release.yml` re-runs every test, builds, signs with the persistent key, checks the certificate fingerprint
-   against `MIKAJY_CERT_SHA256`, and publishes `Mikajy-5.1.apk` plus `SHA256SUMS.txt`.
+   against `MIKAJY_CERT_SHA256`, and publishes `Mikajy-Spark-5.1.apk` plus `SHA256SUMS.txt`.
 5. Installed apps pick the release up within a day (or immediately via *Check for updates*) and offer the
    download link. Installation is done by the user in the system installer; the app never installs silently.
 
@@ -104,7 +106,7 @@ Increment `android:versionCode` above 15 and update
 `android:versionName` (e.g. `5.1`) in
 `android/AndroidManifest.xml`. After merging and testing the changes,
 push the matching tag (e.g. `v5.1`). GitHub Actions then verifies, signs,
-and publishes `Mikajy-5.1.apk` and its SHA-256 checksum to
+and publishes `Mikajy-Spark-5.1.apk` and its SHA-256 checksum to
 [GitHub Releases](https://github.com/ARHeritiana/Mikajy/releases).
 
 **Do not rerun the setup in a fresh Codespace to make ordinary releases.**

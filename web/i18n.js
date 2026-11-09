@@ -10,11 +10,11 @@ const I18n = (() => {
     angles: 'Angles', radians: 'Radians', degrees: 'Degrees',
     calculate: 'Calculate', instant: 'Instant', onDemand: 'On demand', calculateHint: 'On demand waits for a trailing = before answering.',
     language: 'Language', theme: 'Theme', dark: 'Dark', light: 'Light',
-    updates: 'Updates', auto: 'Auto', off: 'Off', checkUpdates: 'Check for updates', getUpdate: 'Get Mikajy {v}',
-    updateHint: ' Mikajy {v}{avail}. Updates are looked up on GitHub at most once a day; nothing about you is sent.', availableSuffix: ' · version {n} is available',
-    copied: 'Copied', memoryEmptied: 'Memory emptied', upToDate: 'Mikajy is up to date', noResult: 'No result yet', nothingToShare: 'Nothing to share',
+    updates: 'Updates', auto: 'Auto', off: 'Off', checkUpdates: 'Check for updates', getUpdate: 'Get Mikajy Spark {v}',
+    updateHint: ' Mikajy Spark {v}{avail}. Updates are looked up on GitHub at most once a day; nothing about you is sent.', availableSuffix: ' · version {n} is available',
+    copied: 'Copied', memoryEmptied: 'Memory emptied', upToDate: 'Mikajy Spark is up to date', noResult: 'No result yet', nothingToShare: 'Nothing to share',
     savedToMemory: 'Saved to memory', tooLarge: 'Too large for memory', checking: 'Checking…', offline: 'You are offline', checkFailed: 'Could not check',
-    updateAvailable: 'Mikajy {v} is available', writeHint: 'write a sum', canvasAria: 'Handwriting canvas: write a calculation with your finger', menuAria: 'Menu',
+    updateAvailable: 'Mikajy Spark {v} is available', writeHint: 'write a sum', canvasAria: 'Handwriting canvas: write a calculation with your finger', menuAria: 'Menu',
     unsupported: 'unsupported', undefined: 'undefined'
   };
   const FR = {
@@ -26,11 +26,11 @@ const I18n = (() => {
     angles: 'Angles', radians: 'Radians', degrees: 'Degrés',
     calculate: 'Calcul', instant: 'Instantané', onDemand: 'À la demande', calculateHint: "À la demande attend un = final avant de répondre.",
     language: 'Langue', theme: 'Thème', dark: 'Sombre', light: 'Clair',
-    updates: 'Mises à jour', auto: 'Auto', off: 'Non', checkUpdates: 'Vérifier les mises à jour', getUpdate: 'Obtenir Mikajy {v}',
-    updateHint: " Mikajy {v}{avail}. Les mises à jour sont cherchées sur GitHub au plus une fois par jour ; rien sur vous n'est envoyé.", availableSuffix: ' · la version {n} est disponible',
-    copied: 'Copié', memoryEmptied: 'Mémoire vidée', upToDate: 'Mikajy est à jour', noResult: 'Pas encore de résultat', nothingToShare: 'Rien à partager',
+    updates: 'Mises à jour', auto: 'Auto', off: 'Non', checkUpdates: 'Vérifier les mises à jour', getUpdate: 'Obtenir Mikajy Spark {v}',
+    updateHint: " Mikajy Spark {v}{avail}. Les mises à jour sont cherchées sur GitHub au plus une fois par jour ; rien sur vous n'est envoyé.", availableSuffix: ' · la version {n} est disponible',
+    copied: 'Copié', memoryEmptied: 'Mémoire vidée', upToDate: 'Mikajy Spark est à jour', noResult: 'Pas encore de résultat', nothingToShare: 'Rien à partager',
     savedToMemory: 'Enregistré en mémoire', tooLarge: 'Trop grand pour la mémoire', checking: 'Vérification…', offline: 'Vous êtes hors ligne', checkFailed: 'Vérification impossible',
-    updateAvailable: 'Mikajy {v} est disponible', writeHint: 'écrivez un calcul', canvasAria: "Zone d'écriture : écrivez un calcul avec le doigt", menuAria: 'Menu',
+    updateAvailable: 'Mikajy Spark {v} est disponible', writeHint: 'écrivez un calcul', canvasAria: "Zone d'écriture : écrivez un calcul avec le doigt", menuAria: 'Menu',
     unsupported: 'non géré', undefined: 'indéfini'
   };
   const TABLES = Object.freeze({en: EN, fr: FR});

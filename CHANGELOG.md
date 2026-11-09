@@ -5,6 +5,13 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+### Branding
+- Rename the lightweight edition to **Mikajy Spark** in the Android launcher, web page and update messages. Package ID, signing identity and release channel stay unchanged. Previously published v5.0 assets keep their historical names.
+
+### Licensing clarification (2026-11-09)
+- The original project's first-party code on `main` is now licensed under MIT; `LICENSE`, `package.json` and `README.md` agree. This does not change the published `v5.0` tag or signed APK, which remain under their existing GPL-3.0-or-later release terms.
+- Rights in third-party fonts and recogniser weights must still be verified independently, especially before commercial distribution.
+
 ### Added
 - **Menu in three tabs** — *Actions* (history, copy, share, memory, clear), *Math* (results, angles, instant/on demand) and *App* (language, theme, updates) — instead of one long sheet, in the style of the later 6.x builds.
 - **English / Français** (App → Language; follows the device language until chosen): the whole interface, toasts, update texts and calculator words (`undefined` / `indéfini`, `unsupported` / `non géré`). `web/i18n.js`, `tests/i18n.test.cjs`.

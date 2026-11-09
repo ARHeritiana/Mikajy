@@ -10,7 +10,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
 
     <application
-        android:label="Mikajy"
+        android:label="Mikajy Spark"
         android:icon="@drawable/icon"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:allowBackup="false"
