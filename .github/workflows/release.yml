@@ -1,4 +1,4 @@
-name: Mikajy signed release
+name: Mikajy Spark signed release
 
 on:
   push:
@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="Mikajy-${GITHUB_REF_NAME#v}.apk"
+          apk="Mikajy-Spark-${GITHUB_REF_NAME#v}.apk"
           mv Mikajy.apk "$apk"
           sha256sum "$apk" > SHA256SUMS.txt
 
@@ -108,6 +108,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="Mikajy-${GITHUB_REF_NAME#v}.apk"
+          apk="Mikajy-Spark-${GITHUB_REF_NAME#v}.apk"
           gh release create "$GITHUB_REF_NAME" "$apk" SHA256SUMS.txt \
-            --verify-tag --generate-notes --title "Mikajy ${GITHUB_REF_NAME#v}"
+            --verify-tag --generate-notes --title "Mikajy Spark ${GITHUB_REF_NAME#v}"
