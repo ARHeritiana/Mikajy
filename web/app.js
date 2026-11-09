@@ -356,15 +356,15 @@ let UPD=Updates.load(localStorage),updManual=false;
 const hasUpdater=()=>!!(window.Android&&typeof Android.checkForUpdates==='function'&&typeof Android.version==='function');
 const appVersion=()=>{try{return String(Android.version())}catch(e){return''}};
 const pendingUpdate=()=>hasUpdater()?Updates.pending(UPD,appVersion()):null;
-function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync','Check for updates')+(u?tool('getupd','get','Get Mikajy '+esc(u.version),'danger'):'')}
-function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return` Mikajy ${esc(appVersion())}${u?' · version '+esc(u.version)+' is available':''}. Updates are looked up on GitHub at most once a day; nothing about you is sent.`}
+function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync','Check for updates')+(u?tool('getupd','get','Get Mikajy Spark '+esc(u.version),'danger'):'')}
+function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return` Mikajy Spark ${esc(appVersion())}${u?' · version '+esc(u.version)+' is available':''}. Updates are looked up on GitHub at most once a day; nothing about you is sent.`}
 function updBadge(){$('mb').classList.toggle('upd',!!pendingUpdate())}
 window.onUpdateResult=json=>{
  const manual=updManual;updManual=false;let r;
  try{r=Updates.interpret(JSON.parse(json),appVersion())}catch(e){r={status:'error'}}
  if(r.status==='offline'||r.status==='error'){if(manual)toast(r.status==='offline'?'You are offline':'Could not check');return}
  UPD=Updates.record(UPD,r,Date.now());Updates.save(localStorage,UPD);updBadge();
- if(r.status==='available')toast('Mikajy '+r.version+' is available');else if(manual)toast('Mikajy is up to date');
+ if(r.status==='available')toast('Mikajy Spark '+r.version+' is available');else if(manual)toast('Mikajy Spark is up to date');
  if($('sheet').classList.contains('in'))openSheet('main')};
 function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual)toast('Checking…');try{Android.checkForUpdates()}catch(e){updManual=false}}
 updBadge();
