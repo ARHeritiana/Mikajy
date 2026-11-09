@@ -1,0 +1,36 @@
+name: Restore Mikajy v5.0 as latest GitHub release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/restore-v5-latest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote_original_v5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify the original released APK has not changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download v5.0 --repo "$GITHUB_REPOSITORY" --pattern 'Mikajy-5.0.apk'
+          printf '%s  %s\n' 'fe52270b3f4b2ab343d62637bc19c685a5f3b995a01a42f781f9bc2cc8ef6290' 'Mikajy-5.0.apk' | sha256sum --check -
+
+      - name: Make the existing v5.0 release latest (preserve original asset and tag)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit v5.0 --latest --repo "$GITHUB_REPOSITORY"
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          test "$actual" = 'v5.0'
+          echo 'The exact original Mikajy v5.0 APK is now on the latest release.'
