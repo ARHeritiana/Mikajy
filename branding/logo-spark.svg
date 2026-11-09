@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Mikajy Spark</title>
+  <!-- Mikajy Spark logo: light and fast. Palette: red / black / white only.
+       Idea: the family's white M, leaning forward and slimmed down, trailing speed lines, with a spark (four-point glint) on its shoulder. -->
+  <defs>
+    <clipPath id="tile"><rect width="1024" height="1024" rx="205"/></clipPath>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5A3C"/>
+      <stop offset="1" stop-color="#E3261A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="0.35" stop-color="#FF8A6A" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FF3A22" stop-opacity="0"/>
+    </radialGradient>
+    <!-- four-point spark: concave diamond -->
+    <path id="spark" d="M0,-1 C0.10,-0.22 0.22,-0.10 1,0 C0.22,0.10 0.10,0.22 0,1 C-0.10,0.22 -0.22,0.10 -1,0 C-0.22,-0.10 -0.10,-0.22 0,-1 Z"/>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect width="1024" height="1024" fill="#141414"/>
+    <!-- red field: one clean sweep from the top edge to the left edge (same gesture as the original Mikajy mark) -->
+    <path d="M600,0 C260,200 0,720 0,720 L0,1024 L1024,1024 L1024,0 Z" fill="url(#red)"/>
+    <!-- a lighter, narrow ribbon along the sweep: speed, not weight -->
+    <path d="M672,0 C318,206 40,744 40,744" fill="none" stroke="#FFFFFF" stroke-opacity="0.28" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- speed lines streaming off the M -->
+    <g stroke="#FFFFFF" stroke-linecap="round">
+      <line x1="64"  y1="372" x2="236" y2="372" stroke-width="18" stroke-opacity="0.95"/>
+      <line x1="112" y1="470" x2="260" y2="470" stroke-width="14" stroke-opacity="0.75"/>
+      <line x1="40"  y1="568" x2="236" y2="568" stroke-width="18" stroke-opacity="0.95"/>
+      <line x1="136" y1="666" x2="268" y2="666" stroke-width="12" stroke-opacity="0.55"/>
+    </g>
+
+    <!-- the M: slim strokes, leaning forward -->
+    <g transform="translate(0,0) skewX(-11) translate(113,0)">
+      <path fill="#000" fill-opacity="0.22" transform="translate(18,22)"
+        d="M200,730 V250 H300 L512,540 L724,250 H824 V730 H724 V430 L552,672 H472 L300,430 V730 Z"/>
+      <path fill="#FFFFFF"
+        d="M200,730 V250 H300 L512,540 L724,250 H824 V730 H724 V430 L552,672 H472 L300,430 V730 Z"/>
+    </g>
+
+    <!-- the spark, on the M's right shoulder -->
+    <circle cx="838" cy="228" r="170" fill="url(#glow)"/>
+    <use href="#spark" transform="translate(838,228) scale(120)" fill="#FFFFFF"/>
+    <use href="#spark" transform="translate(938,372) scale(34)" fill="#FFFFFF"/>
+    <use href="#spark" transform="translate(740,120) scale(24)" fill="#FFFFFF" fill-opacity="0.85"/>
+  </g>
+</svg>
