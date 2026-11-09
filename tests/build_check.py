@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 subprocess.run([sys.executable, str(ROOT / "web/build_web.py")], cwd=ROOT, check=True)
 page = (ROOT / "android/assets/index.html").read_text(encoding="utf-8")
 assert "<canvas id=\"pad\"" in page
-for name in ("MathCore", "Calculator", "SettingsStore", "Store", "Recognizer", "Updates"):
+for name in ("MathCore", "Calculator", "I18n", "SettingsStore", "Store", "Recognizer", "Updates"):
     assert f"const {name}" in page, name
 assert "CAS.special(" not in page
 assert "--canvas:#000000" in page and "--canvas:#ffffff" in page
@@ -37,4 +37,15 @@ assert shipped["fmt"] == "f16" and shipped["cls"] == src["cls"], "model metadata
 for key in ("w1", "b1", "w2", "b2", "w3", "b3", "w4", "b4"):
     expect = b"".join(struct.pack("<e", values[0]) for values in struct.iter_unpack("<f", base64.b64decode(src[key])))
     assert base64.b64decode(shipped[key]) == expect, f"{key}: run training/pack_model.py"
+# Every character of the interface strings must exist in the bundled handwriting font (French accents included),
+# otherwise it silently falls back to a system font and the handwritten look breaks.
+try:
+    from fontTools.ttLib import TTFont
+    cmap = TTFont(ROOT / "web/fonts/hand.woff2").getBestCmap()
+    i18n = (ROOT / "web/i18n.js").read_text(encoding="utf-8")
+    text = re.sub(r"<[^>]+>|\{\w+\}", "", "".join(re.findall(r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"", i18n) and [a or b for a, b in re.findall(r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"", i18n)]))
+    missing = sorted({c for c in text if ord(c) < 0x250 and ord(c) not in cmap and not c.isspace()})   # math symbols (ℝ ℂ √ π) already fall back to the system font
+    assert not missing, f"interface characters missing from web/fonts/hand.woff2: {missing}"
+except ImportError:
+    print("(fontTools not installed: skipping the font coverage check)")
 print("Offline HTML build, CSP, no-eval and assembled JavaScript syntax: PASS")

@@ -1,9 +1,9 @@
 /* Versioned, validated settings storage, separate from the canvas. */
 const SettingsStore = (() => {
   'use strict';
-  const DEFAULTS = Object.freeze({mode: 'instant', angle: 'rad', fmt: 'dec', theme: 'dark', updates: 'auto'});
+  const DEFAULTS = Object.freeze({mode: 'instant', angle: 'rad', fmt: 'dec', theme: 'dark', updates: 'auto', lang: 'auto'});
   const ALLOWED = Object.freeze({
-    mode: ['instant', 'demand'], angle: ['rad', 'deg'], fmt: ['dec', 'frac', 'mixed'], theme: ['dark', 'light'], updates: ['auto', 'off']
+    mode: ['instant', 'demand'], angle: ['rad', 'deg'], fmt: ['dec', 'frac', 'mixed'], theme: ['dark', 'light'], updates: ['auto', 'off'], lang: ['auto', 'en', 'fr']
   });
   function validate(input) {
     const result = {...DEFAULTS};

@@ -37,15 +37,16 @@ async def main():
 
         page, errors = await scenario(browser, available)
         await page.click("#mb")
+        await page.click("button[data-tab=app]")
         text = await page.inner_text("#panel")
-        assert "Updates" in text and "Check for updates" in text and "Mikajy 5.0" in text, text
+        assert "Updates" in text and "Check for updates" in text and "Mikajy Spark 5.0" in text, text
         await page.click("button[data-a=upd]")
         for _ in range(20):   # the page's CSP forbids eval, so poll instead of wait_for_function(string)
             if await page.evaluate("() => document.getElementById('mb').classList.contains('upd')"):
                 break
             await page.wait_for_timeout(100)
         text = await page.inner_text("#panel")
-        assert "Get Mikajy 5.1" in text and "version 5.1 is available" in text, text
+        assert "Get Mikajy Spark 5.1" in text and "version 5.1 is available" in text, text
         await page.click("button[data-a=getupd]")
         calls = await page.evaluate("window.__calls")
         assert calls == ["check", "open:" + available["apk"]], calls
@@ -58,6 +59,7 @@ async def main():
         for answer, badge in (({"ok": True, "tag": "v5.0", "url": R + "latest", "apk": ""}, False), ({"ok": False, "reason": "offline"}, False)):
             page, errors = await scenario(browser, answer)
             await page.click("#mb")
+            await page.click("button[data-tab=app]")
             await page.click("button[data-a=upd]")
             await page.wait_for_timeout(300)
             assert await page.evaluate("document.getElementById('mb').classList.contains('upd')") == badge
@@ -80,6 +82,7 @@ async def main():
         page = await browser.new_page()
         await page.goto(PAGE)
         await page.click("#mb")
+        await page.click("button[data-tab=app]")
         assert "Updates" not in await page.inner_text("#panel")
         await browser.close()
     print("Update UI (badge, settings, manual/auto check, link hand-off, off switch): PASS")

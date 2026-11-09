@@ -22,12 +22,13 @@ and no runtime dependency.
 | `recognizer.js` | Pure heuristics over `{c:[{c,p}], i, b}` glyph objects | `recognizer.test.cjs` |
 | `core_cnn.js` | conv-pool-conv-pool-fc-fc inference on float16 weights | `cnn.test.cjs` |
 | `core_main.js` | Stroke grouping, rendering to 28×28, personalisation | `recogniser-memory.test.cjs` |
+| `i18n.js` | English / French interface strings and result words (pure; missing French keys fall back to English) | `i18n.test.cjs` |
 | `settings.js`, `storage.js` | Validated persistence; `localStorage` is untrusted input | `settings.test.cjs`, `storage.test.cjs` |
 | `updates.js` | Version comparison, answer interpretation, check scheduling | `updates.test.cjs` |
 | `app.js` | Canvas, animation, editing, history, memory, settings sheet, update UI | `browser_*.py` (headless Chromium) |
 
 `web/build_web.py` concatenates these (plus the font and model) into `android/assets/index.html`. Load order matters:
-`storage → core_main → recognizer → math-core → calculator → settings → updates → app`.
+`storage → core_main → recognizer → math-core → i18n → calculator → settings → updates → app`.
 
 ## Android shell (`android/`)
 - `MainActivity` – immersive WebView, bridge (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `openUpdate`).
