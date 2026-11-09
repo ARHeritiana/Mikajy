@@ -48,15 +48,8 @@ def T(c):
     return T0(c)
 CL=list('0123456789')+['+','-','*','/','(',')','=']+list('acegilnost')+['π','√','!']+['h','b','%']+['d','m','∫','Σ','→','∞']
 NC=len(CL);print('classes',NC,flush=True)
-ASSETS=os.environ.get('MIKAJY_ASSETS','/tmp')   # where fetch_assets.sh put fonts/ and mnist.pkl.gz
-NO_MNIST='--no-mnist' in sys.argv   # train without MNIST (unclear licence); MNIST test digits are then used only to measure
-CURSIVE='--cursive' in sys.argv   # letters get the entry/exit ligature strokes that cutting a joined-up word leaves on a piece
-TAILP=.4
-CACHE='cache_cursive' if CURSIVE else 'cache'
-os.makedirs(CACHE,exist_ok=True)
-ARGS=[a for a in sys.argv[1:] if not a.startswith('--')]
 HELD=['Kalam-Regular','Handlee-Regular','Mali-Regular','ReenieBeanie']
-fonts=[f for f in glob.glob(ASSETS+'/fonts/*.ttf')]+[ASSETS+'/caveat.ttf']
+fonts=[f for f in glob.glob('/tmp/fonts/*.ttf')]+['/tmp/caveat.ttf']
 CH={'+':['+'],'-':['-'],'*':['×','x'],'/':['/','÷'],'(':['('],')':[')'],'=':['='],'π':['π'],'!':['!']}
 for d in '0123456789':CH[d]=[d]
 for l in 'acegilnosthbdm':CH[l]=[l,l.upper()]
@@ -74,24 +67,7 @@ def skel(fp,ch):
         a=a[ys.min():ys.max()+1,xs.min():xs.max()+1];s=skeletonize(a).astype(np.uint8)*255
         s=np.pad(s,12);SK[k]=s;return s
     except Exception as e:SK[k]=None;return None
-def addtails(sk):
-    """Add a baseline entry stroke on the left and a rising exit stroke on the right, like a cursive piece cut at its ligatures."""
-    P=int(max(sk.shape)*.7);sk=np.pad(sk,P);ys,xs=np.where(sk>0)
-    if len(ys)<10:return sk
-    x0,x1,y0,y1=xs.min(),xs.max(),ys.min(),ys.max();gw,gh=x1-x0+1,y1-y0+1
-    def curve(p,q,bend):
-        t=np.linspace(0,1,24)[:,None];m=(np.array(p)+np.array(q))/2+np.array([0,bend*gh])
-        pts=(1-t)**2*np.array(p)+2*t*(1-t)*m+t**2*np.array(q);return pts.astype(np.int32).reshape(-1,1,2)
-    for side in (-1,1):
-        if R.random()<.25:continue
-        near=(xs<=x0+.15*gw) if side<0 else (xs>=x1-.15*gw);cy,cx=ys[near],xs[near]
-        i=np.argmax(cy) if side<0 or R.random()<.5 else np.argmin(cy)   # entry leaves from the baseline; exit from baseline or x-height
-        sx,sy=int(cx[i]),int(cy[i]);L=R.uniform(.15,.55)*gw
-        ex=sx+side*L;ey=sy+(R.uniform(-.1,.2)*gh if side<0 else -R.uniform(0,.7)*gh)
-        cv2.polylines(sk,[curve((sx,sy),(ex,ey),R.uniform(-.15,.15))],False,255,1)
-    return sk
-def fsample(sk,tails=False):
-    if tails:sk=addtails(sk)
+def fsample(sk):
     h,w=sk.shape;S=int(max(h,w)*1.6);cv=np.zeros((S,S),np.uint8);y0=(S-h)//2;x0=(S-w)//2;cv[y0:y0+h,x0:x0+w]=cv2.dilate(sk,np.ones((3,3),np.uint8))
     th=R.normal(0,.1);sh=R.normal(0,.15);sx=R.uniform(.7,1.25);c,s_=math.cos(th),math.sin(th)
     A=np.array([[sx*c,-s_+sh,0],[sx*s_,c,0]],np.float32);cen=np.array([S/2,S/2]);A[:,2]=cen-A[:,:2]@cen
@@ -106,14 +82,14 @@ def fsample(sk,tails=False):
     img=np.zeros((112,112),np.uint8);y=(112-h3)//2;x=(112-w3)//2;img[y:y+h3,x:x+w3]=m.astype(np.uint8)*255
     lw=int(R.uniform(2.2,3.6)*4)|1;img=cv2.dilate(img,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(lw,lw)))
     return cv2.resize(img,(28,28),interpolation=cv2.INTER_AREA).astype(np.float32).ravel()/255
-def fgen(k,n,pool,seed,tailp=0):
+def fgen(k,n,pool,seed):
     global R;R=np.random.default_rng(seed);c=CL[k];out=[]
     if c not in CH:return out
     tries=0
     while len(out)<n and tries<n*3:
         tries+=1;fp=pool[R.integers(len(pool))];sk=skel(fp,CH[c][R.integers(len(CH[c]))])
         if sk is None:continue
-        v=fsample(sk,R.random()<tailp)
+        v=fsample(sk)
         if v is not None:out.append(v)
     return out
 def sgen(k,n,seed):
@@ -124,36 +100,32 @@ def norm(v):
     c=a[ys.min():ys.max()+1,xs.min():xs.max()+1];h,w=c.shape;s=20/max(h,w);nh,nw=max(1,round(h*s)),max(1,round(w*s))
     im=Image.fromarray((c*255).astype(np.uint8)).resize((nw,nh),Image.BILINEAR)
     o=np.zeros((28,28),np.float32);y0=(28-nh)//2;x0=(28-nw)//2;o[y0:y0+nh,x0:x0+nw]=np.asarray(im)/255;return o.ravel()
-tr,va,te=pickle.load(gzip.open(ASSETS+'/mnist.pkl.gz','rb'),encoding='latin1')
+tr,va,te=pickle.load(gzip.open('/tmp/mnist.pkl.gz','rb'),encoding='latin1')
 Xm=np.array([norm(v) for v in np.vstack([tr[0],va[0]])[:42000]]);Ym=np.concatenate([tr[1],va[1]])[:42000]
-if NO_MNIST:Xm=Xm[:0];Ym=Ym[:0]
 Xt=np.array([norm(v) for v in te[0]]);Yt=te[1]
 trainf=[f for f in fonts if os.path.basename(f)[:-4] not in HELD];heldf=[f for f in fonts if os.path.basename(f)[:-4] in HELD]
 print('fonts',len(trainf),len(heldf),flush=True)
 X=[Xm];Y=[Ym];t0=time.time()
 for k,c in enumerate(CL):
     ns=1200 if k<10 else 2500;nf=1500 if k<10 else (3500 if c in 'acegilnosthbdm' else 2500)
-    if NO_MNIST and k<10:ns,nf=4000,6000   # digits then come only from synthetic strokes and fonts
     if c in 'acegilnosthbdm':ns=3000
     if c=='√':ns,nf=7000,0
     if c in '∫Σ→∞':ns,nf=4500,0
     if c=='π':ns=3500;nf=2500
     if c=='!':ns=2500;nf=2500
-    cf=CACHE+'/%d.npy'%k
+    cf='cache/%d.npy'%k
     if os.path.exists(cf):
         Z=np.load(cf);X.append(Z);Y.append(np.full(len(Z),k));print(c,'cached',len(Z),flush=True);continue
-    a=sgen(k,ns,500+k) if ns else [];b=fgen(k,nf,trainf,700+k,TAILP if CURSIVE and c in 'acegilnosthbdm' else 0) if nf else []
+    a=sgen(k,ns,500+k) if ns else [];b=fgen(k,nf,trainf,700+k) if nf else []
     Z=np.array(a+b,np.float32);np.save(cf,Z)
     if len(Z):X.append(Z);Y.append(np.full(len(Z),k))
     print(c,len(a),len(b),int(time.time()-t0),'s',flush=True)
 X=np.concatenate(X).astype(np.float32);Y=np.concatenate(Y).astype(np.int64);print('data',X.shape,flush=True)
-Xs=[];Ys=[];Xh=[];Yh=[];Xc=[];Yc=[]
+Xs=[];Ys=[];Xh=[];Yh=[]
 for k in range(NC):
     if True:Xs+=sgen(k,50,9000+k);Ys+=[k]*50
     h=fgen(k,60,heldf,9500+k);Xh+=h;Yh+=[k]*len(h)
-    if CL[k] in 'acegilnosthbdm':h=fgen(k,60,heldf,9600+k,1.0);Xc+=h;Yc+=[k]*len(h)   # held-out fonts, always with ligature strokes
-Xs=np.array(Xs,np.float32);Ys=np.array(Ys);Xh=np.array(Xh,np.float32);Yh=np.array(Yh);Xc=np.array(Xc,np.float32);Yc=np.array(Yc)
-np.savez(CACHE+'/heldout.npz',Xh=Xh,Yh=Yh,Xc=Xc,Yc=Yc,Xt=Xt,Yt=Yt)   # lets training/eval_model.py score any model on the same sets
+Xs=np.array(Xs,np.float32);Ys=np.array(Ys);Xh=np.array(Xh,np.float32);Yh=np.array(Yh)
 import jax,jax.numpy as jnp,optax
 C1,C2,FC=24,48,192
 def init(k):
@@ -167,7 +139,7 @@ def net(p,x,key=None):
     if key is not None:h=h*jax.random.bernoulli(key,.7,h.shape)/.7
     return h@p['w4']+p['b4']
 def loss(p,x,y,key):return optax.softmax_cross_entropy(net(p,x,key),jax.nn.one_hot(y,NC)*.95+.05/NC).mean()
-EP=int(ARGS[0]);B=256;steps=EP*(len(X)//B);opt=optax.adam(optax.cosine_decay_schedule(2e-3,steps))
+EP=int(sys.argv[1]);B=256;steps=EP*(len(X)//B);opt=optax.adam(optax.cosine_decay_schedule(2e-3,steps))
 P=init(jax.random.PRNGKey(0));S=opt.init(P)
 @jax.jit
 def step(P,S,x,y,key):
@@ -185,5 +157,5 @@ for e in range(E0,EP):
         j=perm[i*B:(i+1)*B];xb=X[j].reshape(B,28,28)
         xb=np.roll(xb,(np.random.randint(-1,2),np.random.randint(-1,2)),(1,2))
         key,k=jax.random.split(key);P,S=step(P,S,jnp.asarray(xb[...,None]),jnp.asarray(Y[j]),k)
-    print(e,'mnist',ev(Xt,Yt),'synthetic',ev(Xs,Ys),'heldout-fonts',ev(Xh,Yh),'heldout-cursive-pieces',ev(Xc,Yc),int(time.time()-t0),'s',flush=True);save();pickle.dump((jax.tree_util.tree_map(np.asarray,P),jax.tree_util.tree_map(np.asarray,S),e),open('ckpt4.pkl','wb'))
+    print(e,'mnist',ev(Xt,Yt),'synthetic',ev(Xs,Ys),'heldout-fonts',ev(Xh,Yh),int(time.time()-t0),'s',flush=True);save();pickle.dump((jax.tree_util.tree_map(np.asarray,P),jax.tree_util.tree_map(np.asarray,S),e),open('ckpt4.pkl','wb'))
 print('done',flush=True)

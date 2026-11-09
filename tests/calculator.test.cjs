@@ -19,8 +19,7 @@ test('deferred mode, setting changes and user-visible errors', () => {
   assert.equal(compute(['1','/','0']),null);
   assert.equal(compute(['Σ','(','x',')'],{},true).text,'= unsupported');
   assert.equal(compute(['2','+','('],{},true),null);
-  assert.equal(compute(['sin','(','30',')'], {angle:'deg'}).text,'=0.5'); // exact special angle: no ≈
-  assert.equal(compute(['sin','(','45',')'], {angle:'deg'}).text.startsWith('=≈0.7071067'),true); // irrational stays approximate
+  assert.equal(compute(['sin','(','30',')'], {angle:'deg'}).text,'=≈0.5');
 });
 test('equation rendering and no false exactness', () => {
   assert.equal(compute(['2','x','+','3','=','7']).text,'x=2');

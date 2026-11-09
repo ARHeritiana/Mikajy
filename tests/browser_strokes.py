@@ -45,7 +45,6 @@ async def main():
             page = await browser.new_page(viewport={"width": 800, "height": 500})
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
-            await page.add_init_script("localStorage.setItem('inkset', JSON.stringify({recogniser: 'classic'}))")   # this test covers the classic pipeline
             await page.goto(PAGE)
             await page.locator("#pad").wait_for()
             await write(page, glyphs)

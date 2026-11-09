@@ -1,7 +1,5 @@
 # Android outputs and local signing material
 *.apk
-# Signed release APKs are committed under releases/ (never debug or unsigned builds)
-!releases/*.apk
 *.aab
 *.idsig
 *.jks
@@ -24,9 +22,3 @@ release-key-backup/
 
 # Uploaded local credentials: these must never enter Git history
 PASSWORD.txt
-
-# Real handwriting you collect or scan: personal data, never commit
-training/real_data/
-training/real_scans/
-*.jsonl
-tools/collect/mikajy-collect.html

@@ -34,8 +34,6 @@ jobs:
         run: python3 tests/browser_strokes.py
       - name: Update UI test (mocked Android bridge)
         run: python3 tests/browser_updates.py
-      - name: Browser test (unlimited board, pan and zoom)
-        run: python3 tests/browser_canvas.py
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 15
