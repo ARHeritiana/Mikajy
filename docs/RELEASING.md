@@ -1,6 +1,6 @@
 # Releasing Mikajy Spark
 
-The displayed product name is **Mikajy Spark** (formerly Mikajy). The repository is now `ARHeritiana/Mikajy-Spark-Spark`; the Android package ID (`com.mikajy.app`) and signing key are unchanged. Future builds use the new canonical update endpoint. The already-published `v5.0` APK retains its old name and updater; the source change takes effect only in a new signed release.
+The displayed product name is **Mikajy Spark** (formerly Mikajy). The repository is now `ARHeritiana/Mikajy-Spark`; the Android package ID (`com.mikajy.app`) and signing key are unchanged. Future builds use the new canonical update endpoint. The already-published `v5.0` APK retains its old name and updater; the source change takes effect only in a new signed release.
 
 Releases are built, tested, **signed and published by GitHub Actions** from a version tag.
 The app's built-in update check (Settings → *Check for updates*, and once a day when online)
