@@ -1,7 +1,7 @@
 # Architecture
 
 Mikajy is one self-contained HTML page shown by a thin Android WebView shell. There is no server, no framework
-and one runtime dependency: the vendored Nerdamer CAS (Apache-2.0), used only through `calculus.js`.
+and no runtime dependency.
 
 ```
  pen strokes ──► core_main.group()      cluster strokes into symbols (dots, fraction bars, roots)

@@ -14,22 +14,17 @@ BRIDGE = """
     version: () => '5.0',
     checkForUpdates() { window.__calls.push('check'); setTimeout(() => window.onUpdateResult(JSON.stringify(window.__answer)), 10); },
     openUpdate(u) { window.__calls.push('open:' + u); },
-    %s
     copy() {}, shareText() {}, shareImage() {}
   };
 """
 
-SELF = "canInstallUpdates() { return true; }, installUpdate(u) { window.__calls.push('install:' + u); },"
-
-async def scenario(browser, answer, stored=None, settings=None, selfinstall=False):
+async def scenario(browser, answer, stored=None):
     page = await browser.new_page(viewport={"width": 412, "height": 840})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    init = BRIDGE % (json.dumps(answer), SELF if selfinstall else "")
+    init = BRIDGE % json.dumps(answer)
     if stored is not None:
         init += f"localStorage.setItem('inkupd', {json.dumps(json.dumps(stored))});"
-    if settings is not None:   # set before the first load, so no automatic check is ever scheduled by a page that is about to be replaced
-        init += f"localStorage.setItem('inkset', {json.dumps(json.dumps(settings))});"
     await page.add_init_script(init)
     await page.goto(PAGE)
     await page.locator("#pad").wait_for()
@@ -42,7 +37,6 @@ async def main():
 
         page, errors = await scenario(browser, available)
         await page.click("#mb")
-        await page.click("button[data-tab=app]")
         text = await page.inner_text("#panel")
         assert "Updates" in text and "Check for updates" in text and "Mikajy 5.0" in text, text
         await page.click("button[data-a=upd]")
@@ -60,31 +54,10 @@ async def main():
         assert not errors, errors
         await page.close()
 
-        # An app that can install updates itself never opens the browser: it downloads in place and shows progress.
-        page, errors = await scenario(browser, available, selfinstall=True)
-        await page.click("#mb")
-        await page.click("button[data-tab=app]")
-        await page.click("button[data-a=upd]")
-        for _ in range(20):
-            if await page.evaluate("() => document.getElementById('mb').classList.contains('upd')"):
-                break
-            await page.wait_for_timeout(100)
-        await page.click("button[data-a=getupd]")
-        assert await page.evaluate("window.__calls") == ["check", "install:" + available["apk"]]
-        await page.evaluate("() => window.onUpdateState(JSON.stringify({state: 'downloading', pct: 42, reason: ''}))")
-        assert "Downloading… 42%" in await page.inner_text("button[data-a=getupd]")
-        await page.evaluate("() => window.onUpdateState(JSON.stringify({state: 'installing', pct: 100, reason: ''}))")
-        assert "Installing…" in await page.inner_text("button[data-a=getupd]")
-        await page.evaluate("() => window.onUpdateState(JSON.stringify({state: 'failed', pct: 0, reason: 'x'}))")
-        assert "Get Mikajy 5.1" in await page.inner_text("button[data-a=getupd]")
-        assert not errors, errors
-        await page.close()
-
         # Already current: no badge. Offline: silent, nothing stored.
         for answer, badge in (({"ok": True, "tag": "v5.0", "url": R + "latest", "apk": ""}, False), ({"ok": False, "reason": "offline"}, False)):
             page, errors = await scenario(browser, answer)
             await page.click("#mb")
-            await page.click("button[data-tab=app]")
             await page.click("button[data-a=upd]")
             await page.wait_for_timeout(300)
             assert await page.evaluate("document.getElementById('mb').classList.contains('upd')") == badge
@@ -96,7 +69,9 @@ async def main():
         assert not await page.evaluate("document.getElementById('mb').classList.contains('upd')")
         await page.close()
         # Updates switched off: no automatic check is scheduled.
-        page, errors = await scenario(browser, available, {"checked": 0, "version": "", "url": "", "apk": ""}, {"updates": "off"})
+        page, errors = await scenario(browser, available, {"checked": 0, "version": "", "url": "", "apk": ""})
+        await page.evaluate("localStorage.setItem('inkset', JSON.stringify({updates: 'off'}))")
+        await page.reload()
         await page.wait_for_timeout(5600)
         assert await page.evaluate("window.__calls") == [], "auto check ran although switched off"
         await page.close()
@@ -105,7 +80,6 @@ async def main():
         page = await browser.new_page()
         await page.goto(PAGE)
         await page.click("#mb")
-        await page.click("button[data-tab=app]")
         assert "Updates" not in await page.inner_text("#panel")
         await browser.close()
     print("Update UI (badge, settings, manual/auto check, link hand-off, off switch): PASS")
