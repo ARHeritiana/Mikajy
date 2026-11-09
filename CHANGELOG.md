@@ -5,6 +5,14 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+### Added
+- **Menu in three tabs** — *Actions* (history, copy, share, memory, clear), *Math* (results, angles, instant/on demand) and *App* (language, theme, updates) — instead of one long sheet, in the style of the later 6.x builds.
+- **English / Français** (App → Language; follows the device language until chosen): the whole interface, toasts, update texts and calculator words (`undefined` / `indéfini`, `unsupported` / `non géré`). `web/i18n.js`, `tests/i18n.test.cjs`.
+- The handwriting font subset now includes French accents; `tests/build_check.py` fails if an interface string uses a character the font lacks.
+
+### Fixed
+- **Square roots were often not recognised.** A root sign was only split from its bar when written in one pen-down with a long, flat bar; with a short, slanted or separate bar its strokes merged with the radicand and were read as `π`, `5`, … Now the sign is found for any bar (flat, slanted, short, absent), for a root written in several strokes (hook then bar; tick-and-down then rise-and-bar), and for a bar drawn after a pause (it extends the already-recognised sign). Two ordinary strokes (a `1` and a `/`) are never fused. `tests/browser_strokes.py` covers six ways of writing `√4 =`.
+
 ## [5.0] - 2026-11-07
 
 ### Added

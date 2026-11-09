@@ -21,7 +21,25 @@ GLYPHS = {
     "3": [bezier([(0, .1), (.5, -.1), (.9, .2), (.4, .48)], 12) + bezier([(.4, .48), (1, .6), (.9, 1.05), (0, .9)], 12)],
     "+": [[(0, .5), (1, .5)], [(.5, .1), (.5, .9)]],
     "=": [[(0, .35), (1, .35)], [(0, .65), (1, .65)]],
+    "4": [[(.7, 0), (0, .65), (1, .65)], [(.7, 0), (.7, 1)]],
 }
+
+def dense(points, per=8):
+    out = []
+    for (ax, ay), (bx, by) in zip(points, points[1:]):
+        out += [(ax + (bx - ax) * j / per, ay + (by - ay) * j / per) for j in range(per)]
+    return out + [points[-1]]
+
+def root_hook(x, base, h):
+    """Tick, down-stroke, rise: a root sign without its bar."""
+    return dense([(x, base - .4 * h), (x + .12 * h, base - .48 * h), (x + .3 * h, base), (x + .55 * h, base - h)])
+
+async def pen(page, pts):
+    await page.mouse.move(*pts[0])
+    await page.mouse.down()
+    for p in pts[1:]:
+        await page.mouse.move(*p)
+    await page.mouse.up()
 
 async def write(page, glyphs):
     for ch, x, base, h in glyphs:
@@ -32,6 +50,31 @@ async def write(page, glyphs):
             for p in pts[1:]:
                 await page.mouse.move(*p)
             await page.mouse.up()
+
+async def root(page, style):
+    """sqrt(4) = written the ways people really write a root sign. The radicand sits under the bar (y 200)."""
+    hook = root_hook(100, 300, 100)
+    top = hook[-1]
+    if style == "one stroke, long bar":
+        await pen(page, hook + dense([top, (top[0] + 110, top[1])]))
+    elif style == "one stroke, short bar":
+        await pen(page, hook + dense([top, (top[0] + 45, top[1])]))
+    elif style == "one stroke, slanted bar":
+        await pen(page, hook + dense([top, (top[0] + 110, top[1] - 14)]))
+    elif style == "hook, then bar":
+        await pen(page, hook)
+        await pen(page, dense([(top[0] + 4, top[1] + 1), (top[0] + 110, top[1] + 1)]))
+    elif style == "tick+down, then rise+bar":
+        await pen(page, dense([(100, 260), (112, 252), (130, 300)]))
+        await pen(page, dense([(130, 300), top, (top[0] + 100, top[1])]))
+    elif style == "bar after a pause":
+        await pen(page, hook)
+        await page.wait_for_timeout(1500)   # longer than the recognition delay: the sign is already recognised
+        await pen(page, dense([(top[0] + 4, top[1] + 1), (top[0] + 110, top[1] + 1)]))
+    await write(page, [("4", 175, 295, 70)])
+
+ROOT_STYLES = ["one stroke, long bar", "one stroke, short bar", "one stroke, slanted bar", "hook, then bar",
+               "tick+down, then rise+bar", "bar after a pause"]
 
 SCENES = [
     ("2 raised 3 =  (power)", [("2", 100, 300, 100), ("3", 175, 255, 52), ("=", 250, 300, 80)], "8"),
@@ -57,7 +100,25 @@ async def main():
             assert answer.lstrip("=") == expected, f"{name}: got {answer!r}, expected {expected!r}"
             assert not errors, errors
             await page.close()
+        for style in ROOT_STYLES:   # a root sign must be read as one, whatever the hand
+            page = await browser.new_page(viewport={"width": 800, "height": 500})
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            await page.goto(PAGE)
+            await page.locator("#pad").wait_for()
+            await root(page, style)
+            await write(page, [("=", 300, 300, 80)])
+            answer = None
+            for _ in range(40):
+                answer = await page.evaluate("() => (lines.length && lines[0].at) || null")
+                if answer:
+                    break
+                await page.wait_for_timeout(200)
+            glyphs = await page.evaluate("() => lines[0].syms.map(g => g.c[g.i].c).join('')")
+            assert answer and answer.lstrip("=") == "2" and glyphs.startswith("√4"), f"root ({style}): read {glyphs!r} = {answer!r}"
+            assert not errors, errors
+            await page.close()
         await browser.close()
-    print("Handwriting end to end (drawn strokes -> recogniser -> exponent -> answer): PASS")
+    print("Handwriting end to end (drawn strokes -> recogniser -> exponent / root -> answer): PASS")
 
 asyncio.run(main())
