@@ -42,6 +42,21 @@ public final class UpdateCheckerTest {
     check(!UpdateChecker.isReleaseUrl("file:///sdcard/x"), "file url refused");
     check(!UpdateChecker.isReleaseUrl("intent://x#Intent;end"), "intent url refused");
 
+    String apk = R + "download/v6.1/Mikajy-Free-6.1.apk";
+    check(UpdateInstaller.isApkUrl(apk), "apk asset link accepted");
+    check(!UpdateInstaller.isApkUrl(R + "tag/v6.1"), "release page is not an apk");
+    check(!UpdateInstaller.isApkUrl("https://evil.example/download/a.apk"), "foreign apk refused");
+    check(!UpdateInstaller.isApkUrl(R + "download/v6.1/SHA256SUMS.txt"), "sums file is not an apk");
+    check((R + "download/v6.1/SHA256SUMS.txt").equals(UpdateInstaller.sumsUrl(apk)) && "Mikajy-Free-6.1.apk".equals(UpdateInstaller.fileName(apk)), "sums url and file name");
+    check(UpdateInstaller.isAllowedHost(new java.net.URL("https://github.com/x")), "github host allowed");
+    check(UpdateInstaller.isAllowedHost(new java.net.URL("https://release-assets.githubusercontent.com/x")), "release CDN allowed");
+    check(!UpdateInstaller.isAllowedHost(new java.net.URL("https://githubusercontent.com.evil.example/x")), "look-alike host refused");
+    check(!UpdateInstaller.isAllowedHost(new java.net.URL("http://github.com/x")), "plain http refused");
+    check(!UpdateInstaller.isAllowedHost(new java.net.URL("https://github.com:8443/x")), "odd port refused");
+    String h = "4fdaafaff0b2016dd8516202512b9bded5b7b0263ad11c780bcee26c18c4eb35";
+    String sums = "2a578a7691dddac15ac2ec391a7352d3073eac35245e48d9ef022c9d5a0b89a8  Mikajy-Free-6.0.apk\n" + h.toUpperCase() + "  Mikajy-Free-6.1.apk\n";
+    check(h.equals(UpdateInstaller.digestFor(sums, "Mikajy-Free-6.1.apk")), "digest found, case folded");
+    check(UpdateInstaller.digestFor(sums, "Mikajy-Free-6.2.apk") == null && UpdateInstaller.digestFor("garbage", "x") == null, "missing digest is null");
     if (failures > 0) { System.err.println(failures + " failure(s)"); System.exit(1); }
     System.out.println("UpdateChecker: all checks passed");
   }

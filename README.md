@@ -39,7 +39,7 @@ Updates install over the old version only if both are signed with the same key (
   **memory bar** (bottom; it appears when it has content or while dragging). Memory chips can be dragged out.
 * **History** (auto-saved, reopen / copy / delete / export), **result display** (decimal approximation clearly marked `≈` unless exact, or exact rational/mixed number when mathematically justified), **degrees / radians**.
 * **Export**: copy a result, share a PNG of the canvas, share history as text (through the Android share sheet).
-* Small sliders button (top-right, faint) opens the settings sheet: a paper-styled page in the app's own
+* Small sliders button (top-right, faint) opens the menu, in three tabs (**Actions**, **Math**, **App**; English or Français under App → Language): a paper-styled page in the app's own
   handwriting, the chosen option circled in red; History is a second page. Hardware Back closes sheets.
   In landscape the sheet docks to the right edge so it never covers the whole canvas.
 
@@ -71,9 +71,13 @@ solutions, are refused. An equation that is true everywhere *except* at excluded
 calculations use a finite real-number domain. Division by zero, invalid roots/logarithms,
 `0^0` and undefined trigonometric values are rejected.
 
-**Removed:** derivative/antiderivative calculation, definite and improper integration,
-limits, infinite series, symbolic factorisation, unconstrained root scanning and
-non-polynomial equation-solving. Their former numerical heuristics were not sound.
+**Calculus (engine only):** derivatives, antiderivatives, definite integrals and limits run through the bundled Nerdamer CAS in `web/calculus.js`,
+but an answer is shown only when an independent numeric check of your original expression agrees; the recogniser cannot read `∫`/`lim` yet.
+**Symbolic first:** exact closed forms (`2√2`, `√2/2`, `±√2`) lead and the decimal follows; `True`/`False` for statements about constants;
+periodic equations as `x = nπ, n ∈ ℤ`.
+
+**Removed:** infinite series, symbolic factorisation, unconstrained root scanning and
+unverified non-polynomial equation-solving. Their former numerical heuristics were not sound.
 Legacy recogniser glyph classes for these operations are filtered out; their syntax is
 not supported. We prefer **unsupported** to a convincing but invalid answer.
 
@@ -83,8 +87,8 @@ are prefixed `≈`; fraction/mixed display is used only for known exact rational
 
 ## Look
 Black-red-white identity with a **Dark / Light** option in Settings, saved locally. Dark mode shows white handwriting on a black canvas; Light mode shows black handwriting on a white canvas. Answers, active controls and selection rings remain red in both.
-Logo: the user-selected white **M** over a black-and-red rounded square, extracted from the supplied reference screenshot (not redesigned), stored in `branding/logo-512.png`. Run `branding/make_icon.py` to resize it for Android;
-`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app`.
+Logo: a hand-lettered white **M** (Caveat Bold, SIL OFL) on the original black-and-red rounded square, lighter and drawn with a thin double sweep; `branding/make_logo.py` draws `branding/logo-512.png` / `logo-1024.png` and the launcher icon (the first artwork is kept as `branding/logo-original-512.png`).
+Package id is `com.mikajy.app`.
 
 
 ## Repository layout
@@ -92,12 +96,14 @@ Logo: the user-selected white **M** over a black-and-red rounded square, extract
 web/                       the app (one HTML page, HTML5 canvas, no dependencies)
   core_cnn.js              CNN inference (runs in a Web Worker; falls back to main thread)
   core_main.js             stroke grouping, personalisation (kNN over your corrections), classification
+  seq-core.js              stroke-sequence recogniser: featurisation, int8 transformer inference, LaTeX → board glyphs
   recognizer.js            exponent detection, function-word matching, cursive segmentation (pure, tested)
   math-core.js             strict parser, AST, real evaluation, exact rationals, equation solving
   calculator.js            formatting and UI-facing calculation adapter
   updates.js               what an update answer means and when to ask again
   settings.js, storage.js  validated, size-bounded local preferences / history / memory
   app.js                   canvas, animation, interaction, editing, history, memory, settings sheet
+  model/seq1.json          shipped int8 weights of the stroke-sequence model (training/pack_seq.py)
   model/model4.f16.json    shipped float16 weights (packed from training/model4.json by training/pack_model.py)
   fonts/hand.woff2         Caveat subset (SIL OFL) used to typeset the handwriting
   build_web.py             assembles android/assets/index.html
@@ -129,11 +135,38 @@ sudo apt install openjdk-21-jdk-headless aapt apksigner zipalign android-sdk-pla
 ./build_apk.sh            # -> Mikajy.apk (minSdk 21, targetSdk 34)
 ```
 The build fails on any compiler warning and checks that the APK has the expected package id, contains the page and
-`classes.dex`, and requests **no permission other than `INTERNET`**. To iterate on the UI without Android, open
+`classes.dex`, and requests **no permission other than `INTERNET` and `REQUEST_INSTALL_PACKAGES`**. To iterate on the UI without Android, open
 `android/assets/index.html` in desktop Chrome after `python3 web/build_web.py` (bridge calls fall back to
 clipboard/new tab; the update UI is hidden).
 
-## Recogniser
+## Stroke-sequence recogniser (Settings → Recogniser → Sequence, the default)
+Strokes in, LaTeX tokens out: a small transformer (encoder over strokes, autoregressive decoder, 7.6 M parameters, int8 weights, ~10 MB inside the page)
+reads *everything written on a line at once*, so it handles late additions, extended lines, denominators written last, exponents, matrices, complex numbers, `mod`
+and several lines without hand-written grouping rules. It runs fully offline in its own Web Worker (`web/seq-core.js`, plain JS, no `eval`, CSP unchanged);
+if the worker cannot start the page falls back to the classic recogniser automatically.
+* **What you see changes:** your ink stays where you wrote it and the typeset reading plus the answer appear *below* it (the model needs the ink in one
+  coordinate frame, so it is not replaced by typeset glyphs). Add a stroke later and the line is re-read. Scribbling hard over ink erases it.
+* **Known limits:** nested fractions and fractions inside exponents are shown inline as `(a)/(b)` (the board has one level of fraction parts); no tap-to-cycle
+  alternatives (the model gives one reading); matrices, `mod`, `det` are *read* but the maths engine does not evaluate them; tested only in desktop Chromium, not on a phone.
+* **Training data:** only strokes from our own generator (OFL handwriting fonts, `training/synth/`). No MNIST, no third-party corpus, no user data; four fonts are held out.
+
+Measured through the shipped page (`training/eval_app.py --rec classic|seq`, same bag-of-symbols metric restricted to the classic CNN's symbol set; recall / precision):
+
+| Test set | Classic | Sequence |
+|---|---|---|
+| 29 real finger-written samples (never trained on; 347 scored symbols) | 49.0 % / 54.5 % | 74.1 % / 60.5 % |
+| 120 synthetic samples in 4 fonts unseen in training (1138 scored symbols) | 39.4 % / 50.7 % | 83.3 % / 60.1 % |
+
+Model alone in PyTorch (`training/eval_seq.py`, whole LaTeX token sequences): real samples token error rate 28.9 %, exactly right 1/29; unseen-font synthetic token error rate 4.6 %, exactly right 61 %.
+Be careful with these numbers: 29 samples is tiny (about ±5 points on recall); the real set was *used to diagnose* two generator flaws (one-stroke `+`/`×`/`x`, strokes written ~3× slower than the synthetic ones),
+so later real-data gains are not independent evidence; the precision column is lowered by the extra letters the model sometimes reads (`a t i m`) in synthetic cursive.
+The classic baseline was re-measured after fixing the harness (the browser cannot deliver pointer events outside the viewport; some real samples extend to x = 725).
+
+Rebuild: `fetch_assets.sh`; `python3 -I training/gen_corpus.py --fonts $MIKAJY_ASSETS/fonts --n 130000 --out DIR/train.npz --seed 12` (plus `--heldout` / `--seed 2` for `held.npz`, `--seed 3` for `val.npz`);
+`python3 training/train_seq.py --data DIR --out RUN --minutes 100` (CUDA PyTorch; `--init CKPT --aug2` fine-tunes with stroke merge/split, per-stroke wobble and time scaling);
+`python3 training/pack_seq.py RUN/ckpt.pt web/model/seq1.json`; `python3 web/build_web.py`. `tests/seq-core.test.cjs` checks the JS port against PyTorch when `MIKAJY_SEQ_MODEL` / `MIKAJY_SEQ_PARITY` are set (`training/parity_seq.py`).
+
+## Classic recogniser
 Input: every group of strokes is rendered (4x supersampled, bbox scaled to 20 px, centred in 28x28,
 pen ~2.9 px). Model: conv3x3(24)-pool-conv3x3(48)-pool-fc(192)-fc, with legacy advanced classes filtered at inference.
 Supported classes include `0-9 + - * / ( ) =`, function-name letters, `π √ ! %`.
@@ -188,7 +221,7 @@ what to write — fractions, exponents and matrices laid out — in a rotating s
 
 ## Security model
 * The page is the only content the WebView loads (`file:///android_asset/`); every other navigation is refused and
-  the WebView's network loads are blocked. The app's only permission is `INTERNET`, used by the native update check
+  the WebView's network loads are blocked. The app's only permissions are `INTERNET` (the native update check and, when you tap *Get*, the download of the signed APK from this project's releases) and `REQUEST_INSTALL_PACKAGES` (so Android can install that update over the app after you confirm); the download follows redirects only to GitHub hosts and is checked against the release's `SHA256SUMS.txt`
   (one HTTPS GET to GitHub's releases API; see [SECURITY.md](SECURITY.md)).
 * The page carries a strict Content-Security-Policy (`default-src 'none'`, no `eval`, no remote origins).
 * The JavaScript bridge has a few methods (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `openUpdate`); each validates type, size and, for links, that they point into this project's GitHub releases.
@@ -206,7 +239,7 @@ See [docs/AUDIT.md](docs/AUDIT.md) for the full review and the remaining known d
 * No physical-device benchmark or Android APK build is claimed by the Node test suite. The CNN fallback may run on the main thread when workers are unavailable; performance and battery use require device testing.
 
 ## Licences / data
-The app ships no third-party code; the only third-party asset is the Caveat font (SIL OFL 1.1, text in `licenses/`).
+The app ships one third-party library, the **Nerdamer** computer-algebra bundle used by `web/calculus.js` (Apache-2.0, with decimal.js, MIT; texts in `licenses/`), and one third-party asset, the Caveat font (SIL OFL 1.1, text in `licenses/`).
 Mikajy is released under the MIT licence (LICENSE). **Read [docs/LICENSING.md](docs/LICENSING.md) before commercial use**: it
 explains commercial use, the licence history, and which training data (MNIST) needs a decision.
 See also [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

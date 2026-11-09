@@ -92,6 +92,6 @@ test('calculator displays inverted equations honestly', () => {
   assert.equal(calc('2 ^ ( x ) = 8').text, 'x=3');
   assert.equal(calc('e ^ ( x ) = 5').text.startsWith('x=≈1.609437'), true);
   assert.equal(calc('ln ( x ) = 1').text.startsWith('x=≈2.71828'), true);
-  assert.equal(calc('sin ( x ) = 0').text, '= unsupported');
+  assert.equal(calc('sin ( x ) = 0').text, 'x=nπ,  n∈ℤ');   // periodic answers are shown, verified by substitution
   assert.equal(calc('4 ^ ( 1 / 2 )').text, '2');
 });

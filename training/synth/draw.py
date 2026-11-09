@@ -6,13 +6,35 @@ from .style import smooth_noise
 def _length(s): return float(np.hypot(*np.diff(s, axis=0).T).sum())
 
 
+# The skeleton tracer walks straight through a crossing, so + and x come out as one stroke; people lift the pen (two strokes).
+CROSS_SPLIT = {'+': .88, '×': .85, 'x': .55}
+
+
+def _crossing(ch, strokes, r):
+    if ch not in CROSS_SPLIT or len(strokes) != 1 or r.random() >= CROSS_SPLIT[ch]:
+        return strokes
+    pts = np.vstack(strokes)
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    m = (lo + hi) / 2
+    if ch == '+':
+        pair = [np.array([[lo[0], m[1]], [hi[0], m[1]]]), np.array([[m[0], lo[1]], [m[0], hi[1]]])]
+        if r.random() < .25: pair.reverse()                  # vertical bar first
+    else:
+        pair = [np.array([[lo[0], lo[1]], [hi[0], hi[1]]]), np.array([[hi[0], lo[1]], [lo[0], hi[1]]])]
+        if r.random() < .4: pair.reverse()
+        if r.random() < .3: pair[1] = pair[1][::-1]
+    if r.random() < .15: pair[0] = pair[0][::-1]
+    bend = lambda p: np.vstack([p[0], (p[0] + p[1]) / 2 + r.normal(0, .04, 2), p[1]])
+    return [bend(p) for p in pair]
+
+
 def atom_strokes(a, wr):
     """Raw strokes of one atom in layout units (x right, y down, baseline 0): list of (array, is_mark)."""
     r = wr.rng
     if a['kind'] == 'glyph':
         g, s = a['glyph'], a['s']
         out = []
-        for st in g.strokes:
+        for st in _crossing(a['ch'], g.strokes, r):
             p = st * s + np.array([a['x'], a['y']])
             mark = False
             if wr.delay_marks and a['ch'] in ('i', 'j', 't') and len(g.strokes) > 1:
