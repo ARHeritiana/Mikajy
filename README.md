@@ -2,7 +2,7 @@
 
 [![Checks](https://github.com/ARHeritiana/Mikajy/actions/workflows/checks.yml/badge.svg)](https://github.com/ARHeritiana/Mikajy/actions/workflows/checks.yml)
 [![Latest release](https://img.shields.io/github/v/release/ARHeritiana/Mikajy)](https://github.com/ARHeritiana/Mikajy/releases/latest)
-[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+[![License: MIT (main)](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A blank screen: write maths with your finger, it turns into a handwritten-style typeset line and the
 answer appears next to it. **It works fully offline** — the recogniser, the maths engine and the fonts are inside the
@@ -184,3 +184,11 @@ and the release procedure. A signing key must **never** be committed.
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [changelog](CHANGELOG.md).
+
+## Licensing
+
+The original Mikajy project code on **main** is licensed under the [MIT License](LICENSE), beginning with the licensing correction on 2026-11-09. This is a grant for the code owned by the project; third-party assets and trained model weights require their own provenance and licence checks. The bundled Caveat font is subject to the SIL Open Font License 1.1. In particular, do not assume that the MIT code licence alone authorises commercial use of any weights trained on data with uncertain terms.
+
+**Historical releases are unchanged:** the existing `v5.0` tag and its APK were published with GPL-3.0-or-later terms. Updating `main` does not retroactively relicense or rebuild that tagged release. A future release based on `main` can carry the new MIT code licence, after reviewing bundled assets and training provenance.
+
+The separate [Mikajy Free](https://github.com/Heritiana-Ankatso/Mikajy-Free) edition has **different terms**: PolyForm Noncommercial 1.0.0 for project code and CC BY-NC-SA 4.0 for its research model weights. Do not copy its restricted model/data artifacts into this project.
