@@ -5,6 +5,10 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+### Licensing clarification (2026-11-09)
+- The original project's first-party code on `main` is now licensed under MIT; `LICENSE`, `package.json` and `README.md` agree. This does not change the published `v5.0` tag or signed APK, which remain under their existing GPL-3.0-or-later release terms.
+- Rights in third-party fonts and recogniser weights must still be verified independently, especially before commercial distribution.
+
 ## [5.0] - 2026-11-07
 
 ### Added
