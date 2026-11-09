@@ -1,5 +1,7 @@
 # Android outputs and local signing material
 *.apk
+# Signed release APKs are committed under releases/ (never debug or unsigned builds)
+!releases/*.apk
 *.aab
 *.idsig
 *.jks
