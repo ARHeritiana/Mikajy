@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mikajy.app"
-    android:versionCode="18"
-    android:versionName="5.3">
+    android:versionCode="15"
+    android:versionName="5.0">
 
-    <!-- Everything runs on the device. INTERNET is used by UpdateChecker and, when you tap "Get" in Settings, UpdateInstaller (download of the signed APK from this project's releases; REQUEST_INSTALL_PACKAGES lets Android install it over the app after you confirm). UpdateChecker (one GET to GitHub's
+    <!-- Everything runs on the device. INTERNET is used only by UpdateChecker (one GET to GitHub's
          releases API, optional, switchable off in Settings); the WebView itself has network loads blocked. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
 
     <application

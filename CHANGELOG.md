@@ -5,44 +5,7 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
-## [5.3] - 2026-11-09
-
-### Fixed
-- **Updates happen inside the app.** Tapping *Get Mikajy x.y* used to open the browser and download the APK there. The app now downloads it itself (progress shown on the button), checks it against the release's `SHA256SUMS.txt`, and hands it to Android's installer, which asks once and replaces the app in place; your history and settings stay. If Android has not yet allowed Mikajy to install apps, the button opens that one settings screen and asks you to tap again. Only GitHub hosts are contacted; Android refuses anything not signed with the same key. New permission: `REQUEST_INSTALL_PACKAGES` (used only for this).
-- Updating *to* 5.3 still needs one manual download for anyone on 5.2 or older.
-
-## [5.2] - 2026-11-09
-
 ### Added
-- **Answers are typeset like paper:** fractions stacked, roots with the bar over the whole radicand, raised exponents, constants first (`1 − √6`); `arg` answers too.
-- **Your handwriting is replaced by the reading, in place** (as in 5.0); the ink fades and the view follows the answer.
-- **Scribble to erase** works over finished readings. **Tap a symbol to correct it**: the model's runner-up readings are offered one tap at a time.
-- **Retrained recogniser** (synthetic strokes from 57 OFL fonts, plus habits: a 1 with a long flag, crossed 7, open 4, a 9 from the top, x as `)(`; stroke-order augmentation). On 29 finger-written samples: **17.2 % read exactly right** (token error 22.6 %), up from 3.4 % (29.1 %) in 5.1. Unseen-font synthetic sets: 57–94 % per domain.
-- **Functions:** `f(x) = x² + 1`, then `f(3)`, `f(1/2)`, `f(g(2))`; a line sees the definitions above it. **Probability:** `X ~ B(n, p)` / `N` / `P` / `G` / `U` / `E`, then `P(X = k)`, `P(X ≤ k)`, `P(a ≤ X ≤ b)`, `E(X)`, `V(X)`, `C(n, k)` — exact (binomial, geometric, uniform, and Poisson / exponential as `q + c·e^(−λ)`), the normal distribution marked `≈`.
-- **Differential equations:** first-order linear and separable, second-order with constant coefficients and forcing, initial conditions, `y'`, `y''`, `dy/dx`; every solution is substituted back before it is shown.
-- **Complex numbers:** conjugate (`\overline z`), argument (a multiple of π when it is one), exact `e^(iπk/2)`; `e^(iπ)` is now exactly `−1`.
-- **Answers are typeset:** integer fractions stacked, exponents raised, and `√2/2` no longer shows a `÷`. The board draws `~ ≤ ≥ ≠`, the prime and a bar over a conjugate.
-- **Recogniser training data:** the new notation, a 9 written from the top and an x written as two back-to-back arcs.
-
-## [5.1] - 2026-11-08
-
-### Changed
-- The browser test for "updates switched off" no longer races the first page load (it failed intermittently on CI).
-
-### Added
-- **New logo:** the Mikajy mark redrawn lighter with a hand-lettered M, no plaque, a thin double sweep and a soft glow (`branding/make_logo.py`; replaces `branding/make_icon.py`).
-- **Matrices** (exact): `det`, `|A|`, `A⁻¹`, `Aᵀ`, `Aⁿ`, `A+B`, `AB`, `kA`; singular or mismatched matrices are refused. **Modular arithmetic**: `a mod m`, `aᵇ mod m` without forming `aᵇ`, `gcd`, `lcm`; **congruences**: `a ≡ b (mod m)` → True/False, `ax ≡ b (mod m)` → `x ≡ r (mod m')`, or `S=∅`. `web/linalg-core.js`, `web/modular-core.js`, `web/latex-eval.js`, `tests/latex-eval.test.cjs`.
-- **Matrices look like they do on paper:** a bracketed grid (square, round or bars) whose brackets grow with the entries, entries aligned in columns and rows, stacked fractions allowed inside entries; answers are drawn the same way. Matrix readings no longer print their environment name (`bmatrix`) on the board.
-- **Menu in three tabs** — *Actions* (history, copy, share, memory, clear), *Math* (results exact/decimal, angles, ℝ/ℂ, instant/on demand) and *App* (language, theme, updates) — instead of one long sheet. The rarely useful *Mixed* result format and the *Classic* recogniser are hidden unless they were already selected.
-- **English / Français** (App → Language; follows the device language until chosen): the whole interface, toasts, the update texts and calculator words (`True/Vrai`, `unsupported/non géré`, `undefined/indéfini`). `web/i18n.js`, `tests/i18n.test.cjs`.
-- Font: the Caveat subset in `web/fonts/hand.woff2` was regenerated (OFL, same weight, no Reserved Font Name) to include French accents; `tests/build_check.py` now fails if an interface string uses a character the font lacks.
-- **Symbolic first:** irrational results show their closed form with the decimal second (`√8` → `2√2 ≈2.828…`, `sin(π/4)` → `√2/2`), and irrational equation roots show radicals (`x²=2` → `±√2`) when the CAS form matches the certified numeric roots. The default number format is now exact (`frac`); `dec` still gives decimals.
-- **`4 = 2` is `False`** (and `4 = 4`, `1/3+1/6 = 1/2`, `√2·√2 = 2` are `True`): statements about constants are decided exactly, or symbolically, never by rounding.
-- **Periodic equations:** `sin x = 0` → `x = nπ, n ∈ ℤ`; every family is verified by substituting several integers `n`.
-- **Calculus engine** (`web/calculus.js`, bundled Nerdamer, Apache-2.0): derivatives, antiderivatives, definite integrals and limits, each audited against an independent numeric check of the original expression (finite differences, differentiating the answer back, Gauss–Legendre quadrature with a divergence guard, one-sided limits). The recogniser does not emit `∫`/`lim` yet, so this is an API (`Calculus.*`, `Calculator`) without handwriting input.
-- `tests/calculus.test.cjs`.
-- **Stroke-sequence recogniser** (default; Settings → Recogniser, Classic still available): a transformer reads all the strokes of a line and emits LaTeX tokens — late additions, extended lines, multiple lines, exponents, denominators, matrices, complex numbers and `mod` are read without grouping rules. Ink stays on the board with the typeset reading and answer below it. `web/seq-core.js`, `web/model/seq1.json`, `training/{strokefeat,seqmodel,gen_corpus,train_seq,eval_seq,pack_seq,parity_seq}.py`, `tests/seq-core.test.cjs`, `tests/browser_seq.py`. Trained on synthetic strokes only.
-- `training/eval_app.py --rec`, a recorded-clock replay and a viewport that contains all the ink.
 - **ℝ / ℂ number domain** (Settings → Numbers): complex arithmetic with exact Gaussian rationals, all complex roots of polynomial and rational-function equations (`complexRoots` in `poly-core.js`), `tests/complex.test.cjs`.
 - **Licence changed from GPL-3.0-or-later to MIT.**
 - **Maths engine:** `web/poly-core.js` — exact polynomials and rational functions over ℚ and certified real-root finding
@@ -55,8 +18,6 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 - Trainer: `MIKAJY_ASSETS` directory, `--no-mnist`, `--cursive` (ligature-stroke augmentation) and `training/eval_model.py`.
 
 ### Changed
-- Fixed: `×` inside an exponent was read as the variable x, and two roots closing on the same symbol lost a bracket.
-- Synthetic generator: `+`, `×` and `x` are now drawn with two strokes most of the time (the font tracer drew them in one).
 - `sin(30°)`, `sin(180°)` and similar now display exactly instead of `≈0.5` / `≈0`.
 - `x⁴=16`, `|x|=2`, `x²/(x−1)=0` are solved instead of refused.
 
