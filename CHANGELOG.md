@@ -7,7 +7,7 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ### Branding
 - Rename the lightweight edition to **Mikajy Spark** in the Android launcher, web page and update messages. Package ID, signing identity and release channel stay unchanged. Previously published v5.0 assets keep their historical names.
-- New launcher icon / logo for Spark (`branding/logo-spark.svg`): three solid white chevrons growing left to right across a black / red split, still black / red / white. Sources and renderer are in `branding/`.
+- New launcher icon / logo for Spark (`branding/logo-spark.svg`): three white chevrons fading in from left to right across a black / red split, still black / red / white. Sources and renderer are in `branding/`.
 
 ### Licensing clarification (2026-11-09)
 - The original project's first-party code on `main` is now licensed under MIT; `LICENSE`, `package.json` and `README.md` agree. This does not change the published `v5.0` tag or signed APK, which remain under their existing GPL-3.0-or-later release terms.

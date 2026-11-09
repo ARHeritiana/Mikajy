@@ -1,11 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <title>Mikajy Spark</title>
-  <!-- Mikajy Spark logo: light and fast. Red / black / white only.
-       Three solid chevrons growing left to right (acceleration) across a black / red split. -->
-  <defs><clipPath id="tile"><rect width="1024" height="1024" rx="205"/></clipPath></defs>
-  <g clip-path="url(#tile)">
-    <rect width="1024" height="1024" fill="#EF3125"/>
-    <path d="M0,0 H570 L330,1024 H0 Z" fill="#181818"/>
-    <path d="M205,362 L315,512 L205,662" fill="none" stroke="#fff" stroke-width="64" stroke-linejoin="miter" stroke-miterlimit="10"/><path d="M385,297 L535,512 L385,727" fill="none" stroke="#fff" stroke-width="80" stroke-linejoin="miter" stroke-miterlimit="10"/><path d="M595,222 L795,512 L595,802" fill="none" stroke="#fff" stroke-width="100" stroke-linejoin="miter" stroke-miterlimit="10"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><title>Mikajy Spark</title>
+  <!-- Mikajy Spark logo: light and fast. Red / black / white only. Three chevrons fading in from left to right across a black / red split (proposal S5, as approved). -->
+  <defs><clipPath id="t"><rect width="1024" height="1024" rx="205"/></clipPath><path id="sp" d="M0,-1 C0.09,-0.2 0.2,-0.09 1,0 C0.2,0.09 0.09,0.2 0,1 C-0.09,0.2 -0.2,0.09 -1,0 C-0.2,-0.09 -0.09,-0.2 0,-1 Z"/></defs><g clip-path="url(#t)"><rect width="1024" height="1024" fill="#EF3125"/><path d="M0,0 H560 L330,1024 H0 Z" fill="#181818"/><path d="M190,290 L380,512 L190,734" fill="none" stroke="#fff" stroke-width="96" stroke-linejoin="miter" stroke-opacity="0.35"/><path d="M380,290 L570,512 L380,734" fill="none" stroke="#fff" stroke-width="96" stroke-linejoin="miter" stroke-opacity="0.65"/><path d="M570,290 L760,512 L570,734" fill="none" stroke="#fff" stroke-width="96" stroke-linejoin="miter" stroke-opacity="1"/></g></svg>
