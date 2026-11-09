@@ -481,7 +481,7 @@ $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b
   case'hopen':if(HIST[i])openHist(HIST[i]);break;case'hcopy':if(HIST[i])copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
   case'hdel':if(HIST[i]){HIST.splice(i,1);histPersist();openSheet('hist')}break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
   case'upd':checkUpdates(true);break;
-  case'getupd':{const u=pendingUpdate();if(u)Android.openUpdate(u.apk||u.url);break}
+  case'getupd':{const u=pendingUpdate();if(u)getUpdate(u);break}
   case'hexp':shareText(HIST.map(h=>h.text+' '+h.ans.replace(/^=/,'= ')).join('\n'));break}};
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
 window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
@@ -490,7 +490,7 @@ let UPD=Updates.load(localStorage),updManual=false;
 const hasUpdater=()=>!!(window.Android&&typeof Android.checkForUpdates==='function'&&typeof Android.version==='function');
 const appVersion=()=>{try{return String(Android.version())}catch(e){return''}};
 const pendingUpdate=()=>hasUpdater()?Updates.pending(UPD,appVersion()):null;
-function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync',T('checkUpdates'))+(u?tool('getupd','get',T('getUpdate',{v:esc(u.version)}),'danger'):'')}
+function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync',T('checkUpdates'))+(u?tool('getupd','get',updText(u),'danger'):'')}
 function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return T('updateHint',{v:esc(appVersion()),avail:u?T('availableSuffix',{n:esc(u.version)}):''})}
 function updBadge(){$('mb').classList.toggle('upd',!!pendingUpdate())}
 window.onUpdateResult=json=>{
@@ -500,6 +500,15 @@ window.onUpdateResult=json=>{
  UPD=Updates.record(UPD,r,Date.now());Updates.save(localStorage,UPD);updBadge();
  if(r.status==='available')toast(T('updateAvailable',{v:r.version}));else if(manual)toast(T('upToDate'));
  if($('sheet').classList.contains('in'))openSheet('main')};
+/* An update is downloaded and installed by the app itself (the shell verifies it and Android asks once); the browser is only a fallback for an older shell. */
+let updState=null;
+const updText=u=>!updState?T('getUpdate',{v:esc(u.version)}):updState.state==='downloading'?T('downloadingUpdate',{p:updState.pct}):T('installingUpdate');
+const canSelfInstall=()=>!!(window.Android&&typeof Android.installUpdate==='function'&&typeof Android.canInstallUpdates==='function'&&Android.canInstallUpdates());
+function getUpdate(u){if(canSelfInstall()&&u.apk){if(updState&&(updState.state==='downloading'||updState.state==='installing'))return;updState={state:'downloading',pct:0};updLabel();try{Android.installUpdate(u.apk)}catch(e){updState=null;updLabel()}}else Android.openUpdate(u.apk||u.url)}
+function updLabel(){const b=document.querySelector('button[data-a=getupd] span'),u=pendingUpdate();if(!b||!u)return;
+ b.textContent=updText(u)}
+window.onUpdateState=json=>{let r;try{r=JSON.parse(json)}catch(e){return}
+ if(r.state==='failed'){updState=null;toast(T('updateFailed'))}else if(r.state==='permission'){updState=null;toast(T('allowInstall'))}else updState=r;updLabel()};
 function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual)toast(T('checking'));try{Android.checkForUpdates()}catch(e){updManual=false}}
 updBadge();
 if(hasUpdater()&&Updates.shouldCheck(UPD,Date.now(),SET.updates))setTimeout(()=>checkUpdates(false),5000);

@@ -7,6 +7,12 @@ import android.content.Context;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageInstaller;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.os.Build;
+import android.provider.Settings;
+import java.util.concurrent.atomic.AtomicBoolean;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -45,6 +51,16 @@ public class MainActivity extends Activity {
   private WebView web;
   private ExecutorService io;
   private ExecutorService net;
+  private final AtomicBoolean updating = new AtomicBoolean();
+  private BroadcastReceiver installResult;
+
+  private void reportUpdate(final String state, final int pct, final String reason) {
+    final String json;
+    try { json = new JSONObject().put("state", state).put("pct", pct).put("reason", reason).toString(); } catch (org.json.JSONException e) { return; }
+    runOnUiThread(new Runnable() { @Override public void run() {
+      if (web != null) web.evaluateJavascript("window.onUpdateState&&window.onUpdateState(" + JSONObject.quote(json) + ")", null);
+    }});
+  }
 
   private void immersive() {
     getWindow().getDecorView().setSystemUiVisibility(
@@ -115,6 +131,42 @@ public class MainActivity extends Activity {
       }
     }
 
+    /** True when this shell can download and install an update itself, without opening a browser. */
+    @JavascriptInterface public boolean canInstallUpdates() { return Build.VERSION.SDK_INT >= 21; }
+
+    /**
+     * Downloads the release APK inside the app, verifies it and hands it to the system installer. Progress arrives in
+     * window.onUpdateState({state: "downloading"|"installing"|"permission"|"failed", pct, reason}).
+     */
+    @JavascriptInterface public void installUpdate(final String url) {
+      if (!UpdateInstaller.isApkUrl(url) || net == null) return;
+      if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+        reportUpdate("permission", 0, "");
+        runOnUiThread(new Runnable() { @Override public void run() {
+          try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+          } catch (ActivityNotFoundException e) { Log.e(TAG, "No settings screen for install permission", e); }
+        }});
+        return;
+      }
+      if (!updating.compareAndSet(false, true)) return;
+      net.execute(new Runnable() { @Override public void run() {
+        try {
+          reportUpdate("downloading", 0, "");
+          File apk = UpdateInstaller.download(MainActivity.this, url, new UpdateInstaller.Listener() {
+            @Override public void state(String state, int pct, String reason) { reportUpdate(state, pct, reason); }
+          });
+          reportUpdate("installing", 100, "");
+          UpdateInstaller.install(MainActivity.this, apk);
+        } catch (IOException | RuntimeException e) {
+          Log.e(TAG, "Update failed", e);
+          reportUpdate("failed", 0, String.valueOf(e.getMessage()));
+        } finally {
+          updating.set(false);
+        }
+      }});
+    }
+
     /** Asks GitHub for the newest release; the answer arrives asynchronously in window.onUpdateResult(json). */
     @JavascriptInterface public void checkForUpdates() {
       final ExecutorService worker = net;
@@ -146,6 +198,21 @@ public class MainActivity extends Activity {
     super.onCreate(state);
     io = Executors.newSingleThreadExecutor();
     net = Executors.newSingleThreadExecutor();
+    installResult = new BroadcastReceiver() {
+      @Override public void onReceive(Context context, Intent intent) {
+        int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+          Intent confirm = intent.getParcelableExtra(Intent.EXTRA_INTENT);
+          if (confirm != null) startActivity(confirm);
+        } else if (status != PackageInstaller.STATUS_SUCCESS) {
+          reportUpdate("failed", 0, String.valueOf(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)));
+        }
+      }
+    };
+    IntentFilter filter = new IntentFilter(UpdateInstaller.resultAction(this));
+    if (Build.VERSION.SDK_INT >= 33) registerReceiver(installResult, filter, Context.RECEIVER_NOT_EXPORTED);
+    else registerReceiver(installResult, filter);
+    io.execute(new Runnable() { @Override public void run() { UpdateInstaller.clear(MainActivity.this); }});
     // The shared PNG is only needed for the lifetime of one share action; drop leftovers.
     io.execute(new Runnable() { @Override public void run() { ShareProvider.clear(MainActivity.this); }});
 
@@ -185,6 +252,7 @@ public class MainActivity extends Activity {
   @Override protected void onPause() { if (web != null) web.onPause(); super.onPause(); }
 
   @Override protected void onDestroy() {
+    if (installResult != null) { try { unregisterReceiver(installResult); } catch (IllegalArgumentException e) { /* already gone */ } installResult = null; }
     if (io != null) { io.shutdown(); io = null; }
     if (net != null) { net.shutdown(); net = null; }
     if (web != null) {

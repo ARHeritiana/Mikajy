@@ -14,15 +14,18 @@ BRIDGE = """
     version: () => '5.0',
     checkForUpdates() { window.__calls.push('check'); setTimeout(() => window.onUpdateResult(JSON.stringify(window.__answer)), 10); },
     openUpdate(u) { window.__calls.push('open:' + u); },
+    %s
     copy() {}, shareText() {}, shareImage() {}
   };
 """
 
-async def scenario(browser, answer, stored=None, settings=None):
+SELF = "canInstallUpdates() { return true; }, installUpdate(u) { window.__calls.push('install:' + u); },"
+
+async def scenario(browser, answer, stored=None, settings=None, selfinstall=False):
     page = await browser.new_page(viewport={"width": 412, "height": 840})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    init = BRIDGE % json.dumps(answer)
+    init = BRIDGE % (json.dumps(answer), SELF if selfinstall else "")
     if stored is not None:
         init += f"localStorage.setItem('inkupd', {json.dumps(json.dumps(stored))});"
     if settings is not None:   # set before the first load, so no automatic check is ever scheduled by a page that is about to be replaced
@@ -54,6 +57,26 @@ async def main():
         assert calls == ["check", "open:" + available["apk"]], calls
         stored = json.loads(await page.evaluate("localStorage.getItem('inkupd')"))
         assert stored["version"] == "5.1", stored
+        assert not errors, errors
+        await page.close()
+
+        # An app that can install updates itself never opens the browser: it downloads in place and shows progress.
+        page, errors = await scenario(browser, available, selfinstall=True)
+        await page.click("#mb")
+        await page.click("button[data-tab=app]")
+        await page.click("button[data-a=upd]")
+        for _ in range(20):
+            if await page.evaluate("() => document.getElementById('mb').classList.contains('upd')"):
+                break
+            await page.wait_for_timeout(100)
+        await page.click("button[data-a=getupd]")
+        assert await page.evaluate("window.__calls") == ["check", "install:" + available["apk"]]
+        await page.evaluate("() => window.onUpdateState(JSON.stringify({state: 'downloading', pct: 42, reason: ''}))")
+        assert "Downloading… 42%" in await page.inner_text("button[data-a=getupd]")
+        await page.evaluate("() => window.onUpdateState(JSON.stringify({state: 'installing', pct: 100, reason: ''}))")
+        assert "Installing…" in await page.inner_text("button[data-a=getupd]")
+        await page.evaluate("() => window.onUpdateState(JSON.stringify({state: 'failed', pct: 0, reason: 'x'}))")
+        assert "Get Mikajy 5.1" in await page.inner_text("button[data-a=getupd]")
         assert not errors, errors
         await page.close()
 
