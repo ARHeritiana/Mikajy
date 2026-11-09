@@ -5,6 +5,12 @@ and versions follow `MAJOR.MINOR` (the Android `versionName`).
 
 ## [Unreleased]
 
+## [5.0.1]
+
+Rebuild of the code as of `d4969e4` (v5.0 plus PR #4), after the 5.1–5.3 work was reverted. `versionCode` is 19 so it installs over 5.3.
+
+The notes below were written before this release and are part of it.
+
 ### Added
 - **ℝ / ℂ number domain** (Settings → Numbers): complex arithmetic with exact Gaussian rationals, all complex roots of polynomial and rational-function equations (`complexRoots` in `poly-core.js`), `tests/complex.test.cjs`.
 - **Licence changed from GPL-3.0-or-later to MIT.**
