@@ -1,9 +1,13 @@
 # Changelog
 
 All notable changes to Mikajy. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-and versions follow `MAJOR.MINOR` (the Android `versionName`).
+and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionName`).
 
 ## [Unreleased]
+
+## [5.0.1] - 2026-11-09
+
+First Mikajy Spark release: everything below up to the `v5.0` entry (rebrand, MIT licence alignment, menu tabs, English / Français, square-root fix). `versionCode` 19 so it installs over any earlier 5.x build.
 
 ### Branding
 - Update the release checker and URL allowlist to the renamed `ARHeritiana/Mikajy-Spark` repository. Existing signed APKs retain their historical update code; only future builds incorporate this correction.
