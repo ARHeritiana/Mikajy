@@ -1,6 +1,6 @@
 {
   "name": "mikajy",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "private": true,
   "description": "Offline handwriting calculator for Android (HTML5 canvas in a WebView shell).",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "test": "node --test tests/*.test.cjs",
     "build:web": "python3 web/build_web.py",
     "check:build": "python3 tests/build_check.py",
-    "test:browser": "python3 tests/browser_smoke.py && python3 tests/browser_strokes.py && python3 tests/browser_updates.py && python3 tests/browser_canvas.py",
+    "test:browser": "python3 tests/browser_smoke.py && python3 tests/browser_strokes.py && python3 tests/browser_updates.py && python3 tests/browser_canvas.py && python3 tests/browser_seq.py",
     "test:java": "bash scripts/test-update-checker.sh",
     "check": "npm test && npm run check:build && npm run test:browser"
   }
