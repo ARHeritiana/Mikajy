@@ -15,15 +15,15 @@ import java.util.regex.Pattern;
 import javax.net.ssl.HttpsURLConnection;
 
 /**
- * The only network code in Mikajy. It asks GitHub for the newest published release and returns
+ * The only network code in Mikajy Spark. It asks GitHub for the newest published release and returns
  * a small JSON string for the page to interpret: {"ok":true,"tag":"v5.1","url":"...","apk":"..."}
  * or {"ok":false,"reason":"offline"|"error"}. Nothing about the user or the device is sent, and
  * the WebView itself never touches the network. Every returned URL stays inside this project's
  * GitHub releases.
  */
 final class UpdateChecker {
-  static final String RELEASES = "https://github.com/ARHeritiana/Mikajy/releases/";
-  private static final String LATEST = "https://api.github.com/repos/ARHeritiana/Mikajy/releases/latest";
+  static final String RELEASES = "https://github.com/ARHeritiana/Mikajy-Spark/releases/";
+  private static final String LATEST = "https://api.github.com/repos/ARHeritiana/Mikajy-Spark/releases/latest";
   private static final int TIMEOUT_MS = 8000;
   private static final int MAX_BYTES = 512 * 1024;
   private static final Pattern TAG = Pattern.compile("^v[0-9]{1,4}(\\.[0-9]{1,4}){1,2}$");

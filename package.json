@@ -1,12 +1,12 @@
 {
-  "name": "mikajy",
+  "name": "mikajy-spark",
   "version": "5.0.0",
   "private": true,
   "description": "Offline handwriting calculator for Android (HTML5 canvas in a WebView shell).",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ARHeritiana/Mikajy.git"
+    "url": "https://github.com/ARHeritiana/Mikajy-Spark.git"
   },
   "engines": {
     "node": ">=20"

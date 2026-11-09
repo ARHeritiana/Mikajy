@@ -36,8 +36,8 @@ public final class UpdateCheckerTest {
 
     check(UpdateChecker.isReleaseUrl(R + "tag/v5.1"), "release url accepted");
     check(!UpdateChecker.isReleaseUrl(null), "null refused");
-    check(!UpdateChecker.isReleaseUrl("http://github.com/ARHeritiana/Mikajy/releases/x"), "plain http refused");
-    check(!UpdateChecker.isReleaseUrl("https://github.com/ARHeritiana/Mikajy-evil/releases/x"), "look-alike repo refused");
+    check(!UpdateChecker.isReleaseUrl("http://github.com/ARHeritiana/Mikajy-Spark/releases/x"), "plain http refused");
+    check(!UpdateChecker.isReleaseUrl("https://github.com/ARHeritiana/Mikajy-Spark-evil/releases/x"), "look-alike repo refused");
     check(!UpdateChecker.isReleaseUrl(R + "../../../evil"), "path traversal refused");
     check(!UpdateChecker.isReleaseUrl("file:///sdcard/x"), "file url refused");
     check(!UpdateChecker.isReleaseUrl("intent://x#Intent;end"), "intent url refused");

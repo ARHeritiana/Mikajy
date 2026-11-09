@@ -1,10 +1,10 @@
 # Mikajy Spark — lightweight handwriting calculator for Android
 
-[![Checks](https://github.com/ARHeritiana/Mikajy/actions/workflows/checks.yml/badge.svg)](https://github.com/ARHeritiana/Mikajy/actions/workflows/checks.yml)
-[![Latest release](https://img.shields.io/github/v/release/ARHeritiana/Mikajy)](https://github.com/ARHeritiana/Mikajy/releases/latest)
+[![Checks](https://github.com/ARHeritiana/Mikajy-Spark/actions/workflows/checks.yml/badge.svg)](https://github.com/ARHeritiana/Mikajy-Spark/actions/workflows/checks.yml)
+[![Latest release](https://img.shields.io/github/v/release/ARHeritiana/Mikajy-Spark)](https://github.com/ARHeritiana/Mikajy-Spark/releases/latest)
 [![License: MIT (main)](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Mikajy Spark** is the fast, lightweight edition of the Mikajy handwriting-calculator family; the separate [Mikajy Atlas](https://github.com/Heritiana-Ankatso/Mikajy-Free) edition provides the expanded mathematical tools. The app keeps the existing `com.mikajy.app` package ID and release channel.
+**Mikajy Spark** is the fast, lightweight edition of the Mikajy handwriting-calculator family; the separate [Mikajy Atlas](https://github.com/Heritiana-Ankatso/Mikajy-Atlas) edition provides the expanded mathematical tools. The app keeps the existing `com.mikajy.app` package ID and release channel.
 
 A blank screen: write maths with your finger, it turns into a handwritten-style typeset line and the
 answer appears next to it. **It works fully offline** — the recogniser, the maths engine and the fonts are inside the
@@ -12,7 +12,7 @@ app. When the phone happens to be online it checks GitHub (at most once a day, o
 tells you.
 
 ## Install and update
-1. Download the APK (currently the previously published `Mikajy-5.0.apk`; future releases use the Spark name) from the [latest release](https://github.com/ARHeritiana/Mikajy/releases/latest) and open it
+1. Download the APK (currently the previously published `Mikajy-5.0.apk`; future releases use the Spark name) from the [latest release](https://github.com/ARHeritiana/Mikajy-Spark/releases/latest) and open it
    (allow installing from your browser when Android asks). Check it with `SHA256SUMS.txt` if you like.
 2. Later versions announce themselves: a red dot appears on the menu button and the **App** tab of the menu shows **Get Mikajy Spark x.y**.
    *App → Updates → Off* disables the automatic check; *Check for updates* does it on demand.
@@ -192,4 +192,4 @@ The Mikajy Spark (formerly Mikajy) project code on **main** is licensed under th
 
 **Historical releases are unchanged:** the existing `v5.0` tag and its APK were published with GPL-3.0-or-later terms. Updating `main` does not retroactively relicense or rebuild that tagged release. A future release based on `main` can carry the new MIT code licence, after reviewing bundled assets and training provenance.
 
-The separate [Mikajy Atlas](https://github.com/Heritiana-Ankatso/Mikajy-Free) edition (historically Mikajy Free) has **different terms**: PolyForm Noncommercial 1.0.0 for project code and CC BY-NC-SA 4.0 for its research model weights. Do not copy its restricted model/data artifacts into this project.
+The separate [Mikajy Atlas](https://github.com/Heritiana-Ankatso/Mikajy-Atlas) edition (historically Mikajy Free) has **different terms**: PolyForm Noncommercial 1.0.0 for project code and CC BY-NC-SA 4.0 for its research model weights. Do not copy its restricted model/data artifacts into this project.

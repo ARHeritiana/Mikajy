@@ -1,6 +1,6 @@
 # Releasing Mikajy Spark
 
-The displayed product name is **Mikajy Spark** (formerly Mikajy); the Android package ID (`com.mikajy.app`), GitHub repository URL, signing key and update endpoint remain unchanged. The already-published `v5.0` release retains its original APK filename and app name. Only future tagged builds will use the new branding.
+The displayed product name is **Mikajy Spark** (formerly Mikajy). The repository is now `ARHeritiana/Mikajy-Spark-Spark`; the Android package ID (`com.mikajy.app`) and signing key are unchanged. Future builds use the new canonical update endpoint. The already-published `v5.0` APK retains its old name and updater; the source change takes effect only in a new signed release.
 
 Releases are built, tested, **signed and published by GitHub Actions** from a version tag.
 The app's built-in update check (Settings → *Check for updates*, and once a day when online)
@@ -36,7 +36,7 @@ verifies the pinned public certificate fingerprint and publishes the APK with
 signed with this key cannot ordinarily update an installed 4.5 APK in place.
 Uninstalling the old app may erase its locally saved history and training data.
 
-1. On [Mikajy](https://github.com/ARHeritiana/Mikajy), choose **Code →
+1. On [Mikajy](https://github.com/ARHeritiana/Mikajy-Spark), choose **Code →
    Codespaces → Create codespace on main**.
 2. In the Codespaces terminal, run:
    ```bash
@@ -66,7 +66,7 @@ Uninstalling the old app may erase its locally saved history and training data.
    file is sensitive; never paste it into issues, commits or chat.
    GitHub Actions secrets cannot be read back in plaintext if lost.
 5. Consider requiring approval and protecting the release tags using
-   [GitHub's release environment settings](https://github.com/ARHeritiana/Mikajy/settings/environments).
+   [GitHub's release environment settings](https://github.com/ARHeritiana/Mikajy-Spark/settings/environments).
    The script will not silently reset any existing environment rules.
 
 The setup creates:
@@ -107,7 +107,7 @@ Increment `android:versionCode` above 15 and update
 `android/AndroidManifest.xml`. After merging and testing the changes,
 push the matching tag (e.g. `v5.1`). GitHub Actions then verifies, signs,
 and publishes `Mikajy-Spark-5.1.apk` and its SHA-256 checksum to
-[GitHub Releases](https://github.com/ARHeritiana/Mikajy/releases).
+[GitHub Releases](https://github.com/ARHeritiana/Mikajy-Spark/releases).
 
 **Do not rerun the setup in a fresh Codespace to make ordinary releases.**
 That could create a different identity. The encrypted secrets persist across

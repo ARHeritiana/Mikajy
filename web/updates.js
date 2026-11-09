@@ -4,7 +4,7 @@ const Updates = (() => {
   'use strict';
   const KEY = 'inkupd';
   const INTERVAL_MS = 24 * 60 * 60 * 1000;
-  const RELEASES = 'https://github.com/ARHeritiana/Mikajy/releases/';
+  const RELEASES = 'https://github.com/ARHeritiana/Mikajy-Spark/releases/';
   const TAG = /^v?(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?$/;
 
   /** "v5.1" / "5.1.2" -> [5, 1, 0] / [5, 1, 2]; anything else -> null. */
