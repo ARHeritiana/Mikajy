@@ -76,8 +76,7 @@ are prefixed `≈`; fraction/mixed display is used only for known exact rational
 
 ## Look
 Black-red-white identity with a **Dark / Light** option in Settings, saved locally. Dark mode shows white handwriting on a black canvas; Light mode shows black handwriting on a white canvas. Answers, active controls and selection rings remain red in both.
-Logo: the user-selected white **M** over a black-and-red rounded square, extracted from the supplied reference screenshot (not redesigned), stored in `branding/logo-512.png`. Run `branding/make_icon.py` to resize it for Android;
-`branding/logo-512.png` / `logo-1024.png` are store-size copies. Package id is `com.mikajy.app`.
+Logo: **light and fast**: three white chevrons fading in from left to right across a black / red split. Source: `branding/logo-spark.svg` (plain paths, no font); `node branding/render_logo.cjs` (needs Playwright + Chromium) renders `branding/logo-512.png`, `logo-1024.png` and the 192 px launcher icon `android/res/drawable/icon.png`. Package id is `com.mikajy.app`.
 
 
 ## Repository layout

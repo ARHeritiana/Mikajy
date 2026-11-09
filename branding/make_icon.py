@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resizes the original Mikajy logo, preserving its existing artwork."""
+"""Resizes branding/logo-512.png (the Mikajy Spark logo) to logo-1024.png and the launcher icon. Normally use render_logo.cjs, which renders the SVG source directly."""
 from pathlib import Path
 from PIL import Image
 here=Path(__file__).resolve().parent
