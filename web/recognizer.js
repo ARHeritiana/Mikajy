@@ -266,7 +266,7 @@ const Recognizer = (() => {
     // Two separately drawn, horizontally aligned bars form '=' (or later '≠').
     if (horizontal(a) && horizontal(b) && Math.min(a.w, b.w) >= 14 &&
         ox >= .55 * Math.min(a.w, b.w) &&
-        Math.abs(ay - by) <= .42 * Math.min(a.w, b.w)) return true;
+        Math.abs(ay - by) <= .7 * Math.min(a.w, b.w)) return true;
     const markToStem = (m, stem) => vertical(stem) && span(m) <= .25 * stem.h &&
       Math.abs(centre(m)[0] - centre(stem)[0]) <= Math.max(6, .18 * stem.h) &&
       Math.max(m.y0 - stem.y1, stem.y0 - m.y1, 0) <= .6 * stem.h;
