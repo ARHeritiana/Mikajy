@@ -120,6 +120,26 @@ for k,c in enumerate(CL):
     Z=np.array(a+b,np.float32);np.save(cf,Z)
     if len(Z):X.append(Z);Y.append(np.full(len(Z),k))
     print(c,len(a),len(b),int(time.time()-t0),'s',flush=True)
+# Optional REAL online handwriting (Google MathWriting symbols, converted to Spark's exact raster format).
+# Keep these datasets and any derived model weights local until the CC BY-NC-SA license is reviewed.
+MW_XV=MW_YV=None
+if os.environ.get('MIKAJY_MATHWRITING_TRAIN_NPZ'):
+    if not os.environ.get('MIKAJY_MATHWRITING_VALID_NPZ'):
+        raise RuntimeError('Set MIKAJY_MATHWRITING_VALID_NPZ for held-out validation')
+    def read_ink_npz(path):
+        with np.load(path) as data:
+            arr=np.asarray(data['X'], dtype=np.float32)
+            labels=[str(x) for x in data['labels']]
+        if arr.ndim != 2 or arr.shape[1] != 784 or len(arr) != len(labels):
+            raise ValueError('Expected (N,784) features and N labels in '+path)
+        good=[i for i, label in enumerate(labels) if label in CL]
+        if not good:
+            raise ValueError('No supported glyph labels in '+path)
+        return arr[good], np.asarray([CL.index(labels[i]) for i in good], dtype=np.int64)
+    mwx,mwy=read_ink_npz(os.environ['MIKAJY_MATHWRITING_TRAIN_NPZ'])
+    MW_XV,MW_YV=read_ink_npz(os.environ['MIKAJY_MATHWRITING_VALID_NPZ'])
+    X.append(mwx);Y.append(mwy)
+    print('MathWriting: train',len(mwx),'held-out',len(MW_XV),flush=True)
 X=np.concatenate(X).astype(np.float32);Y=np.concatenate(Y).astype(np.int64);print('data',X.shape,flush=True)
 Xs=[];Ys=[];Xh=[];Yh=[]
 for k in range(NC):
@@ -157,5 +177,5 @@ for e in range(E0,EP):
         j=perm[i*B:(i+1)*B];xb=X[j].reshape(B,28,28)
         xb=np.roll(xb,(np.random.randint(-1,2),np.random.randint(-1,2)),(1,2))
         key,k=jax.random.split(key);P,S=step(P,S,jnp.asarray(xb[...,None]),jnp.asarray(Y[j]),k)
-    print(e,'mnist',ev(Xt,Yt),'synthetic',ev(Xs,Ys),'heldout-fonts',ev(Xh,Yh),int(time.time()-t0),'s',flush=True);save();pickle.dump((jax.tree_util.tree_map(np.asarray,P),jax.tree_util.tree_map(np.asarray,S),e),open('ckpt4.pkl','wb'))
+    print(e,'mnist',ev(Xt,Yt),'synthetic',ev(Xs,Ys),'heldout-fonts',ev(Xh,Yh), 'mathwriting-valid', (ev(MW_XV,MW_YV) if MW_XV is not None else 'not provided'), int(time.time()-t0),'s',flush=True);save();pickle.dump((jax.tree_util.tree_map(np.asarray,P),jax.tree_util.tree_map(np.asarray,S),e),open('ckpt4.pkl','wb'))
 print('done',flush=True)
