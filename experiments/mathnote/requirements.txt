@@ -1,0 +1,1 @@
+mathnote-ocr==0.2.1
