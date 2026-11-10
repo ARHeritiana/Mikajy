@@ -66,6 +66,7 @@ class InkSession:
     """One MathNote Session with id-stable stroke diffs and cached classification."""
 
     def __init__(self, model):
+        self.source_model = model
         self.model = model.session()
         self.ink = OrderedDict()
         self.lock = threading.Lock()
@@ -85,30 +86,38 @@ class InkSession:
             return self.last_reply
 
         start = time.perf_counter()
-        for sid in list(self.ink):
-            if sid not in snapshot:
-                self.model.remove_stroke(sid)
-        for sid, points in snapshot.items():
-            if sid not in self.ink:
-                self.model.add_stroke(points, id=sid, width=2.0)
-            elif points != self.ink[sid]:
-                self.model.move_stroke(sid, points)
-        self.ink = snapshot
-        self.last_revision = revision
-        if not snapshot:
-            self.model.clear()
-            reading = {"latex": "", "confidence": 0.0, "symbols": [],
-                       "unexplained_stroke_ids": [], "alternatives": []}
-        else:
-            expr = self.model.detect(top_k=3, seed=0)
-            reading = expr.to_dict()
-            reading["alternatives"] = [
-                {"latex": a.latex, "confidence": round(float(a.confidence), 4)}
-                for a in expr.alternatives
-            ]
+        try:
+            for sid in list(self.ink):
+                if sid not in snapshot:
+                    self.model.remove_stroke(sid)
+            for sid, points in snapshot.items():
+                if sid not in self.ink:
+                    self.model.add_stroke(points, id=sid, width=2.0)
+                elif points != self.ink[sid]:
+                    self.model.move_stroke(sid, points)
+            if not snapshot:
+                self.model.clear()
+                reading = {"latex": "", "confidence": 0.0, "symbols": [],
+                           "unexplained_stroke_ids": [], "alternatives": []}
+            else:
+                expr = self.model.detect(top_k=3, seed=0)
+                reading = expr.to_dict()
+                reading["alternatives"] = [
+                    {"latex": a.latex, "confidence": round(float(a.confidence), 4)}
+                    for a in expr.alternatives
+                ]
+        except Exception:
+            # Never expose a partial model state or pretend that recognition succeeded.
+            self.model = self.source_model.session()
+            self.ink = OrderedDict()
+            self.last_revision = -1
+            self.last_reply = None
+            raise
         elapsed = round((time.perf_counter() - start) * 1000)
         reply = {"revision": revision, "reading": reading,
                  "elapsed_ms": elapsed, "stroke_count": len(snapshot)}
+        self.ink = snapshot
+        self.last_revision = revision
         self.last_reply = reply
         self.touched = time.monotonic()
         return reply
