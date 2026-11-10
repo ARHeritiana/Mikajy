@@ -104,6 +104,16 @@ function kill(g){g.ta=0;g.tsz*=.75;g.ty+=16;g.ink=null;g.delay=0;fx.push(g)}
 function lineBox(L){if(L.syms.length||L.ans.length)return[L.base-1.05*L.F,L.base+.4*L.F];let y0=1e9,y1=-1e9;L.ink.forEach(s=>{const b=bb(s);y0=Math.min(y0,b.y0);y1=Math.max(y1,b.y1)});const h=y1-y0,m=Math.max(.4*h+10,35);return[y0-m,y1+m]}
 const isBar=s=>{const b=bb(s);return!s.vin&&b.w>=56&&b.h<.2*b.w};
 function attach(s){const b=bb(s),cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;
+ // A pen stroke can complete a symbol after a recognition timeout or after other symbols.
+ // Keep the original ink in g.raw: the animation field g.ink is deliberately ephemeral.
+ for(const L of lines){
+  const old=Recognizer.reopenCandidate(s,L.syms);
+  if(!old)continue;
+  L.syms.splice(L.syms.indexOf(old),1);
+  L.ink.push(...old.raw,s);
+  kill(old);L.ans.forEach(kill);L.ans=[];L.at='pending';
+  kick();return
+ }
  for(const L of lines)for(const t of L.ink){if(t===s)continue;const tb=bb(t);
   if(isBar(t)&&!isBar(s)){if(cx>=tb.x0-12&&cx<=tb.x1+12&&Math.abs(cy-(tb.y0+tb.y1)/2)<Math.max(130,tb.w)){L.ink.push(s);return}}
   else if(isBar(s)&&!isBar(t)){const tc=(tb.x0+tb.x1)/2;if(tc>=b.x0-12&&tc<=b.x1+12&&Math.abs((tb.y0+tb.y1)/2-cy)<Math.max(130,b.w)){L.ink.push(s);return}}}
@@ -240,7 +250,7 @@ async function doRecognize(){moveBarsToHosts();for(const L of lines.slice())if(L
  for(const j of jobs){const L=j.L;if(!lines.includes(L))continue;
   const alive=j.items.filter(it=>it.g.s.every(s=>L.ink.includes(s)));if(!alive.length)continue;
   const done=new Set();alive.forEach(it=>it.g.s.forEach(s=>done.add(s)));L.ink=L.ink.filter(s=>!done.has(s));
-  const fresh=alive.map(it=>{const g=it.g,b=g.b,o={b,ink:g.s,fp:it.fp,fid:it.fid};
+  const fresh=alive.map(it=>{const g=it.g,b=g.b,o={b,ink:g.s,raw:g.s.slice(),fp:it.fp,fid:it.fid};
    if(it.bar)return newG([{c:'§',p:1}],Object.assign(o,{fresh:false,conv:it.conv}));
    return it.dot?newG([{c:'.',p:1}],Object.assign(o,{fresh:false})):newG(classifyP(it.p,it.x),Object.assign(o,{fv:it.x,fresh:true,vin:it.vin}))});
   const key=g=>(g.b.x0+g.b.x1)/2,units=[],late=[];
@@ -248,16 +258,13 @@ async function doRecognize(){moveBarsToHosts();for(const L of lines.slice())if(L
    const ds=fresh.filter(g=>g.fid===bar.fid&&g.fp=='d').sort((a,b)=>key(a)-key(b));nums.forEach(s=>{s.fp='n';s.fid=bar.fid});
    L.syms.splice(L.syms.indexOf(nums[0]),0,bar);L.syms.splice(L.syms.indexOf(nums[nums.length-1])+1,0,...ds);bar.done=true;ds.forEach(g=>g.done=true)}
   const rest=fresh.filter(g=>!g.done);
-  for(const g of rest){if(g.fp=='bar'||(g.fp&&!L.syms.some(s=>s.fid===g.fid)&&!L.ans.some(s=>s.fid===g.fid)))continue;
-   const nb=g.b,na=Math.max(1,nb.w*nb.h);let hit=null;
-   for(const s of L.syms){if(ch(s)=='§'||s.fp=='bar')continue;const q=gbox(s),iw=Math.min(nb.x1,q.x1)-Math.max(nb.x0,q.x0),ih=Math.min(nb.y1,q.y1)-Math.max(nb.y0,q.y0);
-    if(iw>0&&ih>0){const r=iw*ih/Math.min(Math.max(1,(q.x1-q.x0)*(q.y1-q.y0)),Math.max(na,(nb.w+8)*(nb.h+8)));if(r>=.5&&key(g)>q.x0&&key(g)<q.x1){hit=s;break}}}
-   if(hit){if(hit.fp){g.fp=hit.fp;g.fid=hit.fid}L.syms.splice(L.syms.indexOf(hit),1);kill(hit)}}
+  // Do not erase old text from overlaps against re-typeset font geometry. Insertions are additive.
   for(const g of rest){if(g.fp=='bar')continue;if(g.fp&&L.syms.some(s=>s.fid===g.fid&&s.fp=='bar')){late.push(g);continue}if(!g.fp)units.push({k:key(g),a:[g]})}
   const fids=[...new Set(rest.filter(g=>g.fp=='bar').map(g=>g.fid))];
   for(const id of fids){const part=p=>rest.filter(g=>g.fid===id&&g.fp==p).sort((a,b)=>key(a)-key(b)),bar=part('bar')[0];units.push({k:key(bar),a:[bar,...part('n'),...part('d')]})}
   units.sort((a,b)=>a.k-b.k);const isNew=!L.syms.length;
-  for(const un of units){let k=L.syms.findIndex(s=>!isPart(s)&&s.tx+s.w/2>un.k);if(k<0)k=L.syms.length;L.syms.splice(k,0,...un.a)}
+  const rawKey=s=>s.b?(s.b.x0+s.b.x1)/2:s.tx+s.w/2;
+  for(const un of units){let k=L.syms.findIndex(s=>!isPart(s)&&rawKey(s)>un.k);if(k<0)k=L.syms.length;L.syms.splice(k,0,...un.a)}
   late.sort((a,b)=>key(a)-key(b));for(const g of late)insertPart(L,g,key(g));
   for(const A of seqs(L)){ctxfix(A);wordfix(A);assignSup(A);assignCover(A)}
   const topF=fresh.filter(g=>!g.fp),dg=topF.filter(g=>!g.sup&&/[0-9]/.test(ch(g))).map(g=>g.b),pdg=fresh.filter(g=>g.fp&&g.fp!='bar'&&!g.sup&&/[0-9]/.test(ch(g))).map(g=>g.b),bars=fresh.filter(g=>g.fp=='bar');
