@@ -118,6 +118,36 @@ async def main():
             assert answer and answer.lstrip("=") == "2" and glyphs.startswith("√4"), f"root ({style}): read {glyphs!r} = {answer!r}"
             assert not errors, errors
             await page.close()
+        # Recognition must remain revisable AFTER the 650 ms timeout.
+        page = await browser.new_page(viewport={"width": 800, "height": 500})
+        await page.goto(PAGE)
+        await pen(page, dense([(120, 250), (175, 250)]))
+        await page.wait_for_timeout(1500)
+        early = await page.evaluate("() => lines[0]?.syms.length || 0")
+        assert early == 1, f"First bar not recognized as one glyph: {early}"
+        await pen(page, dense([(120, 270), (175, 270)]))
+        await page.wait_for_timeout(1500)
+        recovered = await page.evaluate("""() => lines[0]?.syms.map(g => ({
+            originalStrokes: g.raw?.length || 0, type: g.c[g.i].c
+        })) || []""")
+        assert len(recovered) == 1 and recovered[0]["originalStrokes"] == 2, (
+            f"Late second stroke must revise a single glyph: {recovered}"
+        )
+        await page.close()
+
+        # When a term is written between two already typeset terms, neither neighbor is deleted.
+        page = await browser.new_page(viewport={"width": 800, "height": 500})
+        await page.goto(PAGE)
+        await write(page, [("1", 110, 300, 75), ("3", 320, 300, 75)])
+        await page.wait_for_timeout(1700)
+        await write(page, [("2", 210, 300, 75)])
+        await page.wait_for_timeout(1700)
+        positions = await page.evaluate("""() => lines[0]?.syms
+            .filter(g => !g.fp).map(g => (g.b.x0 + g.b.x1) / 2) || []""")
+        assert len(positions) == 3 and positions == sorted(positions), (
+            f"Mid-line insertion must preserve all three glyphs in their spatial order: {positions}"
+        )
+        await page.close()
         await browser.close()
     print("Handwriting end to end (drawn strokes -> recogniser -> exponent / root -> answer): PASS")
 
