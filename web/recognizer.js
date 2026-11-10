@@ -244,6 +244,75 @@ const Recognizer = (() => {
     return best.pieces.map(r => r.piece);
   }
 
-  return Object.freeze({ch, HR, DS, WORDS, assignSup, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke, nominalHeight});
+
+  /* ---- Spatial ink grouping and late glyph completion ----------------------------------------
+   * Both operations use the original pen coordinates, never the typeset positions.  A glyph may
+   * be finished after a recognition timeout or after the writer has drawn other characters. */
+  const joinBoxes = (a, b) => ({
+    x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0),
+    x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1),
+    w: Math.max(a.x1, b.x1) - Math.min(a.x0, b.x0),
+    h: Math.max(a.y1, b.y1) - Math.min(a.y0, b.y0)
+  });
+  const centre = b => [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
+  const horizontal = b => b.w >= 3 * Math.max(b.h, 1);
+  const vertical = b => b.h >= 1.4 * Math.max(b.w, 1);
+  const span = b => Math.max(b.w, b.h);
+
+  function relatedInkBoxes(a, b) {
+    const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
+    const oy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+    const [ax, ay] = centre(a), [bx, by] = centre(b);
+    // Two separately drawn, horizontally aligned bars form '=' (or later '≠').
+    if (horizontal(a) && horizontal(b) && Math.min(a.w, b.w) >= 14 &&
+        ox >= .55 * Math.min(a.w, b.w) &&
+        Math.abs(ay - by) <= .42 * Math.min(a.w, b.w)) return true;
+    const markToStem = (m, stem) => vertical(stem) && span(m) <= .25 * stem.h &&
+      Math.abs(centre(m)[0] - centre(stem)[0]) <= Math.max(6, .18 * stem.h) &&
+      Math.max(m.y0 - stem.y1, stem.y0 - m.y1, 0) <= .6 * stem.h;
+    // The three marks of a division sign may be drawn in any order.
+    const markToBar = (m, bar) => horizontal(bar) && span(m) <= .12 * bar.w &&
+      Math.abs(centre(m)[0] - centre(bar)[0]) <= .22 * bar.w &&
+      Math.abs(centre(m)[1] - centre(bar)[1]) <= .4 * bar.w;
+    if (markToStem(a, b) || markToStem(b, a) ||
+        markToBar(a, b) || markToBar(b, a)) return true;
+    // Actual crossing/overlapping marks (plus, pi, percent, t) are one symbol.
+    // Do not join nearby disjoint characters or fraction numerators to bars.
+    return ox >= -1.5 && oy >= -1.5;
+  }
+
+  function groupStrokes(strokes) {
+    if (!strokes.length) return [];
+    const bs = strokes.map(extent), parent = strokes.map((_, i) => i);
+    const root = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    for (let i = 0; i < strokes.length; i++)
+      for (let j = 0; j < i; j++)
+        if (relatedInkBoxes(bs[i], bs[j])) parent[root(i)] = root(j);
+    const groups = new Map();
+    strokes.forEach((s, i) => {
+      const k = root(i);
+      if (!groups.has(k)) groups.set(k, {s: [], b: bs[i]});
+      const g = groups.get(k); g.s.push(s); g.b = joinBoxes(g.b, bs[i]);
+    });
+    const ref = Math.max(40, ...bs.map(span));
+    return [...groups.values()].map(g => ({...g, tiny: g.b.w < .2 * ref && g.b.h < .2 * ref}))
+      .sort((a, b) => centre(a.b)[0] - centre(b.b)[0]);
+  }
+
+  function reopenCandidate(stroke, glyphs) {
+    const b = extent(stroke), [x, y] = centre(b);
+    let best = null, score = Infinity;
+    for (const g of glyphs) {
+      // Preserve the original ink separately from animation ink, which is discarded on fade-in.
+      if (g.locked || g.fp || !Array.isArray(g.raw) || !g.raw.length) continue;
+      if (!g.raw.some(s => relatedInkBoxes(b, extent(s)))) continue;
+      const old = g.b || g.raw.map(extent).reduce(joinBoxes);
+      const [gx, gy] = centre(old), d = Math.hypot(x - gx, y - gy) / Math.max(15, span(old));
+      if (d < score) {best = g; score = d;}
+    }
+    return best;
+  }
+
+  return Object.freeze({ch, HR, DS, WORDS, assignSup, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke, nominalHeight, groupStrokes, reopenCandidate});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Recognizer;
