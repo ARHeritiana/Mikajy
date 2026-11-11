@@ -11,7 +11,10 @@ reads the newest GitHub Release, so publishing a release is what delivers an upd
 1. Update `android:versionName` (e.g. `5.1`) and raise `android:versionCode` in `android/AndroidManifest.xml`,
    and `version` in `package.json`.
 2. Move the `Unreleased` notes in `CHANGELOG.md` under the new version.
-3. Merge to `main` once CI is green, then tag and push: `git tag v5.1 && git push origin v5.1`.
+3. Merge to `main` once CI is green, then either
+   - in the **Actions** tab, open *Mikajy Spark signed release* and **Run workflow** on `main`: it creates the tag
+     `v5.1` from `versionName` on the commit it builds (and refuses if that tag already exists), or
+   - tag and push yourself: `git tag v5.1 && git push origin v5.1` (the tag must match `versionName`).
 4. `release.yml` re-runs every test, builds, signs with the persistent key, checks the certificate fingerprint
    against `MIKAJY_CERT_SHA256`, and publishes `Mikajy-Spark-5.1.apk` plus `SHA256SUMS.txt`.
 5. Installed apps pick the release up within a day (or immediately via *Check for updates*). **Get Mikajy Spark x.y**
@@ -27,7 +30,7 @@ A signing key must **not** be committed. Keep the signing keystore safely backed
 
 ## Automated signed releases (GitHub Actions)
 
-The tag-triggered workflow `.github/workflows/release.yml` reruns all
+The workflow `.github/workflows/release.yml` (started by a `v*` tag or by *Run workflow* on `main`) reruns all
 mathematical, browser and unsigned Android tests **before** signing. On success,
 it builds and signs an APK using the *same* key on every future release,
 verifies the pinned public certificate fingerprint and publishes the APK with
@@ -108,7 +111,8 @@ replacing them.
 Increment `android:versionCode` above 15 and update
 `android:versionName` (e.g. `5.1`) in
 `android/AndroidManifest.xml`. After merging and testing the changes,
-push the matching tag (e.g. `v5.1`). GitHub Actions then verifies, signs,
+run the release workflow on `main` from the Actions tab, or push the matching tag (e.g. `v5.1`).
+GitHub Actions then verifies, signs,
 and publishes `Mikajy-Spark-5.1.apk` and its SHA-256 checksum to
 [GitHub Releases](https://github.com/ARHeritiana/Mikajy-Spark/releases).
 

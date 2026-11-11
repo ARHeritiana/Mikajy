@@ -1,9 +1,13 @@
 name: Mikajy Spark signed release
 
+# Two ways to release the version in android/AndroidManifest.xml:
+#   - push a tag vX.Y (or vX.Y.Z) that matches it, or
+#   - run this workflow from the Actions tab on main: it creates the tag vX.Y itself, on the commit it built.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,19 +36,36 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Ensure tag matches Android version
+      - name: Resolve the release tag from the Android version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
-            echo "::error::Release tag must be vMAJOR.MINOR or vMAJOR.MINOR.PATCH"
+          version="$(python3 -c 'import xml.etree.ElementTree as ET; root=ET.parse("android/AndroidManifest.xml").getroot(); print(root.attrib["{http://schemas.android.com/apk/res/android}versionName"])')"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            # A manual release is cut from main only, and never over an existing tag.
+            if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+              echo "::error::Run the release from main (this run is on $GITHUB_REF)"
+              exit 1
+            fi
+            tag="v$version"
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+              echo "::error::Tag $tag already exists: bump versionName/versionCode before releasing again"
+              exit 1
+            fi
+          else
+            tag="$GITHUB_REF_NAME"
+            if [[ "$tag" != "v$version" ]]; then
+              echo "::error::Tag $tag does not match Android versionName $version"
+              exit 1
+            fi
+          fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
+            echo "::error::Release tag must be vMAJOR.MINOR or vMAJOR.MINOR.PATCH (got $tag)"
             exit 1
           }
-          version="$(python3 -c 'import xml.etree.ElementTree as ET; root=ET.parse("android/AndroidManifest.xml").getroot(); print(root.attrib["{http://schemas.android.com/apk/res/android}versionName"])')"
-          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match Android versionName $version"
-            exit 1
-          fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
 
       - name: Install Android build and signing tools
         run: |
@@ -98,7 +119,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="Mikajy-Spark-${GITHUB_REF_NAME#v}.apk"
+          apk="Mikajy-Spark-${RELEASE_TAG#v}.apk"
           mv Mikajy.apk "$apk"
           sha256sum "$apk" > SHA256SUMS.txt
 
@@ -108,6 +129,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="Mikajy-Spark-${GITHUB_REF_NAME#v}.apk"
-          gh release create "$GITHUB_REF_NAME" "$apk" SHA256SUMS.txt \
-            --verify-tag --generate-notes --title "Mikajy Spark ${GITHUB_REF_NAME#v}"
+          apk="Mikajy-Spark-${RELEASE_TAG#v}.apk"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            target=(--target "$GITHUB_SHA")   # creates the tag on the commit that was built
+          else
+            target=(--verify-tag)             # the pushed tag must already exist
+          fi
+          gh release create "$RELEASE_TAG" "$apk" SHA256SUMS.txt \
+            "${target[@]}" --generate-notes --title "Mikajy Spark ${RELEASE_TAG#v}"
