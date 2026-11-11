@@ -25,9 +25,13 @@ Updates install over the old version only if both are signed with the same key (
   **roots** (`√`, with or without the bar), `π`, `e`, `!`, and function names written as words — also in joined-up
   cursive: `sin cos tan cot sec csc asin acos atan sinh cosh tanh ln log exp sqrt abs` (also `sin⁻¹`, `sin²x`).
 * **Instant** results as you write, or **on demand** (the answer appears when you write a trailing `=`).
-* **Interactive editing**: scribble over something to erase it (only the covered symbols go), write a new
-  symbol on top of an old one to replace it, write in the gap of a fraction to fix a numerator/denominator,
-  add terms to the end/middle of a line. Tap a symbol to cycle through the recogniser's alternatives.
+* **Interactive editing** against what is on the screen: scribble over something to erase it (only the symbols whose
+  middle the scribble covers go; scribbling out a root sign keeps its radicand), write a new symbol on top of an old
+  one to replace it, write above / below a fraction bar or under a root's bar to add to that part, write a raised
+  symbol next to a typeset one to give it an exponent, add terms anywhere in a line. A symbol finished after a pause
+  (second bar of `=`, stem of `+`, dot of `i`) is completed, not split. Tap a symbol to cycle through the recogniser's alternatives.
+* **Roots keep their bar**: the bar is drawn as long as you drew it, before and after you write under it, and it
+  bounds the radicand. A root drawn around an existing number takes it inside.
 * **Equations in one unknown:** polynomials of degree 1–2 with rational coefficients (`2x+3=7` → `x=2`, `(x−1)²=0` → `x=1`)
   and one-to-one forms such as `2^x=8` → `x=3`, `e^x=5` → `x≈1.609…`, `ln x=1` → `x≈2.718…`.
   Anything else is explicitly unsupported.
@@ -84,7 +88,8 @@ Logo: **light and fast**: three white chevrons fading in from left to right acro
 web/                       the app (one HTML page, HTML5 canvas, no dependencies)
   core_cnn.js              CNN inference (runs in a Web Worker; falls back to main thread)
   core_main.js             stroke grouping, personalisation (kNN over your corrections), classification
-  recognizer.js            exponent detection, function-word matching, cursive segmentation (pure, tested)
+  recognizer.js            function-word matching, cursive segmentation, glyph metrics (pure, tested)
+  ink.js                   expression tree: placement, exponents, fractions, roots, erasing, layout, tokens (pure, tested)
   math-core.js             strict parser, AST, real evaluation, exact rationals, equation solving
   calculator.js            formatting and UI-facing calculation adapter
   updates.js               what an update answer means and when to ask again
@@ -130,7 +135,10 @@ Input: every group of strokes is rendered (4x supersampled, bbox scaled to 20 px
 pen ~2.9 px). Model: conv3x3(24)-pool-conv3x3(48)-pool-fc(192)-fc, with legacy advanced classes filtered at inference.
 Supported classes include `0-9 + - * / ( ) =`, function-name letters, `π √ ! %`.
 Fractions, exponents, roots, dots (`.`, `i`, `!`) and function words are resolved geometrically and by a
-word matcher over each symbol's top-5 candidates, not by the CNN (`web/recognizer.js`):
+word matcher over each symbol's top-5 candidates, not by the CNN (`web/ink.js`, `web/recognizer.js`):
+* **Structure:** each line is an expression tree (glyphs, exponents, fractions, roots). A new symbol is placed by one
+  rule, comparing its ink with the boxes of what is *displayed* (typeset symbols, not their old ink): inside a fraction
+  part or under a root bar it joins that part; otherwise it is ordered by x.
 * **Exponents** are raised, smaller glyphs measured against the base's *nominal* height, so the small `e` and `x`,
   brackets and descender letters carry exponents too (`e^x`, `e^{2x}`, `(x+1)^2`, `10^-3`).
 * **Function words** (`sin cos tan cot sec csc asin acos atan sinh cosh tanh ln log exp sqrt abs`) are matched through

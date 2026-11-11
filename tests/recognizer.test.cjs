@@ -1,16 +1,24 @@
 'use strict';
-// Behavioural tests for web/recognizer.js: exponents, cursive function words, cursive splitting.
+// Behavioural tests for web/recognizer.js (function words, cursive splitting) and exponent placement (web/ink.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const R = require('../web/recognizer.js');
+const Ink = require('../web/ink.js');
 
 /** A glyph whose candidate list is `cands` ("a:.6,e:.3"), drawn in a box at (x, base) with the given height. */
 function glyph(cands, x, base, h, w = h * .7) {
   const c = cands.split(',').map(t => { const [k, p] = t.split(':'); return {c: k, p: +p}; });
   return {c, i: 0, b: {x0: x, x1: x + w, y0: base - h, y1: base, w, h}};
 }
-const text = A => A.map(g => R.ch(g) + (g.sup ? '^' : '')).join(' ');
-const run = A => { R.wordfix(A); R.assignSup(A); return text(A); };
+/** Places the glyphs (left to right) into an expression tree and reads it: exponents come out marked with ^. */
+const run = A => {
+  const seq = [];
+  for (const g of A) Ink.insert(seq, Object.assign(g, {t: 'g', raw: g.b}), 60);
+  Ink.readAll(seq, false);
+  const out = [], emit = (s, up) => s.forEach(n => n.t === 'sup' ? emit(n.body, true) : out.push(R.ch(n) + (up ? '^' : '')));
+  emit(seq, false);
+  return out.join(' ');
+};
 
 test('exponents: digits raised and smaller are superscripts, text back on the line is not', () => {
   const two = glyph('2:.95', 0, 100, 50), three = glyph('3:.95', 40, 70, 28);

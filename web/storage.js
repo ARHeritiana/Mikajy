@@ -70,11 +70,41 @@ const Store = (() => {
     return ok;
   }
 
+  /* Expression trees (see ink.js): glyph {c}, exponent {s: [...]}, fraction {n: [...], d: [...]}, root {r: [...], k: reach}.
+   * Rebuilt node by node; anything unexpected, too deep (> 8) or too large (> 200 nodes) rejects the whole tree. */
+  function cleanTree(list) {
+    let budget = 200;
+    const seq = (a, depth) => {
+      if (!Array.isArray(a) || depth > 8 || a.length > budget) return null;
+      const out = [];
+      for (const o of a) {
+        if (!isObject(o) || --budget < 0) return null;
+        let n = null;
+        if (str(o.c, 2) && o.c) n = {c: o.c};
+        else if (o.s !== undefined) { const b = seq(o.s, depth + 1); n = b && b.length ? {s: b} : null; }
+        else if (o.n !== undefined) { const a1 = seq(o.n, depth + 1), a2 = a1 && seq(o.d, depth + 1); n = a1 && a2 ? {n: a1, d: a2} : null; }
+        else if (o.r !== undefined) { const b = seq(o.r, depth + 1); n = b ? {r: b, k: isNum(o.k) ? Math.min(20, Math.max(0, o.k)) : 0} : null; }
+        if (!n) return null;
+        out.push(n);
+      }
+      return out;
+    };
+    const t = seq(list, 0);
+    return t && t.length ? t : null;
+  }
+
   /** History entries: rebuilt field by field so no unexpected property or type survives. */
   function cleanHistory(list, max = 100) {
     const out = [];
     for (const h of list) {
       if (!isObject(h) || !str(h.id, 64) || !h.id || !isNum(h.ts) || !str(h.ans, 200) || !str(h.text, 400)) continue;
+      const F = isNum(h.F) ? Math.min(400, Math.max(20, h.F)) : 70;
+      if (h.tree !== undefined) {
+        const tree = cleanTree(h.tree);
+        if (tree) out.push({id: h.id, ts: h.ts, tree, F, ans: h.ans, text: h.text});
+        if (out.length >= max) break;
+        continue;
+      }
       if (!Array.isArray(h.syms) || !h.syms.length || h.syms.length > 200) continue;
       const syms = [];
       for (const s of h.syms) {
@@ -86,7 +116,7 @@ const Store = (() => {
         });
       }
       if (!syms.length) continue;
-      out.push({id: h.id, ts: h.ts, syms, F: isNum(h.F) ? Math.min(400, Math.max(20, h.F)) : 70, ans: h.ans, text: h.text});
+      out.push({id: h.id, ts: h.ts, syms, F, ans: h.ans, text: h.text});
       if (out.length >= max) break;
     }
     return out;
@@ -100,6 +130,6 @@ const Store = (() => {
     return PLAIN_NUMBER.test(s) ? s : null;
   }
 
-  return Object.freeze({loadArray, save, cleanChips, cleanSamples, loadSamples, saveSamples, cleanHistory, plainNumber, PLAIN_NUMBER});
+  return Object.freeze({loadArray, save, cleanChips, cleanSamples, loadSamples, saveSamples, cleanTree, cleanHistory, plainNumber, PLAIN_NUMBER});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Store;
