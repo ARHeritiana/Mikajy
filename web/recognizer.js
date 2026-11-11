@@ -210,6 +210,39 @@ const Recognizer = (() => {
     return best.pieces.map(r => r.piece);
   }
 
-  return Object.freeze({ch, HR, DS, WORDS, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke});
+  /* ---- Grouping strokes into symbols -----------------------------------------------------------
+   * Which strokes of one zone (the line, a numerator, a denominator, an exponent) form one symbol. The test
+   * between two strokes is symmetric and every pair is compared, so the result does not depend on the order
+   * the strokes were drawn in: the second bar of = may come after the 3 that follows it, the dot of an i
+   * before its stem, the dots of ÷ before their bar. */
+  /** Does stroke `s` (box `b`) belong with the stroke whose box is `q`? `vin` marks a root sign. */
+  function partOf(s, b, q, qVin, ref) {
+    const tiny = b.w < .2 * ref && b.h < .2 * ref, qTiny = q.w < .2 * ref && q.h < .2 * ref;
+    const m = qVin ? 0 : .18 * Math.max(q.h, q.w, 30), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const bar = q.w > 2.5 * Math.max(q.h, 1), stem = q.h > 1.3 * q.w && q.h > 25;
+    const dotA = tiny && stem && cy < q.y0 && q.y0 - cy < .7 * q.h, dotB = tiny && stem && cy > q.y1 + .1 * q.h && cy - q.y1 < .6 * q.h;
+    const p0 = s[0], touch = stem && !tiny && b.w > .2 * q.h && p0[0] >= q.x0 - .1 * q.h && p0[0] <= q.x1 + .1 * q.h &&
+      p0[1] >= q.y0 - .1 * q.h && p0[1] <= q.y1 + .1 * q.h;
+    return touch || (cx >= q.x0 - m && cx <= q.x1 + m && (!tiny || bar || qTiny || dotA || dotB));
+  }
+  /** Groups strokes into symbols: [{s: strokes in drawing order, b: box, tiny}], in the order of each symbol's first stroke. */
+  function groupStrokes(S) {
+    const bs = S.map(extent), ref = Math.max(40, ...bs.map(b => Math.max(b.w, b.h)));
+    const up = S.map((_, i) => i), root = i => { while (up[i] !== i) i = up[i] = up[up[i]]; return i; };
+    for (let i = 0; i < S.length; i++)
+      for (let j = 0; j < i; j++)
+        if (partOf(S[i], bs[i], bs[j], !!S[j].vin, ref) || partOf(S[j], bs[j], bs[i], !!S[i].vin, ref)) up[root(i)] = root(j);
+    const G = new Map();
+    S.forEach((s, i) => {
+      const k = root(i), g = G.get(k), b = bs[i];
+      if (!g) { G.set(k, {s: [s], b}); return; }
+      g.s.push(s);
+      g.b = {x0: Math.min(g.b.x0, b.x0), y0: Math.min(g.b.y0, b.y0), x1: Math.max(g.b.x1, b.x1), y1: Math.max(g.b.y1, b.y1)};
+      g.b.w = g.b.x1 - g.b.x0; g.b.h = g.b.y1 - g.b.y0;
+    });
+    return [...G.values()].map(g => Object.assign(g, {tiny: g.b.w < .2 * ref && g.b.h < .2 * ref}));
+  }
+
+  return Object.freeze({ch, HR, DS, WORDS, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke, groupStrokes});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Recognizer;

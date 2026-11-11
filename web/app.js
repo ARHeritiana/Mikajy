@@ -206,20 +206,22 @@ function recognize(){if(recBusy){recAgain=true;return}recBusy=true;doRecognize()
 function touches(s,src){const r=Math.max(8,.1*Math.max(...src.map(t=>{const q=bb(t);return Math.max(q.w,q.h)}))),P=resamp(s,4),Q=src.flatMap(t=>t.length>1?resamp(t,4):t);
  return P.some(p=>Q.some(q=>Math.abs(p[0]-q[0])<r&&Math.abs(p[1]-q[1])<r))}
 /** Does stroke `s` complete the symbol `n` read moments ago? While its ink is still on screen, touching that ink counts; afterwards
- * the stroke must cross the middle of the typeset symbol. Also: the second bar of =, the dot of i or !. */
-function joins(s,n,now){const b=bb(s),inkShown=now-n.tc<900,P=resamp(s,4);
+ * the stroke must cross the middle of the typeset symbol. Also: the second bar of =, the dot of i or !.
+ * `late` (after REOPEN_MS): only a stroke that unmistakably finishes the symbol shown on screen counts (the second bar of =
+ * under or over a typeset −, the dot over a stem), so a symbol can be completed after other symbols were written. */
+function joins(s,n,now,late){const b=bb(s),inkShown=!late&&now-n.tc<900,P=resamp(s,4);
  if(inkShown&&touches(s,n.src))return true;
  for(const q of inkShown?[n.rb,n.box]:[n.box]){if(!q)continue;
   const cx=(q.x0+q.x1)/2,cy=(q.y0+q.y1)/2;
-  if(P.some(p=>Math.abs(p[0]-cx)<.25*q.w+3&&Math.abs(p[1]-cy)<.25*q.h+4))return true;
+  if(!late&&P.some(p=>Math.abs(p[0]-cx)<.25*q.w+3&&Math.abs(p[1]-cy)<.25*q.h+4))return true;
   const flat=o=>o.h<.3*Math.max(o.w,1),ov=Math.min(b.x1,q.x1)-Math.max(b.x0,q.x0);
-  if(flat(b)&&flat(q)&&Math.max(b.w,q.w)<4*Math.min(b.w,q.w)&&ov>=.6*Math.min(b.w,q.w)&&Math.abs((b.y0+b.y1)-(q.y0+q.y1))/2<.8*Math.max(b.w,q.w))return true;
-  const H=Math.max(q.h,q.w),dx=(b.x0+b.x1)/2,dy=(b.y0+b.y1)/2;
-  if(Math.max(b.w,b.h)<.35*H&&q.h>1.3*q.w&&dx>=q.x0-.3*H&&dx<=q.x1+.3*H&&(dy<q.y0&&q.y0-dy<.7*q.h||dy>q.y1&&dy-q.y1<.6*q.h))return true}
+  if((!late||ch(n)=='-')&&flat(b)&&flat(q)&&Math.max(b.w,q.w)<4*Math.min(b.w,q.w)&&ov>=.6*Math.min(b.w,q.w)&&Math.abs((b.y0+b.y1)-(q.y0+q.y1))/2<.8*Math.max(b.w,q.w))return true;
+  const H=Math.max(q.h,q.w),dx=(b.x0+b.x1)/2,dy=(b.y0+b.y1)/2,sh=n.rb||q;   // stem-like: judged on the ink's shape (a typeset 1 is wide)
+  if(Math.max(b.w,b.h)<.35*H&&sh.h>1.3*sh.w&&dx>=q.x0-.3*H&&dx<=q.x1+.3*H&&(dy<q.y0&&q.y0-dy<.7*q.h||!late&&dy>q.y1&&dy-q.y1<.6*q.h))return true}
  return false}
 function reopenRecent(L){const now=performance.now(),fresh=L.ink.filter(s=>!s.vin);if(!fresh.length)return;
- for(const n of visuals(L.seq)){if(n.t!='g'||!n.src||now-n.tc>REOPEN_MS||n.locked)continue;
-  const j=fresh.find(s=>joins(s,n,now));if(!j)continue;
+ for(const n of visuals(L.seq)){if(n.t!='g'||!n.src||n.locked)continue;const late=now-n.tc>REOPEN_MS;
+  const j=fresh.find(s=>joins(s,n,now,late));if(!j)continue;
   const host=Ink.findSeq(L.seq,n);host.splice(host.indexOf(n),1);if(!host.length)Ink.erase(L.seq,()=>false);   // drops an exponent left empty
   let src=n.src.filter(s=>!L.ink.includes(s));
   if(now-n.tc>=900&&n.box){const q=n.rb,v=n.box,k=Math.min(2,Math.max(.5,Math.max(v.w,v.h)/Math.max(q.w,q.h,1))),qx=(q.x0+q.x1)/2,qy=(q.y0+q.y1)/2,vx=(v.x0+v.x1)/2,vy=(v.y0+v.y1)/2;
