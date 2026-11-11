@@ -5,6 +5,12 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
 
 ## [Unreleased]
 
+## [5.4] - 2026-11-11
+
+Rewritten handwriting editing and in-app updates. Numbered 5.4 because the names 5.1–5.3 were already used by
+earlier, since-reverted builds of `com.mikajy.app` (versionCodes 16–18): the updater compares version names, so a
+lower name would never be offered to phones still on 5.3. `versionCode` 20.
+
 ### Added
 - **In-app updates.** *Get Mikajy Spark x.y* now downloads the release APK inside the app (with progress), keeps it only if
   its SHA-256 matches the release's `SHA256SUMS.txt` and it is a newer `com.mikajy.app`, and hands it to Android's installer.

@@ -12,7 +12,7 @@ app. When the phone happens to be online it checks GitHub (at most once a day, o
 tells you.
 
 ## Install and update
-1. Download the APK (currently the previously published `Mikajy-5.0.apk`; future releases use the Spark name) from the [latest release](https://github.com/ARHeritiana/Mikajy-Spark/releases/latest) and open it
+1. Download the APK (`Mikajy-Spark-x.y.apk`) from the [latest release](https://github.com/ARHeritiana/Mikajy-Spark/releases/latest) and open it
    (allow installing from your browser when Android asks). Check it with `SHA256SUMS.txt` if you like.
 2. Later versions announce themselves: a red dot appears on the menu button and the **App** tab of the menu shows **Get Mikajy Spark x.y**.
    *App → Updates → Off* disables the automatic check; *Check for updates* does it on demand.

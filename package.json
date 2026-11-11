@@ -1,6 +1,6 @@
 {
   "name": "mikajy-spark",
-  "version": "5.0.1",
+  "version": "5.4.0",
   "private": true,
   "description": "Offline handwriting calculator for Android (HTML5 canvas in a WebView shell).",
   "license": "MIT",
