@@ -41,11 +41,10 @@ Measured in Node on a desktop CPU; **not** on a device (see "Known debt" 5).
 Tests: 18 -> 27 unit tests; `tests/build_check.py` also fails if the shipped model is not the exact packing of the checkpoint.
 
 ## Known debt (deliberately not "fixed" blind)
-1. **`web/app.js` and `web/core_main.js` are dense, global-state, 300-character-per-line code.** They hold the
-   recogniser heuristics (stroke grouping, fractions, roots, scribble-erase, drag & drop). They work, but cannot be
-   reviewed or safely modified. A real rewrite needs characterisation tests built from recorded strokes and device
-   testing; rewriting them untested would trade known behaviour for unknown bugs. Recommended next step: record
-   stroke fixtures → split into modules (`geometry`, `layout`, `recognizer`, `history`, `ui`) one at a time behind those tests.
+1. **Editing core rewritten (unreleased).** The flat glyph list with `sup` / fraction-id / root-cover flags was replaced
+   by an expression tree (`web/ink.js`, unit-tested, plus drawn-stroke browser scenarios for exponents, fractions,
+   roots, pauses inside a symbol and erasing). Remaining dense code: `core_main.group` and `app.radical`. All
+   thresholds are validated on synthetic strokes only; recorded finger-written fixtures and device testing are still needed.
 2. **Model size.** Halved by the float16 packing above. Further reduction (int8) changes the recogniser's alternative
    candidates and needs real handwriting validation first.
 3. ~~The same model is stored twice~~ — resolved: `training/model4.json` is the float32 checkpoint, `web/model/model4.f16.json` the shipped file.

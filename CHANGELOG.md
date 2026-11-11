@@ -13,6 +13,26 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
   New permission `REQUEST_INSTALL_PACKAGES` (the build fails on any other permission besides `INTERNET`).
   Apps up to 5.0.1 still update through the browser once, to the first version that has this.
 
+### Changed
+- **Editing core rewritten around an expression tree** (`web/ink.js`). Every edit is now decided against what is on the
+  screen (typeset symbols), not against ink that has already been replaced: new symbols, exponents written later,
+  additions to a fraction or a root land where they were written.
+- **Square roots keep their bar.** The pending ink keeps the bar; the typeset root keeps the reach it was drawn with
+  before anything is written under it, and the bar bounds the radicand. Symbols after the root are placed after its bar.
+  A root drawn around an existing number takes it as radicand; a bar added to a bare root sign takes what is under it.
+- **Erasing is targeted**: a symbol is erased only when the scribble passes over its middle, with a reach scaled to the
+  symbol's size (small exponents next to the scribble survive). The whole line goes only when most of its answer is
+  scribbled out. Scribbling out a root sign keeps its radicand; a fraction goes with its bar.
+- **Symbols finished after a pause** (second bar of `=`, stem of `+`, dot of `i`, …) complete the symbol instead of
+  becoming a second one.
+- Strokes of a numerator, a denominator and an exponent are never merged into one symbol.
+- Smoother pen: the live stroke is drawn up to the pen tip (latest raw point plus the browser's predicted points);
+  text widths are measured once per character; the recognition pause is 550 ms (was 650 ms).
+- History stores the expression tree (validated by `Store.cleanTree`); older history entries still open.
+
+### Removed
+- `Recognizer.assignSup` (superseded by tree placement; its fixtures now run through `web/ink.js`).
+
 ## [5.0.1] - 2026-11-09
 
 First Mikajy Spark release: everything below up to the `v5.0` entry (rebrand, MIT licence alignment, menu tabs, English / Français, square-root fix). `versionCode` 19 so it installs over any earlier 5.x build.
