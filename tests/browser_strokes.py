@@ -139,6 +139,55 @@ async def scene_equals_after_pause(page):
     await pen(page, dense([(b["x0"], b["y1"] + 22), (b["x1"], b["y1"] + 22)]))
     return "1+2=", "3"
 
+async def scene_equals_long_after(page):
+    """The second bar of = drawn long after the first was read (beyond the reopen window) still completes it."""
+    await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
+    await pen(page, dense([(330, 248), (378, 248)]))
+    await page.wait_for_timeout(3500)
+    b = await typeset(page, 3)
+    await pen(page, dense([(b["x0"], b["y1"] + 22), (b["x1"], b["y1"] + 22)]))
+    return "1+2=", "3"
+
+async def scene_equals_bars_apart(page):
+    """Strokes of one batch are grouped by place, not by order: the top bar of = first, then 1+2, then the bottom bar."""
+    await pen(page, dense([(330, 248), (378, 248)]))
+    await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
+    await pen(page, dense([(330, 272), (378, 272)]))
+    return "1+2=", "3"
+
+async def scene_equals_after_other(page):
+    """1+2-3 is typeset; a bar drawn later under the − turns it into =, with the 3 written in between."""
+    await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
+    await pen(page, dense([(330, 248), (378, 248)]))
+    await page.wait_for_timeout(PAUSE)
+    b = await typeset(page, 3)
+    await write(page, [("3", b["x1"] + 25, 300, 100)])
+    await page.wait_for_timeout(2500)
+    b = await typeset(page, 3)
+    await pen(page, dense([(b["x0"], b["y1"] + 22), (b["x1"], b["y1"] + 22)]))
+    return "1+2=3", None
+
+async def scene_insert_between(page):
+    """A + written in the gap between two typeset digits is inserted; neither neighbour is replaced."""
+    await write(page, [("1", 100, 300, 100), ("3", 300, 300, 100)])
+    await page.wait_for_timeout(PAUSE)
+    a, b = await typeset(page, 0), await typeset(page, 1)
+    gap = (a["x1"] + b["x0"]) / 2
+    await write(page, [("+", gap - 14, a["y1"] - 20, 40)])
+    await page.wait_for_timeout(PAUSE)
+    b = await page.evaluate("() => lines[0].box")
+    await stroke_glyph(page, "=", b["x1"] + 30, b["y1"], 70)
+    return "1+3=", "4"
+
+async def scene_dot_long_after(page):
+    """A dot put over a typeset stem long after it was read makes an i (not an exponent)."""
+    await pen(page, dense([(150, 240), (150, 300)]))
+    await page.wait_for_timeout(3500)
+    b = await typeset(page, 0)
+    cx = (b["x0"] + b["x1"]) / 2
+    await pen(page, [(cx, b["y0"] - 14), (cx + 2, b["y0"] - 12)])
+    return "i", None
+
 async def scene_erase_one(page):
     """Scribbling over the 2 of 1+2 removes the 2 only, not the + next to it."""
     await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
@@ -232,7 +281,10 @@ EDIT_SCENES = [("exponent written later", scene_power_later), ("terms appended l
                ("root drawn around a number", scene_root_over), ("erase an operator", scene_erase_sign),
                ("erase a root sign", scene_erase_root_sign),
                ("root keeps its bar", scene_root_bar_kept), ("+ written with a pause", scene_plus_after_pause),
-               ("= written with a pause", scene_equals_after_pause), ("erase one symbol", scene_erase_one)]
+               ("= written with a pause", scene_equals_after_pause), ("erase one symbol", scene_erase_one),
+               ("= completed long after", scene_equals_long_after), ("= bars drawn apart", scene_equals_bars_apart),
+               ("= completed after the next term", scene_equals_after_other), ("+ inserted between digits", scene_insert_between),
+               ("dot of i added long after", scene_dot_long_after)]
 
 async def main():
     async with async_playwright() as p:
@@ -289,4 +341,5 @@ async def main():
         await browser.close()
     print("Handwriting end to end (drawn strokes -> recogniser -> exponent / root -> answer): PASS")
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
