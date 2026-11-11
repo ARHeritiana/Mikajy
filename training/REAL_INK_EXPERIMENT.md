@@ -18,8 +18,9 @@ Source: https://github.com/google-research/google-research/tree/master/mathwriti
 
 Download the **original InkML archive**, not an image-only Hugging Face conversion.
 It contains `symbols/*.inkml` alongside expression-level datasets. The symbols
-directory has ~6,423 individual glyphs, many with multiple strokes. See the archive
-README for exact dataset and annotation formats.
+directory has 6,423 individual glyphs extracted from the `train` inks, many with multiple strokes. Coordinates
+have y increasing downward, like the app's canvas. See the archive README (`archive_readme.md` in the
+repository above) for the exact dataset and annotation formats.
 
 **MathWriting data are licensed CC BY-NC-SA 4.0.** The existing code is MIT; the
 license of model weights trained with this data needs explicit review before any

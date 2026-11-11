@@ -9,12 +9,13 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
 - **Strokes are grouped into symbols by place, not by drawing order.** The two bars of = may be drawn with other
   symbols in between, the dot of an i before its stem, the dots of ÷ before their bar (`Recognizer.groupStrokes`).
 - **A typeset symbol can be completed later.** After the 1.8 s reopen window, a stroke that unmistakably finishes the
-  symbol on screen still does: a second bar under or over a typeset − makes =, a dot over a stem makes i. Other strokes
+  symbol on screen still does: a second bar under or over a typeset − makes =, a dot over a typeset 1 or l makes i. Other strokes
   that cross an older symbol are left alone, and corrections chosen by tapping are never reopened.
 
 ### Added
 - Optional MathWriting InkML importer (`training/mathwriting_to_npz.py`) and opt-in mixing of real pen strokes into
-  `train4.py`, with a CI smoke test on synthetic fixtures. No data is downloaded and the shipped model is unchanged;
+  `train4.py`, with a CI smoke test on synthetic fixtures and a check that the converter draws strokes like the
+  app's `feat()` (`tests/browser_raster.py`). No data is downloaded and the shipped model is unchanged;
   MathWriting is CC BY-NC-SA 4.0, so derived weights need a licence review before release
   (see `training/REAL_INK_EXPERIMENT.md`).
 

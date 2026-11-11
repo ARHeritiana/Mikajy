@@ -233,14 +233,11 @@ const Recognizer = (() => {
       for (let j = 0; j < i; j++)
         if (partOf(S[i], bs[i], bs[j], !!S[j].vin, ref) || partOf(S[j], bs[j], bs[i], !!S[i].vin, ref)) up[root(i)] = root(j);
     const G = new Map();
-    S.forEach((s, i) => {
-      const k = root(i), g = G.get(k), b = bs[i];
-      if (!g) { G.set(k, {s: [s], b}); return; }
-      g.s.push(s);
-      g.b = {x0: Math.min(g.b.x0, b.x0), y0: Math.min(g.b.y0, b.y0), x1: Math.max(g.b.x1, b.x1), y1: Math.max(g.b.y1, b.y1)};
-      g.b.w = g.b.x1 - g.b.x0; g.b.h = g.b.y1 - g.b.y0;
+    S.forEach((s, i) => { const k = root(i); if (!G.has(k)) G.set(k, []); G.get(k).push(i); });
+    return [...G.values()].map(ix => {
+      const b = extent(ix.flatMap(i => [[bs[i].x0, bs[i].y0], [bs[i].x1, bs[i].y1]]));
+      return {s: ix.map(i => S[i]), b, tiny: b.w < .2 * ref && b.h < .2 * ref};
     });
-    return [...G.values()].map(g => Object.assign(g, {tiny: g.b.w < .2 * ref && g.b.h < .2 * ref}));
   }
 
   return Object.freeze({ch, HR, DS, WORDS, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke, groupStrokes});

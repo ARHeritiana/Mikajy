@@ -120,7 +120,7 @@ for k,c in enumerate(CL):
     Z=np.array(a+b,np.float32);np.save(cf,Z)
     if len(Z):X.append(Z);Y.append(np.full(len(Z),k))
     print(c,len(a),len(b),int(time.time()-t0),'s',flush=True)
-# Optional REAL online handwriting (Google MathWriting symbols, converted to Spark's exact raster format).
+# Optional REAL online handwriting (Google MathWriting symbols, rasterised like the app's feat(); tests/browser_raster.py checks it).
 # Keep these datasets and any derived model weights local until the CC BY-NC-SA license is reviewed.
 MW_XV=MW_YV=None
 if os.environ.get('MIKAJY_MATHWRITING_TRAIN_NPZ'):

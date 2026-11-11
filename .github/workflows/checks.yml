@@ -37,6 +37,8 @@ jobs:
         run: python3 tests/browser_smoke.py
       - name: Drawn-stroke end-to-end test (recogniser, exponents, answer)
         run: python3 tests/browser_strokes.py
+      - name: MathWriting converter draws like the app (raster parity)
+        run: python3 tests/browser_raster.py
       - name: Update UI test (mocked Android bridge)
         run: python3 tests/browser_updates.py
   android:

@@ -50,5 +50,3 @@ function feat(ss){let b=ss.map(bb).reduce(un);const sz=Math.max(b.w,b.h,1),k=80/
   if(P.length==1){g.arc(P[0][0],P[0][1],5.8,0,7);g.fill()}else{for(const q of P)g.lineTo(...q);g.stroke()}}
  const d=g.getImageData(0,0,112,112).data,o=new Float32Array(784);
  for(let y=0;y<112;y++)for(let x=0;x<112;x++)o[(y>>2)*28+(x>>2)]+=d[(y*112+x)*4]/255/16;return o}
-/** Strokes -> symbols, independent of drawing order (see Recognizer.groupStrokes). */
-const group=S=>Recognizer.groupStrokes(S);

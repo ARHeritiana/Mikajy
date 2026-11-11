@@ -18,10 +18,12 @@ from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MODEL_CLASSES = set(json.loads((ROOT / "web/model/model4.f16.json").read_text())["cls"])
+# LaTeX labels -> model classes. The '*' class is drawn as × or x and '/' as / or ÷ (see train4.py CH);
+# \cdot is not mapped: a centred dot scaled up to the symbol box is not a multiplication sign.
 ALIASES = {
-    r"\times": "*", "×": "*", r"\cdot": "*", r"\div": "/",
+    r"\times": "*", "×": "*", r"\div": "/", "÷": "/",
     r"\pi": "π", r"\sqrt": "√", r"\lparen": "(", r"\rparen": ")",
-    r"\%": "%", r"\!": "!", r"\left(": "(", r"\right)": ")",
+    r"\%": "%", r"\left(": "(", r"\right)": ")",
 }
 
 def parse_inkml(path: pathlib.Path):
@@ -49,22 +51,26 @@ def parse_inkml(path: pathlib.Path):
                 strokes.append(pts)
     return ALIASES.get(label, label), strokes
 
+SUPER = 4   # drawn at 4x and box-averaged, like the browser's anti-aliased canvas
+
 def rasterize(strokes, pen_width=11.6, stretch=(1.0, 1.0)):
-    """Match web/core_main.js feat(): 112px canvas, 80px bbox, 4x downsampling."""
+    """Match web/core_main.js feat(): ink scaled into an 80px box centred on a 112px canvas, pen 11.6px,
+    round caps, then 4x4 box-averaged to 28x28."""
     points = [p for stroke in strokes for p in stroke]
     xs, ys = zip(*points)
     cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    scale = 80 / max(max(xs) - min(xs), max(ys) - min(ys), 1.0)
+    scale = 80 * SUPER / max(max(xs) - min(xs), max(ys) - min(ys), 1.0)
     sx, sy = stretch
-    im = Image.new("L", (112, 112), 0)
+    side = 112 * SUPER
+    im = Image.new("L", (side, side), 0)
     draw = ImageDraw.Draw(im)
-    diameter = max(1, int(round(pen_width)))
-    rad = pen_width / 2
+    width = pen_width * SUPER
+    rad = width / 2
     for stroke in strokes:
-        p = [((x - cx) * scale * sx + 56, (y - cy) * scale * sy + 56) for x, y in stroke]
+        p = [((x - cx) * scale * sx + side / 2, (y - cy) * scale * sy + side / 2) for x, y in stroke]
         if len(p) > 1:
-            draw.line(p, fill=255, width=diameter, joint="curve")
-        for x, y in (p if len(p) == 1 else (p[0], p[-1])):
+            draw.line(p, fill=255, width=round(width), joint="curve")
+        for x, y in (p if len(p) == 1 else (p[0], p[-1])):   # round caps (and a lone dot)
             draw.ellipse((x - rad, y - rad, x + rad, y + rad), fill=255)
     return np.asarray(im.resize((28, 28), Image.Resampling.BOX), dtype=np.float32).reshape(784) / 255
 
@@ -82,6 +88,7 @@ def convert(folder: pathlib.Path, outdir: pathlib.Path, max_files: int, augment:
         try:
             label, strokes = parse_inkml(path)
         except (ET.ParseError, OSError, ValueError):
+            unsupported["<unreadable>"] = unsupported.get("<unreadable>", 0) + 1
             continue
         if not strokes or label not in MODEL_CLASSES:
             unsupported[str(label)] = unsupported.get(str(label), 0) + 1
