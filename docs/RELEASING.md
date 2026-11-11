@@ -14,8 +14,11 @@ reads the newest GitHub Release, so publishing a release is what delivers an upd
 3. Merge to `main` once CI is green, then tag and push: `git tag v5.1 && git push origin v5.1`.
 4. `release.yml` re-runs every test, builds, signs with the persistent key, checks the certificate fingerprint
    against `MIKAJY_CERT_SHA256`, and publishes `Mikajy-Spark-5.1.apk` plus `SHA256SUMS.txt`.
-5. Installed apps pick the release up within a day (or immediately via *Check for updates*) and offer the
-   download link. Installation is done by the user in the system installer; the app never installs silently.
+5. Installed apps pick the release up within a day (or immediately via *Check for updates*). **Get Mikajy Spark x.y**
+   downloads `Mikajy-Spark-x.y.apk`, keeps it only if its SHA-256 matches `SHA256SUMS.txt` **of the same release** and it is
+   `com.mikajy.app` with a higher `versionCode`, then hands it to Android's installer, which asks the user (Android 12+ may
+   allow the app to update itself without asking) and rejects any APK signed with another key. So every release
+   **must** publish `SHA256SUMS.txt` next to the APK, as `release.yml` does; without it the app falls back to the browser link.
 
 An installed app can only be updated by an APK signed with the **same key** and a higher `versionCode`.
 

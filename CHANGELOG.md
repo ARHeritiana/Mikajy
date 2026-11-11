@@ -5,6 +5,14 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
 
 ## [Unreleased]
 
+### Added
+- **In-app updates.** *Get Mikajy Spark x.y* now downloads the release APK inside the app (with progress), keeps it only if
+  its SHA-256 matches the release's `SHA256SUMS.txt` and it is a newer `com.mikajy.app`, and hands it to Android's installer.
+  Android asks once for *Install unknown apps* for Mikajy Spark, then shows its own update confirmation (Android 12+ may
+  let the app update itself without it). On any failure the button offers the browser download instead.
+  New permission `REQUEST_INSTALL_PACKAGES` (the build fails on any other permission besides `INTERNET`).
+  Apps up to 5.0.1 still update through the browser once, to the first version that has this.
+
 ### Changed
 - **Editing core rewritten around an expression tree** (`web/ink.js`). Every edit is now decided against what is on the
   screen (typeset symbols), not against ink that has already been replaced: new symbols, exponents written later,

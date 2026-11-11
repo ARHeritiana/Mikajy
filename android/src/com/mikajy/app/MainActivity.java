@@ -27,11 +27,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Immersive, offline-first WebView shell. The page is loaded from the APK's assets only; every other
- * navigation is refused and the WebView's network loads are blocked. The one network use is the optional
- * update check in {@link UpdateChecker}, run natively and reported to the page through the bridge.
+ * navigation is refused and the WebView's network loads are blocked. The only network use is the optional update
+ * check and update download in {@link UpdateChecker}, run natively and reported to the page through the bridge;
+ * {@link SelfInstaller} hands a verified update to Android's installer.
  */
 public class MainActivity extends Activity {
   private static final String TAG = "Mikajy";
@@ -45,6 +47,9 @@ public class MainActivity extends Activity {
   private WebView web;
   private ExecutorService io;
   private ExecutorService net;
+  private final AtomicBoolean updating = new AtomicBoolean(false);
+  /** A verified update waiting for the user to allow "Install unknown apps" (resumed in onResume). */
+  private File awaitingPermission;
 
   private void immersive() {
     getWindow().getDecorView().setSystemUiVisibility(
@@ -129,6 +134,37 @@ public class MainActivity extends Activity {
       }});
     }
 
+    /**
+     * Downloads the release APK, verifies it against the release's SHA256SUMS.txt and that it is a newer build of this
+     * app, then installs it with Android's installer. Progress arrives in window.onUpdateProgress(json):
+     * {"state":"downloading","p":0..1} | {"state":"verifying"} | {"state":"permission"} | {"state":"installing"} |
+     * {"state":"confirm"} | {"state":"failed","reason":"offline"|"checksum"|"package"|"permission"|"aborted"|"install"|"error"}.
+     */
+    @JavascriptInterface public void installUpdate(final String apkUrl, final String sumsUrl) {
+      if (!UpdateChecker.isReleaseUrl(apkUrl) || !UpdateChecker.isReleaseUrl(sumsUrl)) return;
+      final ExecutorService worker = net;
+      if (worker == null || !updating.compareAndSet(false, true)) return;
+      worker.execute(new Runnable() { @Override public void run() {
+        File dir = SelfInstaller.dir(MainActivity.this);
+        if (!dir.isDirectory() && !dir.mkdirs()) { failed("error"); return; }
+        final File apk = new File(dir, "update.apk");
+        String result = UpdateChecker.download(apkUrl, sumsUrl, apk, new UpdateChecker.Progress() {
+          private long shown = -1;   // last reported percent, or byte count when the size is unknown
+          @Override public void update(long done, long total) {
+            long now = total > 0 ? 100 * done / total : done / (256 * 1024);   // one report per percent / per 256 KB
+            if (now == shown) return;
+            shown = now;
+            progress("downloading", total > 0 ? now / 100.0 : -1);
+          }
+        });
+        if (!"ok".equals(result)) { failed(result); return; }
+        report("{\"state\":\"verifying\"}");
+        String bad = SelfInstaller.checkArchive(MainActivity.this, apk);
+        if (bad != null) { apk.delete(); failed(bad); return; }
+        runOnUiThread(new Runnable() { @Override public void run() { installNow(apk); }});
+      }});
+    }
+
     /** Opens a release page or APK link in the system browser. Refuses anything outside this project's releases. */
     @JavascriptInterface public void openUpdate(final String url) {
       if (!UpdateChecker.isReleaseUrl(url)) return;
@@ -142,12 +178,63 @@ public class MainActivity extends Activity {
     }
   }
 
+  private void report(final String json) {
+    runOnUiThread(new Runnable() { @Override public void run() {
+      if (web != null) web.evaluateJavascript("window.onUpdateProgress&&window.onUpdateProgress(" + JSONObject.quote(json) + ")", null);
+    }});
+  }
+
+  private void progress(String state, double p) {
+    report("{\"state\":\"" + state + "\",\"p\":" + (p < 0 ? "-1" : String.valueOf(Math.max(0, Math.min(1, p)))) + "}");
+  }
+
+  private void failed(String reason) {
+    updating.set(false);
+    report("{\"state\":\"failed\",\"reason\":\"" + reason + "\"}");
+  }
+
+  /** UI thread. Asks once for "Install unknown apps" if Android needs it, then writes the install session off the UI thread. */
+  private void installNow(final File apk) {
+    if (!SelfInstaller.mayInstall(this)) {
+      awaitingPermission = apk;
+      report("{\"state\":\"permission\"}");
+      try {
+        SelfInstaller.askPermission(this);
+      } catch (ActivityNotFoundException e) {
+        awaitingPermission = null;
+        failed("permission");
+      }
+      return;
+    }
+    report("{\"state\":\"installing\"}");
+    io.execute(new Runnable() { @Override public void run() {
+      try {
+        SelfInstaller.install(MainActivity.this, apk);
+      } catch (IOException | RuntimeException e) {
+        Log.e(TAG, "Update install failed", e);
+        failed("install");
+      }
+    }});
+  }
+
+  @Override protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    if (intent == null || !SelfInstaller.ACTION_STATUS.equals(intent.getAction())) return;
+    String state = SelfInstaller.onStatus(this, intent);
+    if ("confirm".equals(state)) report("{\"state\":\"confirm\"}");
+    else if ("installed".equals(state)) { updating.set(false); report("{\"state\":\"installed\"}"); }
+    else failed(state);
+  }
+
   @Override protected void onCreate(Bundle state) {
     super.onCreate(state);
     io = Executors.newSingleThreadExecutor();
     net = Executors.newSingleThreadExecutor();
     // The shared PNG is only needed for the lifetime of one share action; drop leftovers.
-    io.execute(new Runnable() { @Override public void run() { ShareProvider.clear(MainActivity.this); }});
+    io.execute(new Runnable() { @Override public void run() {
+      ShareProvider.clear(MainActivity.this);
+      SelfInstaller.clear(MainActivity.this);   // a finished (or abandoned) update download
+    }});
 
     web = new WebView(this);
     web.setBackgroundColor(Color.BLACK);
@@ -180,7 +267,15 @@ public class MainActivity extends Activity {
     immersive();
   }
 
-  @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+  @Override protected void onResume() {
+    super.onResume();
+    if (web != null) web.onResume();
+    File apk = awaitingPermission;
+    if (apk != null) {   // back from "Install unknown apps"
+      awaitingPermission = null;
+      if (SelfInstaller.mayInstall(this)) installNow(apk); else { apk.delete(); failed("permission"); }
+    }
+  }
 
   @Override protected void onPause() { if (web != null) web.onPause(); super.onPause(); }
 

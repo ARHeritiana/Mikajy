@@ -37,10 +37,12 @@ exponent its base's superscript, so there are no index-based "cover" counts or f
 `storage → core_main → recognizer → math-core → i18n → calculator → settings → updates → app`.
 
 ## Android shell (`android/`)
-- `MainActivity` – immersive WebView, bridge (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `openUpdate`).
-  Network loads are blocked inside the WebView and navigation outside `file:///android_asset/` is refused.
-- `UpdateChecker` – the only network code; see [SECURITY.md](../SECURITY.md). Returns a tiny JSON answer to
-  `window.onUpdateResult`; the page decides what it means (`updates.js`).
+- `MainActivity` – immersive WebView, bridge (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `installUpdate`,
+  `openUpdate`). Network loads are blocked inside the WebView and navigation outside `file:///android_asset/` is refused.
+- `UpdateChecker` – the only network code (plain Java, desktop-tested); see [SECURITY.md](../SECURITY.md). Returns a tiny JSON
+  answer to `window.onUpdateResult` (the page decides what it means, `updates.js`) and downloads + checksums an update.
+- `SelfInstaller` – checks the downloaded package and installs it through Android's `PackageInstaller`; progress and the
+  outcome reach the page through `window.onUpdateProgress`.
 - `ShareProvider` – content provider for the shared PNG.
 
 ## Design rules

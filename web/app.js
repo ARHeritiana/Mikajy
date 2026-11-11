@@ -395,7 +395,7 @@ $('panel').onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b
   case'hopen':if(HIST[i])openHist(HIST[i]);break;case'hcopy':if(HIST[i])copyText(HIST[i].text+' '+HIST[i].ans.replace(/^=/,'= '));break;
   case'hdel':if(HIST[i]){HIST.splice(i,1);histPersist();openSheet('hist')}break;case'hclr':HIST=[];histPersist();openSheet('hist');break;
   case'upd':checkUpdates(true);break;
-  case'getupd':{const u=pendingUpdate();if(u)Android.openUpdate(u.apk||u.url);break}
+  case'getupd':{const u=pendingUpdate();if(!u)break;if(canSelfUpdate(u)&&!(INST&&INST.state=='failed')){if(!INST)startInstall(u)}else Android.openUpdate(u.apk||u.url);break}
   case'hexp':shareText(HIST.map(h=>h.text+' '+h.ans.replace(/^=/,'= ')).join('\n'));break}};
 $('back').onclick=closeSheet;$('mb').onclick=()=>openSheet('main');
 window.onBack=()=>{if($('sheet').classList.contains('in')){closeSheet();return true}if(drag){drag=null;memRender();return true}return false};
@@ -404,7 +404,21 @@ let UPD=Updates.load(localStorage),updManual=false;
 const hasUpdater=()=>!!(window.Android&&typeof Android.checkForUpdates==='function'&&typeof Android.version==='function');
 const appVersion=()=>{try{return String(Android.version())}catch(e){return''}};
 const pendingUpdate=()=>hasUpdater()?Updates.pending(UPD,appVersion()):null;
-function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync',T('checkUpdates'))+(u?tool('getupd','get',T('getUpdate',{v:esc(u.version)}),'danger'):'')}
+function updTools(){if(!hasUpdater())return'';const u=pendingUpdate();return tool('upd','sync',T('checkUpdates'))+(u?tool('getupd','get',esc(getLabel(u)),'danger'):'')}
+/* ---------- in-app update: the shell downloads, verifies and hands the APK to Android's installer ---------- */
+let INST=null;   // {state, p, reason} while an update is being installed, or after it failed
+const canSelfUpdate=u=>typeof Android.installUpdate==='function'&&Updates.installable(u);
+const pct=p=>p>=0?Math.round(p*100)+' %':'';
+function getLabel(u){if(!INST)return T('getUpdate',{v:u.version});const s=INST.state;
+ return s=='downloading'?T('downloading',{n:pct(INST.p)}):s=='verifying'?T('verifying'):s=='permission'?T('allowInstall'):s=='failed'?T('getInBrowser'):T('confirmInstall')}
+function startInstall(u){INST={state:'downloading',p:0};toast(T('downloading',{n:''}));try{Android.installUpdate(u.apk,u.sums)}catch(e){INST={state:'failed',reason:'error'}}refreshUpd()}
+function refreshUpd(){if($('sheet').classList.contains('in')&&TAB=='app')openSheet('main')}
+window.onUpdateProgress=json=>{let r;try{r=Updates.progress(JSON.parse(json))}catch(e){r=null}if(!r)return;
+ INST=r;const s=r.state;
+ if(s=='downloading')toast(T('downloading',{n:pct(r.p)}));else if(s=='verifying')toast(T('verifying'));else if(s=='permission')toast(T('allowInstall'));
+ else if(s=='confirm')toast(T('confirmInstall'));else if(s=='installed'){INST=null;toast(T('installed'))}
+ else if(s=='failed')toast(T('installFailed',{why:T('why_'+r.reason)}));
+ refreshUpd()};
 function updHint(){if(!hasUpdater())return'';const u=pendingUpdate();return T('updateHint',{v:esc(appVersion()),avail:u?T('availableSuffix',{n:esc(u.version)}):''})}
 function updBadge(){$('mb').classList.toggle('upd',!!pendingUpdate())}
 window.onUpdateResult=json=>{
@@ -414,7 +428,7 @@ window.onUpdateResult=json=>{
  UPD=Updates.record(UPD,r,Date.now());Updates.save(localStorage,UPD);updBadge();
  if(r.status==='available')toast(T('updateAvailable',{v:r.version}));else if(manual)toast(T('upToDate'));
  if($('sheet').classList.contains('in'))openSheet('main')};
-function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual)toast(T('checking'));try{Android.checkForUpdates()}catch(e){updManual=false}}
+function checkUpdates(manual){if(!hasUpdater())return;updManual=manual;if(manual&&INST&&INST.state=='failed')INST=null;if(manual)toast(T('checking'));try{Android.checkForUpdates()}catch(e){updManual=false}}
 updBadge();
 if(hasUpdater()&&Updates.shouldCheck(UPD,Date.now(),SET.updates))setTimeout(()=>checkUpdates(false),5000);
 memRender();

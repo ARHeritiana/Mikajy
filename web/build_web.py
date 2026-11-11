@@ -58,7 +58,7 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 .hmain .ex{font:30px/1.1 H,cursive;word-break:break-all}.hmain .an{font:30px/1.1 H,cursive;color:var(--blue)}
 .textbtn{font:24px/1 H,cursive;background:none;border:0;padding:14px 4px}
 .empty{font:28px/1.25 H,cursive;color:var(--graphite);margin:26px 0 30px;text-align:center}
-#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--blue);color:var(--toast-ink);padding:8px 18px;border-radius:16px;font:24px/1.1 H,cursive;opacity:0;transition:opacity .3s;z-index:20;pointer-events:none;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--blue);color:var(--toast-ink);padding:8px 18px;border-radius:16px;font:24px/1.1 H,cursive;opacity:0;transition:opacity .3s;z-index:20;pointer-events:none;max-width:calc(100vw - 72px);width:max-content;text-align:center}
 @media (orientation:landscape) and (max-height:520px){#panel{left:auto;right:0;top:0;bottom:0;max-height:none;width:min(500px,68%);border-radius:22px 0 0 22px;transform:translateX(28px)}#sheet.in #panel{transform:none}.tools{grid-template-columns:repeat(3,1fr)}.tool{font-size:22px;gap:8px}.hint{display:none}.row{padding:4px 0}.head{padding:8px 0 4px}}
 @media (prefers-reduced-motion:reduce){#panel,#back{transition:none}.opt.on .ring path{animation:none;stroke-dashoffset:0}}</style>""".replace("__FONT__", font)
 app = rd('app.js').replace('/*CLS*/', cls)
