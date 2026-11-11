@@ -16,7 +16,12 @@ tells you.
    (allow installing from your browser when Android asks). Check it with `SHA256SUMS.txt` if you like.
 2. Later versions announce themselves: a red dot appears on the menu button and the **App** tab of the menu shows **Get Mikajy Spark x.y**.
    *App → Updates → Off* disables the automatic check; *Check for updates* does it on demand.
-   The download opens in your browser and is installed by Android's installer — the app never installs anything itself.
+3. **Get Mikajy Spark x.y** updates in the app: it downloads the release APK, checks it against the release's
+   `SHA256SUMS.txt` and that it is a newer Mikajy Spark, and hands it to Android's installer. The first time, Android
+   asks you to allow Mikajy Spark to install apps (*Install unknown apps*); after that, Android shows its own
+   "update this app?" confirmation (on Android 12 and later it may skip it). If anything fails, the button becomes
+   **Download in the browser**. Versions up to 5.0.1 still have the browser-only updater, so the update *to* the
+   first version with the in-app updater goes through the browser once.
 
 Updates install over the old version only if both are signed with the same key (every release from 5.0 on is).
 
@@ -93,7 +98,7 @@ web/                       the app (one HTML page, HTML5 canvas, no dependencies
   model/model4.f16.json    shipped float16 weights (packed from training/model4.json by training/pack_model.py)
   fonts/hand.woff2         Caveat subset (SIL OFL) used to typeset the handwriting
   build_web.py             assembles android/assets/index.html
-android/                   WebView shell (MainActivity, UpdateChecker, ShareProvider, manifest, icon)
+android/                   WebView shell (MainActivity, UpdateChecker, SelfInstaller, ShareProvider, manifest, icon)
 training/                  how the recogniser was trained
 tests/                     Node unit tests, headless-Chromium end-to-end tests, Java parser test
 scripts/                   build / signing helpers
@@ -121,7 +126,7 @@ sudo apt install openjdk-21-jdk-headless aapt apksigner zipalign android-sdk-pla
 ./build_apk.sh            # -> Mikajy.apk (minSdk 21, targetSdk 34)
 ```
 The build fails on any compiler warning and checks that the APK has the expected package id, contains the page and
-`classes.dex`, and requests **no permission other than `INTERNET`**. To iterate on the UI without Android, open
+`classes.dex`, and requests **no permission other than `INTERNET` and `REQUEST_INSTALL_PACKAGES`**. To iterate on the UI without Android, open
 `android/assets/index.html` in desktop Chrome after `python3 web/build_web.py` (bridge calls fall back to
 clipboard/new tab; the update UI is hidden).
 
@@ -156,10 +161,11 @@ Synthetic strokes (`train.py`) cover digits/operators/π/√/!/%; letters come o
 
 ## Security model
 * The page is the only content the WebView loads (`file:///android_asset/`); every other navigation is refused and
-  the WebView's network loads are blocked. The app's only permission is `INTERNET`, used by the native update check
-  (one HTTPS GET to GitHub's releases API; see [SECURITY.md](SECURITY.md)).
+  the WebView's network loads are blocked. The app has two permissions: `INTERNET`, used by the native update check
+  (one HTTPS GET to GitHub's releases API) and the download of an update you asked for, and `REQUEST_INSTALL_PACKAGES`,
+  used to hand that verified update to Android's installer (see [SECURITY.md](SECURITY.md)).
 * The page carries a strict Content-Security-Policy (`default-src 'none'`, no `eval`, no remote origins).
-* The JavaScript bridge has a few methods (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `openUpdate`); each validates type, size and, for links, that they point into this project's GitHub releases.
+* The JavaScript bridge has a few methods (`copy`, `shareText`, `shareImage`, `version`, `checkForUpdates`, `installUpdate`, `openUpdate`); each validates type, size and, for links, that they point into this project's GitHub releases.
 * Everything read back from `localStorage` is treated as untrusted and re-validated (`web/storage.js`).
 * Backups are disabled; the shared PNG lives in the app cache and is removed on the next start.
 See [docs/AUDIT.md](docs/AUDIT.md) for the full review and the remaining known debt.

@@ -4,9 +4,12 @@
     android:versionCode="19"
     android:versionName="5.0.1">
 
-    <!-- Everything runs on the device. INTERNET is used only by UpdateChecker (one GET to GitHub's
-         releases API, optional, switchable off in Settings); the WebView itself has network loads blocked. -->
+    <!-- Everything runs on the device. INTERNET is used only by UpdateChecker (the optional update check, switchable
+         off in Settings, and the download of an update the user asked for); the WebView itself has network loads blocked.
+         REQUEST_INSTALL_PACKAGES lets the app hand a downloaded, checksum-verified update to Android's installer
+         (SelfInstaller); Android still asks the user, and accepts only an APK signed with the same key. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
 
     <application
@@ -22,6 +25,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden|layoutDirection|fontScale">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

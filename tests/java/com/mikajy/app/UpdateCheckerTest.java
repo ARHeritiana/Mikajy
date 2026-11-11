@@ -2,7 +2,7 @@ package com.mikajy.app;
 
 import org.json.JSONObject;
 
-/** Plain-Java checks for the update answer parser and the release-URL guard (no Android needed). */
+/** Plain-Java checks for the update answer parser, the URL guards and the checksum parser (no Android needed). */
 public final class UpdateCheckerTest {
   private static final String R = UpdateChecker.RELEASES;
   private static int failures;
@@ -33,6 +33,32 @@ public final class UpdateCheckerTest {
     check(!new JSONObject(UpdateChecker.parse(release("v5.1", R + "x", R + "y.apk", true))).getBoolean("ok"), "prerelease ignored");
     check(!new JSONObject(UpdateChecker.parse("not json")).getBoolean("ok"), "garbage rejected");
     check(!new JSONObject(UpdateChecker.parse("{}")).getBoolean("ok"), "empty object rejected");
+
+    check((R + "download/v5.1/SHA256SUMS.txt").equals(ok.getString("sums")), "checksum file picked");
+
+    // Downloads: only HTTPS to GitHub's download hosts (the release link redirects to its asset storage).
+    check(UpdateChecker.isDownloadUrl(R + "download/v5.1/Mikajy-Spark-5.1.apk"), "release download accepted");
+    check(UpdateChecker.isDownloadUrl("https://objects.githubusercontent.com/github-production-release-asset/1?x=1"), "asset host accepted");
+    check(UpdateChecker.isDownloadUrl("https://release-assets.githubusercontent.com/x"), "new asset host accepted");
+    for (String bad : new String[] {"http://github.com/x", "https://evil.example/x.apk", "https://github.com.evil.example/x",
+        "https://user:pw@github.com/x", "https://github.com:8443/x", "ftp://github.com/x", "not a url", null}) {
+      check(!UpdateChecker.isDownloadUrl(bad), "download refused: " + bad);
+    }
+    check("error".equals(UpdateChecker.download("https://evil.example/a.apk", R + "download/v5.1/SHA256SUMS.txt",
+        new java.io.File("never-written.apk"), null)), "download of a foreign link refused before any request");
+    check("error".equals(UpdateChecker.download(R + "download/v5.1/notes.txt", R + "download/v5.1/SHA256SUMS.txt",
+        new java.io.File("never-written.apk"), null)), "download of a non-APK refused");
+
+    // Checksums, as written by `sha256sum` in release.yml.
+    String hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    String sums = hash.toUpperCase() + "  Mikajy-Spark-5.1.apk\r\n" + hash.replace('0', 'f') + " *Other.apk\n";
+    check(hash.equals(UpdateChecker.expectedSha256(sums, "Mikajy-Spark-5.1.apk")), "checksum found (upper case, CRLF)");
+    check(hash.replace('0', 'f').equals(UpdateChecker.expectedSha256(sums, "Other.apk")), "binary-mode line read");
+    check(UpdateChecker.expectedSha256(sums, "Mikajy-Spark-5.2.apk") == null, "missing file has no checksum");
+    check(UpdateChecker.expectedSha256("abc  Mikajy-Spark-5.1.apk", "Mikajy-Spark-5.1.apk") == null, "malformed hash refused");
+    check(UpdateChecker.expectedSha256(null, "x") == null, "no checksum file");
+    check("Mikajy-Spark-5.1.apk".equals(UpdateChecker.fileName(R + "download/v5.1/Mikajy-Spark-5.1.apk?x=1")), "file name");
+    check("00ff".equals(UpdateChecker.hex(new byte[] {0, (byte) 255})), "hex");
 
     check(UpdateChecker.isReleaseUrl(R + "tag/v5.1"), "release url accepted");
     check(!UpdateChecker.isReleaseUrl(null), "null refused");

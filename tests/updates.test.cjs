@@ -17,8 +17,8 @@ test('versions compare numerically, not as text', () => {
 });
 
 test('shell answers are interpreted conservatively', () => {
-  const ok = {ok: true, tag: 'v5.1', url: R + 'tag/v5.1', apk: R + 'download/v5.1/Mikajy-5.1.apk'};
-  assert.deepEqual(Updates.interpret(ok, '5.0'), {status: 'available', version: '5.1', url: ok.url, apk: ok.apk});
+  const ok = {ok: true, tag: 'v5.1', url: R + 'tag/v5.1', apk: R + 'download/v5.1/Mikajy-5.1.apk', sums: R + 'download/v5.1/SHA256SUMS.txt'};
+  assert.deepEqual(Updates.interpret(ok, '5.0'), {status: 'available', version: '5.1', url: ok.url, apk: ok.apk, sums: ok.sums});
   assert.equal(Updates.interpret(ok, '5.1').status, 'current');
   assert.equal(Updates.interpret(ok, '6.0').status, 'current');
   assert.equal(Updates.interpret({ok: false, reason: 'offline'}, '5.0').status, 'offline');
@@ -26,8 +26,9 @@ test('shell answers are interpreted conservatively', () => {
   assert.equal(Updates.interpret(null, '5.0').status, 'error');
   assert.equal(Updates.interpret({ok: true, tag: 'nightly'}, '5.0').status, 'error');
   // Links pointing anywhere but this project's releases are replaced, never followed.
-  const evil = Updates.interpret({...ok, url: 'https://evil.example/x', apk: 'javascript:alert(1)'}, '5.0');
-  assert.equal(evil.url, R + 'latest'); assert.equal(evil.apk, '');
+  const evil = Updates.interpret({...ok, url: 'https://evil.example/x', apk: 'javascript:alert(1)', sums: 'https://evil.example/s'}, '5.0');
+  assert.equal(evil.url, R + 'latest'); assert.equal(evil.apk, ''); assert.equal(evil.sums, '');
+  assert.equal(Updates.installable(evil), false);   // no APK or no checksum: the browser link is the only way
   assert.equal(Updates.interpret({...ok, url: R + '../../evil'}, '5.0').url, R + 'latest');
 });
 
@@ -39,13 +40,31 @@ test('stored state is validated and automatic checks are rate limited', () => {
   assert.equal(Updates.shouldCheck({checked: now + day}, now, 'auto'), true);       // clock moved backwards
   assert.equal(Updates.shouldCheck({checked: 0}, now, 'off'), false);
   const hostile = Updates.validate({checked: 'x', version: '<b>9.9</b>', url: 'http://evil', apk: {}});
-  assert.deepEqual(hostile, {checked: 0, version: '', url: '', apk: ''});
+  assert.deepEqual(hostile, {checked: 0, version: '', url: '', apk: '', sums: ''});
   const storage = {d: {}, getItem(k) { return this.d[k] ?? null; }, setItem(k, v) { this.d[k] = v; }};
   const st = Updates.record({}, {status: 'available', version: '5.1', url: R + 'latest', apk: ''}, 123);
   assert.equal(Updates.save(storage, st), true);
   assert.deepEqual(Updates.load(storage), st);
   assert.equal(Updates.pending(st, '5.0').version, '5.1');
   assert.equal(Updates.pending(st, '5.1'), null);                                    // installed: banner disappears
-  assert.deepEqual(Updates.record(st, {status: 'current', version: '5.1'}, 456), {checked: 456, version: '', url: '', apk: ''});
+  assert.deepEqual(Updates.record(st, {status: 'current', version: '5.1'}, 456), {checked: 456, version: '', url: '', apk: '', sums: ''});
   storage.d.inkupd = '{broken'; assert.equal(Updates.load(storage).checked, 0);
+});
+
+test('in-app install: only with an APK and its checksum; progress from the shell is validated', () => {
+  const u = {version: '5.1', apk: R + 'download/v5.1/Mikajy-Spark-5.1.apk', sums: R + 'download/v5.1/SHA256SUMS.txt'};
+  assert.equal(Updates.installable(u), true);
+  assert.equal(Updates.installable({...u, sums: ''}), false);
+  assert.equal(Updates.installable({...u, apk: R + 'download/v5.1/notes.txt'}), false);
+  assert.equal(Updates.installable(null), false);
+  assert.deepEqual(Updates.progress({state: 'downloading', p: .25}), {state: 'downloading', p: .25});
+  assert.deepEqual(Updates.progress({state: 'downloading', p: 7}), {state: 'downloading', p: -1});
+  assert.deepEqual(Updates.progress({state: 'failed', reason: 'checksum'}), {state: 'failed', reason: 'checksum'});
+  assert.deepEqual(Updates.progress({state: 'failed', reason: '<img>'}), {state: 'failed', reason: 'error'});
+  assert.deepEqual(Updates.progress({state: 'confirm', extra: 1}), {state: 'confirm'});
+  assert.equal(Updates.progress({state: 'eval'}), null);
+  assert.equal(Updates.progress(null), null);
+  const storage = {d: {}, getItem(k) { return this.d[k] ?? null; }, setItem(k, v) { this.d[k] = v; }};
+  Updates.save(storage, Updates.record({}, {status: 'available', ...u, url: R + 'latest'}, 1));
+  assert.equal(Updates.load(storage).sums, u.sums);   // remembered across restarts
 });
