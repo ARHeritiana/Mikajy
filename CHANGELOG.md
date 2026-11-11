@@ -5,20 +5,6 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
 
 ## [Unreleased]
 
-### Changed
-- **Strokes are grouped into symbols by place, not by drawing order.** The two bars of = may be drawn with other
-  symbols in between, the dot of an i before its stem, the dots of ÷ before their bar (`Recognizer.groupStrokes`).
-- **A typeset symbol can be completed later.** After the 1.8 s reopen window, a stroke that unmistakably finishes the
-  symbol on screen still does: a second bar under or over a typeset − makes =, a dot over a typeset 1 or l makes i. Other strokes
-  that cross an older symbol are left alone, and corrections chosen by tapping are never reopened.
-
-### Added
-- Optional MathWriting InkML importer (`training/mathwriting_to_npz.py`) and opt-in mixing of real pen strokes into
-  `train4.py`, with a CI smoke test on synthetic fixtures and a check that the converter draws strokes like the
-  app's `feat()` (`tests/browser_raster.py`). No data is downloaded and the shipped model is unchanged;
-  MathWriting is CC BY-NC-SA 4.0, so derived weights need a licence review before release
-  (see `training/REAL_INK_EXPERIMENT.md`).
-
 ## [5.4] - 2026-11-11
 
 Rewritten handwriting editing and in-app updates. Numbered 5.4 because the names 5.1–5.3 were already used by
@@ -32,6 +18,11 @@ lower name would never be offered to phones still on 5.3. `versionCode` 20.
   let the app update itself without it). On any failure the button offers the browser download instead.
   New permission `REQUEST_INSTALL_PACKAGES` (the build fails on any other permission besides `INTERNET`).
   Apps up to 5.0.1 still update through the browser once, to the first version that has this.
+- Optional MathWriting InkML importer (`training/mathwriting_to_npz.py`) and opt-in mixing of real pen strokes into
+  `train4.py`, with a CI smoke test on synthetic fixtures and a check that the converter draws strokes like the
+  app's `feat()` (`tests/browser_raster.py`). No data is downloaded and the shipped model is unchanged;
+  MathWriting is CC BY-NC-SA 4.0, so derived weights need a licence review before release
+  (see `training/REAL_INK_EXPERIMENT.md`).
 
 ### Changed
 - **Editing core rewritten around an expression tree** (`web/ink.js`). Every edit is now decided against what is on the
@@ -49,6 +40,11 @@ lower name would never be offered to phones still on 5.3. `versionCode` 20.
 - Smoother pen: the live stroke is drawn up to the pen tip (latest raw point plus the browser's predicted points);
   text widths are measured once per character; the recognition pause is 550 ms (was 650 ms).
 - History stores the expression tree (validated by `Store.cleanTree`); older history entries still open.
+- **Strokes are grouped into symbols by place, not by drawing order.** The two bars of = may be drawn with other
+  symbols in between, the dot of an i before its stem, the dots of ÷ before their bar (`Recognizer.groupStrokes`).
+- **A typeset symbol can be completed later.** After the 1.8 s reopen window, a stroke that unmistakably finishes the
+  symbol on screen still does: a second bar under or over a typeset − makes =, a dot over a typeset 1 or l makes i.
+  Other strokes that cross an older symbol are left alone, and corrections chosen by tapping are never reopened.
 
 ### Removed
 - `Recognizer.assignSup` (superseded by tree placement; its fixtures now run through `web/ink.js`).
