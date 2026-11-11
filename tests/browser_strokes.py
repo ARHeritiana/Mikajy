@@ -81,6 +81,159 @@ SCENES = [
     ("1 + 2 =       (sum)", [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100), ("=", 330, 300, 80)], "3"),
 ]
 
+def zigzag(x0, y0, x1, y1, passes=7):
+    """A scribble across the box: the gesture that erases what it covers."""
+    pts = []
+    for k in range(passes + 1):
+        x = x0 + (x1 - x0) * k / passes
+        pts += [(x, y0), (x + (x1 - x0) / (2 * passes), y1)]
+    return dense(pts, 4)
+
+async def stroke_glyph(page, ch, x, base, h, pause_between=0):
+    for k, stroke in enumerate(GLYPHS[ch]):
+        if k and pause_between:
+            await page.wait_for_timeout(pause_between)
+        await pen(page, [(x + px * h * .6, base - h + py * h) for px, py in stroke])
+
+async def answer_of(page):
+    for _ in range(40):
+        a = await page.evaluate("() => (lines.length && lines[0].at) || null")
+        if a:
+            return a
+        await page.wait_for_timeout(200)
+    return None
+
+async def glyphs_of(page):
+    return await page.evaluate("() => lines.length ? Ink.text(lines[0].seq) : ''")
+
+PAUSE = 1500   # longer than the recognition delay: what was written is already typeset
+
+async def scene_root_bar_kept(page):
+    """A root with a bar, then a pause: the typeset sign keeps its bar; the radicand written under it is covered."""
+    hook = root_hook(100, 300, 100)
+    top = hook[-1]
+    await pen(page, hook + dense([top, (top[0] + 110, top[1])]))
+    await page.wait_for_timeout(PAUSE)
+    reach = await page.evaluate("() => { const r = lines[0].seq[0]; return (r.tvx - r.tx - .5 * r.tsz) / r.tsz; }")
+    assert reach > .5, f"root bar collapsed to {reach:.2f} font sizes before the radicand was written"
+    x0 = await page.evaluate("() => { const r = lines[0].seq[0]; return r.tx + .5 * r.tsz; }")
+    await stroke_glyph(page, "4", x0 + 10, 295, 70)
+    await page.wait_for_timeout(PAUSE)
+    await stroke_glyph(page, "=", x0 + 140, 300, 80)
+    return "√(4)=", "2"
+
+async def scene_plus_after_pause(page):
+    await stroke_glyph(page, "1", 100, 300, 100)
+    await stroke_glyph(page, "+", 160, 290, 70, pause_between=PAUSE)
+    await page.wait_for_timeout(PAUSE)
+    await stroke_glyph(page, "2", 250, 300, 100)
+    await stroke_glyph(page, "=", 330, 300, 80)
+    return "1+2=", "3"
+
+async def scene_equals_after_pause(page):
+    """The second bar of = drawn after a pause, under the typeset first bar (which is what is on screen by then)."""
+    await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
+    await pen(page, dense([(330, 248), (378, 248)]))
+    await page.wait_for_timeout(PAUSE)
+    b = await typeset(page, 3)
+    await pen(page, dense([(b["x0"], b["y1"] + 22), (b["x1"], b["y1"] + 22)]))
+    return "1+2=", "3"
+
+async def scene_erase_one(page):
+    """Scribbling over the 2 of 1+2 removes the 2 only, not the + next to it."""
+    await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
+    await page.wait_for_timeout(PAUSE)
+    box = await page.evaluate("() => nowBox(lines[0].seq[2])")
+    await pen(page, zigzag(box["x0"] + 2, box["y0"] + 4, box["x1"] - 2, box["y1"] - 4))
+    await page.wait_for_timeout(PAUSE)
+    return "1+", None
+
+async def typeset(page, k):
+    """Target box of the k-th top-level node of the first line (what the user sees once it settles)."""
+    return await page.evaluate(f"() => lines[0].seq[{k}].box")
+
+async def scene_power_later(page):
+    """2, pause, then a raised 3 next to the typeset 2."""
+    await stroke_glyph(page, "2", 100, 300, 100)
+    await page.wait_for_timeout(PAUSE)
+    b = await typeset(page, 0)
+    h = b["y1"] - b["y0"]
+    await stroke_glyph(page, "3", b["x1"] + 8, b["y0"] + .35 * h, .5 * h)
+    await page.wait_for_timeout(PAUSE)
+    await stroke_glyph(page, "=", b["x1"] + 80, b["y1"], .8 * h)
+    return "2³=", "8"
+
+async def scene_append_later(page):
+    await write(page, [("1", 100, 300, 100), ("2", 160, 300, 100)])
+    await page.wait_for_timeout(PAUSE)
+    b = await typeset(page, 1)
+    await stroke_glyph(page, "+", b["x1"] + 20, b["y1"] - 10, 70)
+    await page.wait_for_timeout(PAUSE)
+    b = await typeset(page, 2)
+    await write(page, [("3", b["x1"] + 20, 300, 100), ("=", b["x1"] + 100, 300, 80)])
+    return "12+3=", "15"
+
+async def scene_fraction(page):
+    await stroke_glyph(page, "1", 130, 230, 70)
+    await pen(page, dense([(100, 250), (220, 250)]))
+    await stroke_glyph(page, "4", 130, 340, 70)
+    await stroke_glyph(page, "=", 250, 280, 60)
+    return "(1)/(4)=", "0.25"
+
+async def scene_bar_under(page):
+    """2+4 is typeset; a bar drawn under it, then a 3 below: (2+4)/3."""
+    await write(page, [("2", 100, 300, 90), ("+", 180, 290, 60), ("4", 250, 300, 90)])
+    await page.wait_for_timeout(PAUSE)
+    b = await page.evaluate("() => lines[0].box")
+    await pen(page, dense([(b["x0"] - 5, b["y1"] + 18), (b["x1"] - 40, b["y1"] + 18)]))
+    await page.wait_for_timeout(PAUSE)
+    bar = await page.evaluate("() => lines[0].seq[0].bar")
+    await stroke_glyph(page, "3", (bar["x0"] + bar["x1"]) / 2 - 20, bar["y"] + 85, 70)
+    await page.wait_for_timeout(PAUSE)
+    bar = await page.evaluate("() => lines[0].seq[0].bar")
+    await stroke_glyph(page, "=", bar["x1"] + 30, bar["y"] + 25, 60)
+    return "(2+4)/(3)=", "2"
+
+async def scene_root_over(page):
+    """A 9 is typeset; a root sign drawn around it takes it as its radicand."""
+    await stroke_glyph(page, "9" if "9" in GLYPHS else "4", 200, 300, 90)
+    await page.wait_for_timeout(PAUSE)
+    b = await typeset(page, 0)
+    h = b["y1"] - b["y0"]
+    hook = root_hook(b["x0"] - 70, b["y1"] + 5, h + 30)
+    top = hook[-1]
+    await pen(page, hook + dense([top, (b["x1"] + 25, top[1])]))
+    await page.wait_for_timeout(PAUSE)
+    b = await page.evaluate("() => lines[0].box")
+    await stroke_glyph(page, "=", b["x1"] + 30, b["y1"], 70)
+    return "√(4)=", "2"
+
+async def scene_erase_sign(page):
+    """Scribbling over the + of 1+2 leaves 12."""
+    await write(page, [("1", 100, 300, 100), ("+", 160, 290, 70), ("2", 250, 300, 100)])
+    await page.wait_for_timeout(PAUSE)
+    box = await page.evaluate("() => nowBox(lines[0].seq[1])")
+    cx, cy = (box["x0"] + box["x1"]) / 2, (box["y0"] + box["y1"]) / 2
+    await pen(page, zigzag(cx - 12, cy - 16, cx + 12, cy + 16, 5))
+    await page.wait_for_timeout(PAUSE)
+    return "12", None
+
+async def scene_erase_root_sign(page):
+    """Scribbling over a root sign keeps what was under it."""
+    await root(page, "one stroke, long bar")
+    await page.wait_for_timeout(PAUSE)
+    r = await page.evaluate("() => { const r = lines[0].seq[0]; return [r.tx, r.ttop, r.tx + .5 * r.tsz, r.ty]; }")
+    await pen(page, zigzag(r[0] + 2, r[1] + 20, r[2], r[3] - 4, 4))
+    await page.wait_for_timeout(PAUSE)
+    return "4", None
+
+EDIT_SCENES = [("exponent written later", scene_power_later), ("terms appended later", scene_append_later),
+               ("fraction", scene_fraction), ("bar drawn under an expression", scene_bar_under),
+               ("root drawn around a number", scene_root_over), ("erase an operator", scene_erase_sign),
+               ("erase a root sign", scene_erase_root_sign),
+               ("root keeps its bar", scene_root_bar_kept), ("+ written with a pause", scene_plus_after_pause),
+               ("= written with a pause", scene_equals_after_pause), ("erase one symbol", scene_erase_one)]
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -114,8 +267,23 @@ async def main():
                 if answer:
                     break
                 await page.wait_for_timeout(200)
-            glyphs = await page.evaluate("() => lines[0].syms.map(g => g.c[g.i].c).join('')")
-            assert answer and answer.lstrip("=") == "2" and glyphs.startswith("√4"), f"root ({style}): read {glyphs!r} = {answer!r}"
+            glyphs = await page.evaluate("() => Ink.text(lines[0].seq)")
+            assert answer and answer.lstrip("=") == "2" and glyphs.startswith("√(4)"), f"root ({style}): read {glyphs!r} = {answer!r}"
+            assert not errors, errors
+            await page.close()
+        for name, scene in EDIT_SCENES:   # editing: pauses inside a symbol, root bars, erasing
+            page = await browser.new_page(viewport={"width": 800, "height": 500})
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            await page.goto(PAGE)
+            await page.locator("#pad").wait_for()
+            want_glyphs, want = await scene(page)
+            await page.wait_for_timeout(PAUSE)   # let the last strokes be read
+            answer = await answer_of(page) if want else None
+            glyphs = await glyphs_of(page)
+            assert glyphs == want_glyphs, f"{name}: read {glyphs!r}, expected {want_glyphs!r}"
+            if want:
+                assert answer and answer.lstrip("=") == want, f"{name}: got {answer!r}, expected {want!r}"
             assert not errors, errors
             await page.close()
         await browser.close()

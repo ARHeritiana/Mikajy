@@ -10,45 +10,11 @@ const Recognizer = (() => {
   const ch = g => g.c[g.i].c;
   const isLetter = c => /^[a-z]$/.test(c);
 
-  /* ---- Glyph metrics -------------------------------------------------------------------------
-   * HR: height of the glyph relative to its font size; letters without ascenders are "x-height". */
+  /* ---- Glyph metrics (shared with ink.js) ----------------------------------------------------
+   * HR: height of the glyph relative to its font size; letters without ascenders are "x-height". DS: descent below the line. */
   const HR = {'(': .88, ')': .88, a: .38, c: .38, e: .38, n: .34, o: .37, s: .43, g: .6, l: .67, i: .53, t: .56, 'π': .4, '!': .6,
     x: .38, p: .6, q: .6, r: .34, u: .34};
   const DS = {g: .2, p: .2, q: .2, '(': .13, ')': .13};
-  const DIGIT_H = .55;
-  const DESCENDERS = new Set(['g', 'p', 'q', 'y', 'j']);
-
-  /** Height a digit would have if written at the same size as `g` (x-height letters are short). */
-  function nominalHeight(g) {
-    const r = HR[ch(g)];
-    return r && r < .5 ? Math.max(g.b.h, g.b.h / r * DIGIT_H) : g.b.h;
-  }
-  /** y of the writing line the glyph stands on (descenders hang below it). */
-  const baseline = g => DESCENDERS.has(ch(g)) ? g.b.y1 - .3 * g.b.h : g.b.y1;
-
-  /* ---- Exponents ---------------------------------------------------------------------------- */
-  /** Marks `g.sup` for glyphs written as raised, smaller text (powers, exponentials, sin², 10⁻³, e^{2x}). */
-  function assignSup(A) {
-    let B = null, inSup = false;
-    for (const g of A) {
-      const c = ch(g), b = g.b;
-      g.sup = false;
-      if (!b || c === '.') continue;
-      const isOp = '+-*/=()'.includes(c);
-      let sup = false;
-      if (B) {
-        const NH = Math.max(nominalHeight(B), 20);
-        const foot = (baseline(B) - b.y1) / NH;                                     // how far the foot is raised
-        const centre = ((B.b.y0 + B.b.y1) / 2 - (b.y0 + b.y1) / 2) / NH;            // how far the centre is raised
-        if (inSup) sup = (foot > .25 || centre > .3) && c !== '=' && b.h < .9 * NH;
-        else if (c === '-') sup = b.y1 < B.b.y0 + .25 * NH && b.w < .6 * NH;
-        else if (c === '*') sup = foot > .3 && centre > .35 && b.h < .7 * NH;           // x as the first symbol of an exponent
-        else if (!isOp || c === '(') sup = (foot > .3 || (centre > .3 && foot > .12)) && b.h < .85 * NH;
-      }
-      if (sup) { g.sup = true; inSup = true; }
-      else { inSup = false; B = (isOp && c !== ')') || c === '√' ? null : g; }
-    }
-  }
 
   /* ---- Function words ------------------------------------------------------------------------
    * Letters the CNN knows: a c e g i l n o s t h b. Letters it does not know (x p q r u) are matched
@@ -244,6 +210,6 @@ const Recognizer = (() => {
     return best.pieces.map(r => r.piece);
   }
 
-  return Object.freeze({ch, HR, DS, WORDS, assignSup, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke, nominalHeight});
+  return Object.freeze({ch, HR, DS, WORDS, wordfix, resample, extent, ligatureCuts, cutAt, segmentStroke});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Recognizer;
