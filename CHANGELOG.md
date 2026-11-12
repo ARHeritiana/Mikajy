@@ -5,6 +5,10 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
 
 ## [Unreleased]
 
+## [5.5] - 2026-11-12
+
+Updates 5.4 in place from the app. `versionCode` 21.
+
 ### Fixed
 - **A fraction's denominator stays in the fraction.** Written straight after the bar (before the numerator and bar are typeset), or large and well below the bar, it used to start a separate line: the fraction stayed unanswered, and the denominator was typeset alone, small and low like a subscript. A line whose fraction bar is still in ink now takes what is written under it, however tall (`web/app.js`: `region`, `underInkBar`). New test: `tests/browser_strokes.py`, *fraction, big denominator written at once*.
 
