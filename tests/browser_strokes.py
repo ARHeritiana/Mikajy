@@ -229,6 +229,14 @@ async def scene_fraction(page):
     await stroke_glyph(page, "=", 250, 280, 60)
     return "(1)/(4)=", "0.25"
 
+async def scene_fraction_quick_big_den(page):
+    """2, bar, then a large 3 well below the bar, written straight after it (nothing typeset yet): still one fraction."""
+    await stroke_glyph(page, "2", 130, 230, 50)
+    await pen(page, dense([(100, 250), (210, 250)]))
+    await stroke_glyph(page, "3", 135, 250 + 55 + 100, 100)
+    await stroke_glyph(page, "=", 250, 265, 40)
+    return "(2)/(3)=", "≈0.6666666667"
+
 async def scene_bar_under(page):
     """2+4 is typeset; a bar drawn under it, then a 3 below: (2+4)/3."""
     await write(page, [("2", 100, 300, 90), ("+", 180, 290, 60), ("4", 250, 300, 90)])
@@ -277,7 +285,7 @@ async def scene_erase_root_sign(page):
     return "4", None
 
 EDIT_SCENES = [("exponent written later", scene_power_later), ("terms appended later", scene_append_later),
-               ("fraction", scene_fraction), ("bar drawn under an expression", scene_bar_under),
+               ("fraction", scene_fraction), ("fraction, big denominator written at once", scene_fraction_quick_big_den), ("bar drawn under an expression", scene_bar_under),
                ("root drawn around a number", scene_root_over), ("erase an operator", scene_erase_sign),
                ("erase a root sign", scene_erase_root_sign),
                ("root keeps its bar", scene_root_bar_kept), ("+ written with a pause", scene_plus_after_pause),

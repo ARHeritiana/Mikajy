@@ -104,9 +104,19 @@ const isBar=s=>{const b=bb(s);return!s.vin&&b.w>=56&&b.h<.2*b.w};
 function region(L){let r=null;
  if(L.box&&L.seq.length){const s=L.s;r={y0:Math.min(L.box.y0,L.y-1.05*s)-.25*s,y1:Math.max(L.box.y1,L.y+.3*s)+.25*s};
   Ink.walk(L.seq,n=>{if(n.t!='frac'||!n.bar)return;if(!n.den.length)r.y1=Math.max(r.y1,n.bar.y+1.5*n.ts);if(!n.num.length)r.y0=Math.min(r.y0,n.bar.y-1.4*n.ts)})}
- if(L.ink.length){const q=L.ink.map(bb).reduce(un),m=Math.max(.4*q.h+10,35);r=r?{y0:Math.min(r.y0,q.y0-m),y1:Math.max(r.y1,q.y1+m)}:{y0:q.y0-m,y1:q.y1+m}}
+ if(L.ink.length){const q=L.ink.map(bb).reduce(un),m=Math.max(.4*q.h+10,35);r=r?{y0:Math.min(r.y0,q.y0-m),y1:Math.max(r.y1,q.y1+m)}:{y0:q.y0-m,y1:q.y1+m};
+  // A fraction bar still in ink: the part not yet written (often the denominator, written right after the bar, before
+  // anything is typeset) belongs to this line, as it does once the fraction is typeset (see the frac case above).
+  for(const s of L.ink){if(!isBar(s))continue;const b=bb(s),y=(b.y0+b.y1)/2,o=L.ink.filter(t=>t!==s).map(bb),h=Math.max(50,...o.map(t=>t.h));
+   if(!o.some(t=>t.y0>y))r.y1=Math.max(r.y1,y+1.8*h);if(!o.some(t=>t.y1<y))r.y0=Math.min(r.y0,y-1.8*h)}}
  return r}
+/** A line whose fraction bar is still in ink, with nothing yet written under it, takes a stroke that starts under that bar
+ *  (overlapping it horizontally), however tall the stroke: a large denominator's middle can sit far below the bar. */
+function underInkBar(L,b){for(const s of L.ink){if(!isBar(s))continue;const q=bb(s),y=(q.y0+q.y1)/2,o=L.ink.filter(t=>t!==s).map(bb);
+  if(o.some(t=>t.y0>y))continue;const h=Math.max(50,...o.map(t=>t.h)),pad=.25*q.w;
+  if(b.x1>q.x0-pad&&b.x0<q.x1+pad&&b.y0>y-10&&b.y0-y<1.8*h)return true}return false}
 function attach(s){const b=bb(s),cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;let best=null,bd=1e9;
+ for(const L of lines)if(underInkBar(L,b)){L.ink.push(s);return}
  for(const L of lines){const r=region(L);if(!r||cy<r.y0||cy>r.y1)continue;const d=Math.abs(cy-(L.box?L.y-.3*L.s:(r.y0+r.y1)/2));if(d<bd){bd=d;best=L}}
  if(best)best.ink.push(s);else lines.push(newLine({ink:[s]}))}
 /* A hand-drawn root sign: tick, down-stroke, rise, then the bar (the vinculum) over the radicand. The bar may be flat, slanted,
