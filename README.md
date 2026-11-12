@@ -101,7 +101,7 @@ web/                       the app (one HTML page, HTML5 canvas, no dependencies
   settings.js, storage.js  validated, size-bounded local preferences / history / memory
   app.js                   canvas, animation, interaction, editing, history, memory, settings sheet
   model/model4.f16.json    shipped float16 weights (packed from training/model4.json by training/pack_model.py)
-  fonts/hand.woff2         Caveat subset (SIL OFL) used to typeset the handwriting
+  fonts/hand.woff2         Shantell Sans (Light) subset (SIL OFL) used to typeset the handwriting
   build_web.py             assembles android/assets/index.html
 android/                   WebView shell (MainActivity, UpdateChecker, SelfInstaller, ShareProvider, manifest, icon)
 training/                  how the recogniser was trained
@@ -188,8 +188,8 @@ See [docs/AUDIT.md](docs/AUDIT.md) for the full review and the remaining known d
 * No physical-device benchmark or Android APK build is claimed by the Node test suite. The CNN fallback may run on the main thread when workers are unavailable; performance and battery use require device testing.
 
 ## Licences / data
-Caveat font: SIL Open Font License. Training used MNIST and other OFL handwriting fonts; no font other than
-Caveat ships in the app. Source licensing is governed by LICENSE; third-party fonts and datasets retain their own licences.
+Shantell Sans font (Light instance, subset): SIL Open Font License, text in `licenses/OFL-ShantellSans.txt`. Training used MNIST and other OFL handwriting fonts; no font other than
+Shantell Sans ships in the app. Source licensing is governed by LICENSE; third-party fonts and datasets retain their own licences.
 
 
 ## Releases and signing
