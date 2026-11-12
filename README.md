@@ -4,7 +4,7 @@
 [![Latest release](https://img.shields.io/github/v/release/ARHeritiana/Mikajy-Spark)](https://github.com/ARHeritiana/Mikajy-Spark/releases/latest)
 [![License: MIT (main)](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Mikajy Spark** is the fast, lightweight edition of the Mikajy handwriting-calculator family; the separate [Mikajy Atlas](https://github.com/Heritiana-Ankatso/Mikajy-Atlas) edition provides the expanded mathematical tools. The app keeps the existing `com.mikajy.app` package ID and release channel.
+**Mikajy Spark** is a fast, lightweight handwriting calculator. The app keeps the existing `com.mikajy.app` package ID and release channel.
 
 A blank screen: write maths with your finger, it turns into a handwritten-style typeset line and the
 answer appears next to it. **It works fully offline** — the recogniser, the maths engine and the fonts are inside the
@@ -206,4 +206,3 @@ The Mikajy Spark (formerly Mikajy) project code on **main** is licensed under th
 
 **Historical releases are unchanged:** the existing `v5.0` tag and its APK were published with GPL-3.0-or-later terms. Updating `main` does not retroactively relicense or rebuild that tagged release. A future release based on `main` can carry the new MIT code licence, after reviewing bundled assets and training provenance.
 
-The separate [Mikajy Atlas](https://github.com/Heritiana-Ankatso/Mikajy-Atlas) edition (historically Mikajy Free) has **different terms**: PolyForm Noncommercial 1.0.0 for project code and CC BY-NC-SA 4.0 for its research model weights. Do not copy its restricted model/data artifacts into this project.

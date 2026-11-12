@@ -55,7 +55,7 @@ First Mikajy Spark release: everything below up to the `v5.0` entry (rebrand, MI
 
 ### Branding
 - Update the release checker and URL allowlist to the renamed `ARHeritiana/Mikajy-Spark` repository. Existing signed APKs retain their historical update code; only future builds incorporate this correction.
-- Rename the lightweight edition to **Mikajy Spark** in the Android launcher, web page and update messages. Package ID, signing identity and release channel stay unchanged. Previously published v5.0 assets keep their historical names.
+- Rename the app to **Mikajy Spark** in the Android launcher, web page and update messages. Package ID, signing identity and release channel stay unchanged. Previously published v5.0 assets keep their historical names.
 - New launcher icon / logo for Spark (`branding/logo-spark.svg`): three white chevrons fading in from left to right across a black / red split, still black / red / white. Sources and renderer are in `branding/`.
 
 ### Licensing clarification (2026-11-09)
