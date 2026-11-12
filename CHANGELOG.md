@@ -5,6 +5,12 @@ and versions follow `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` (the Android `versionNa
 
 ## [Unreleased]
 
+### Changed
+- Typeface: the interface and the ink now use Shantell Sans Light (SIL OFL 1.1) instead of Caveat, for a lighter, livelier look. Licence text in `licenses/OFL-ShantellSans.txt`.
+
+### Fixed
+- The settings sheet no longer overflows to the right when an update is available: the update button gets its own row and its label wraps.
+
 ## [5.5] - 2026-11-12
 
 Updates 5.4 in place from the app. `versionCode` 21.

@@ -26,7 +26,7 @@ button{font-family:inherit;cursor:pointer}
 .chip b{margin-left:10px;color:var(--chip-muted);font-weight:400;font-size:22px}
 #sheet{position:fixed;inset:0;display:none;z-index:10;color:var(--ink)}
 #back{position:absolute;inset:0;background:var(--backdrop);opacity:0;transition:opacity .2s}
-#panel{position:absolute;left:50%;bottom:0;width:min(560px,100%);max-height:86%;overflow:auto;box-sizing:border-box;background:var(--paper);border-radius:22px 22px 0 0;border-top:2px solid var(--blue);box-shadow:0 -14px 40px var(--panel-shadow);padding:4px 22px calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,28px);opacity:0;transition:transform .22s ease-out,opacity .22s}
+#panel{position:absolute;left:50%;bottom:0;width:min(560px,100%);max-height:86%;overflow-x:hidden;overflow-y:auto;box-sizing:border-box;background:var(--paper);border-radius:22px 22px 0 0;border-top:2px solid var(--blue);box-shadow:0 -14px 40px var(--panel-shadow);padding:4px 22px calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,28px);opacity:0;transition:transform .22s ease-out,opacity .22s}
 #sheet.in #back{opacity:1}#sheet.in #panel{transform:translate(-50%,0);opacity:1}
 .head{display:flex;align-items:center;justify-content:space-between;padding:12px 0 6px}
 h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
@@ -45,9 +45,9 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 .ring path{stroke-dasharray:1;stroke-dashoffset:1;opacity:0}
 .opt.on .ring path{opacity:1;animation:draw .4s ease-out forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
-.tools{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule);padding-top:6px}
+.tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid var(--rule);padding-top:6px}
 .tool{display:flex;align-items:center;gap:10px;padding:11px 6px;background:none;border:0;border-radius:12px;font:24px/1 H,cursive;color:var(--ink);text-align:left}
-.tool span{white-space:nowrap}
+.tool{min-width:0}.tool span{min-width:0;line-height:1.15;overflow-wrap:anywhere}.tool.danger{grid-column:1/-1}
 .tool:active,.hmain:active{background:var(--active-bg)}
 .ic{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;color:var(--graphite)}
 .tool.danger,.tool.danger .ic,.textbtn.danger{color:var(--red)}
@@ -59,7 +59,7 @@ h2{font:600 34px/1 H,cursive;margin:0;color:var(--ink)}
 .textbtn{font:24px/1 H,cursive;background:none;border:0;padding:14px 4px}
 .empty{font:28px/1.25 H,cursive;color:var(--graphite);margin:26px 0 30px;text-align:center}
 #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--blue);color:var(--toast-ink);padding:8px 18px;border-radius:16px;font:24px/1.1 H,cursive;opacity:0;transition:opacity .3s;z-index:20;pointer-events:none;max-width:calc(100vw - 72px);width:max-content;text-align:center}
-@media (orientation:landscape) and (max-height:520px){#panel{left:auto;right:0;top:0;bottom:0;max-height:none;width:min(500px,68%);border-radius:22px 0 0 22px;transform:translateX(28px)}#sheet.in #panel{transform:none}.tools{grid-template-columns:repeat(3,1fr)}.tool{font-size:22px;gap:8px}.hint{display:none}.row{padding:4px 0}.head{padding:8px 0 4px}}
+@media (orientation:landscape) and (max-height:520px){#panel{left:auto;right:0;top:0;bottom:0;max-height:none;width:min(500px,68%);border-radius:22px 0 0 22px;transform:translateX(28px)}#sheet.in #panel{transform:none}.tools{grid-template-columns:repeat(3,minmax(0,1fr))}.tool{font-size:22px;gap:8px}.hint{display:none}.row{padding:4px 0}.head{padding:8px 0 4px}}
 @media (prefers-reduced-motion:reduce){#panel,#back{transition:none}.opt.on .ring path{animation:none;stroke-dashoffset:0}}</style>""".replace("__FONT__", font)
 app = rd('app.js').replace('/*CLS*/', cls)
 CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; "
